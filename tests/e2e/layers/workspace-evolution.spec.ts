@@ -189,8 +189,8 @@ test.describe('Layers — workspace projection', () => {
     await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Apply trace' }).click();
     await expect(page.getByText(/Inserted \d+ vector path/)).toBeVisible({ timeout: 20_000 });
-    await page.getByRole('button', { name: 'Close dialog' }).first().click({ timeout: 5000 });
-    await page.waitForTimeout(300);
+    // Apply closes the Vectorize dialog itself.
+    await expect(page.locator('dialog.vectorize-dialog')).toBeHidden({ timeout: 10_000 });
 
     const row = page
       .locator('.layers-panel__tree [role="treeitem"]')

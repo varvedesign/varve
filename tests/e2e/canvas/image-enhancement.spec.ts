@@ -206,7 +206,10 @@ test('keeps the action label, controls, and presets synchronized', async ({ page
   await openEnhanceDialog(page);
 
   await expect(page.getByRole('button', { name: 'Apply recommended' })).toBeVisible();
-  await selectSegmentedOption(page, 'Quality policy', 'Balanced');
+  // Any setting that does something flips the preset to Custom. (Quality policy
+  // is not offered for Auto/Upscale — it changes nothing there — so it cannot be
+  // the lever; Scale is.)
+  await selectSegmentedOption(page, 'Scale factor', '3x');
   await expect(page.getByRole('combobox', { name: 'Enhancement preset' })).toHaveText(
     'Custom settings',
   );
@@ -243,10 +246,13 @@ test('keeps the action label, controls, and presets synchronized', async ({ page
     'Photo AI upscale',
   );
 
-  await page
-    .getByRole('radiogroup', { name: 'Quality policy' })
-    .getByRole('radio', { name: 'Faithful', exact: true })
-    .check();
+  // Quality policy has no effect for an upscale, so it is not offered at all
+  // instead of being a toggle that changes nothing.
+  await expect(page.getByRole('radiogroup', { name: 'Quality policy' })).toHaveCount(0);
+
+  // A real setting still flips the preset to Custom.
+  await page.getByRole('combobox', { name: 'Upscale quality' }).click();
+  await page.getByRole('option', { name: 'Fast', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Enhancement preset' })).toHaveText(
     'Custom settings',
   );

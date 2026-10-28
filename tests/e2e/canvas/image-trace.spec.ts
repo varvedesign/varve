@@ -106,9 +106,10 @@ test.describe('Image Trace', () => {
       .first()
       .waitFor({ timeout: 10000 });
 
-    // Close the dialog (it stays open after Apply for tweaks).
-    await page.getByRole('button', { name: 'Close dialog' }).first().click({ timeout: 5000 });
-    await page.waitForTimeout(300);
+    // Apply closes the dialog. It used to stay open "for tweaks", but Apply
+    // selects the new trace group, which left the open modal on its "select an
+    // image layer" empty state with nothing to tweak.
+    await expect(page.locator('dialog.vectorize-dialog')).toBeHidden({ timeout: 10000 });
 
     // Undo must restore the pre-trace state in one step (no per-path undo).
     await page.keyboard.press('Control+z');
@@ -152,10 +153,9 @@ test.describe('Image Trace', () => {
     await page.getByRole('button', { name: 'Apply trace' }).click();
     await expect(page.getByText(/Inserted \d+ vector path/)).toBeVisible({ timeout: 20000 });
 
-    // Close the dialog through its UI (native d.close() would desync React
-    // state and keep the host mounted).
-    await page.getByRole('button', { name: 'Close dialog' }).first().click({ timeout: 5000 });
-    await page.waitForTimeout(300);
+    // Apply closes the dialog through the host's own onClose, so React state
+    // and the mounted host stay in sync (a native d.close() would desync them).
+    await expect(page.locator('dialog.vectorize-dialog')).toBeHidden({ timeout: 10000 });
 
     // Right-click the trace group in the layers panel → Edit Trace….
     const traceRow = page
@@ -287,8 +287,7 @@ test.describe('Image Trace', () => {
 
     await page.getByRole('button', { name: 'Apply trace' }).click();
     await expect(page.getByText(/Inserted \d+ vector path/)).toBeVisible({ timeout: 20000 });
-    await page.getByRole('button', { name: 'Close dialog' }).first().click({ timeout: 5000 });
-    await page.waitForTimeout(300);
+    await expect(page.locator('dialog.vectorize-dialog')).toBeHidden({ timeout: 10000 });
 
     const canvas = page
       .locator('.editor-shell__main canvas, .editor-canvas canvas, canvas')
@@ -312,7 +311,7 @@ test.describe('Image Trace', () => {
     await page.waitForTimeout(300);
   });
 
-  test('preview can be cancelled and resumes when settings change', async ({ page }) => {
+  test('Cancel leaves the dialog and a reopened dialog traces again', async ({ page }) => {
     await importTestImage(page);
     await openMenu(page, 'Object');
     await page.getByRole('menuitem', { name: /Vectorize Image/i }).click();
@@ -322,10 +321,17 @@ test.describe('Image Trace', () => {
       .waitFor({ timeout: 10000 });
     await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
 
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByText('Preview appears here')).toBeVisible({ timeout: 5000 });
+    // In the modal Cancel cancels the modal. (It used to only reset a finished
+    // preview to "Preview appears here" and leave the dialog open, so the one
+    // way out was the corner X.) Closing releases the trace session.
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.locator('dialog.vectorize-dialog')).toBeHidden({ timeout: 5000 });
 
-    // A settings change restarts the debounced preview without document writes.
+    // Reopening starts from a clean session and traces again without document
+    // writes.
+    await openMenu(page, 'Object');
+    await page.getByRole('menuitem', { name: /Vectorize Image/i }).click();
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
     const threshold = page.getByRole('slider', { name: 'Threshold' });
     await threshold.focus();
     await threshold.press('ArrowRight');

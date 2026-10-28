@@ -153,11 +153,10 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
 
   const switcherWidths = await page.evaluate(() => {
     const settings = document.querySelector('.upscale-settings')?.getBoundingClientRect();
-    const quality = document
-      .querySelector('[aria-label="Quality policy"]')
-      ?.getBoundingClientRect();
+    const quality = document.querySelector('[aria-label="Scale factor"]')?.getBoundingClientRect();
     return { settings: settings?.width ?? 0, quality: quality?.width ?? 0 };
   });
+  expect(switcherWidths.quality).toBeGreaterThan(0);
   expect(switcherWidths.quality).toBeLessThan(switcherWidths.settings);
 
   await expect(page).toHaveScreenshot('enhance-dialog-default.png', {
