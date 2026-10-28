@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -411,15 +412,6 @@ test('reviewed promotion CLI replaces dirty normalize aggregate metadata without
     provenance: { runtime: 'metadata-only (--normalize; no capture)', sourceDirty: true },
     scenes: { old: scene('a', 'old.png'), new: scene('a', 'new.png') },
   };
-  const sourceFiles = [
-    'scripts/screenshots/product.mjs',
-    'scripts/screenshots/variants.mjs',
-    'scripts/screenshots/capture-safety.mjs',
-    'scripts/screenshots/producer-capture.mjs',
-    'scripts/screenshots/source-scenes.mjs',
-    'scripts/screenshots/lib/image-analysis.mjs',
-    'scripts/quality/heavy-lease.mjs',
-  ];
   try {
     // The fixture points Git metadata at the live worktree so its provenance
     // revision is real. Mirror untracked capture inputs too: source identity
@@ -441,10 +433,14 @@ test('reviewed promotion CLI replaces dirty normalize aggregate metadata without
       { cwd: root, encoding: 'utf8' },
     );
     assert.equal(untrackedSource.status, 0, untrackedSource.stderr);
-    for (const file of sourceFiles) {
-      mkdirSync(dirname(join(fixture, file)), { recursive: true });
-      copyFileSync(join(root, file), join(fixture, file));
-    }
+    cpSync(join(root, 'scripts/screenshots'), join(fixture, 'scripts/screenshots'), {
+      recursive: true,
+    });
+    mkdirSync(join(fixture, 'scripts/quality'), { recursive: true });
+    cpSync(
+      join(root, 'scripts/quality/heavy-lease.mjs'),
+      join(fixture, 'scripts/quality/heavy-lease.mjs'),
+    );
     for (const file of untrackedSource.stdout.split('\0').filter(Boolean)) {
       const source = join(root, file);
       const destination = join(fixture, file);

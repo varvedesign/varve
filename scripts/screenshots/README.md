@@ -286,7 +286,7 @@ demonstrate the uncaptured model workflows listed above. `local-first` has no
 single panel that depicts offline persistence; save/reopen tests provide that
 evidence.
 
-`SCENES` in `product.mjs` is the source of truth for what exists. A newly
+`SCENES` in `scripts/screenshots/product/scenes/` is the source of truth for what exists. A newly
 added scene seeds its own manifest entry, and an entry whose scene has been
 removed is pruned along with its files on the next full run — so the manifest
 stays a generated view rather than something to hand-edit.
