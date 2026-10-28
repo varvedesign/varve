@@ -1,0 +1,68 @@
+{
+  "manifest": {
+    "repo": "storytold/lightcraft",
+    "cutoff": {
+      "startedAtUtc": "2026-10-28T17:10:57.432Z",
+      "endedAtUtc": "2026-10-28T17:11:48.379Z"
+    },
+    "issueEndpoint": {
+      "pages": 33,
+      "totalRecords": 3265,
+      "issues": 1218,
+      "pullRequestRecords": 2047,
+      "states": {
+        "closed": 591,
+        "open": 627
+      }
+    },
+    "pullsEndpoint": {
+      "pages": 21,
+      "totalRecords": 2047,
+      "states": {
+        "closed": 1276,
+        "open": 771
+      },
+      "merged": 1058,
+      "open": 771,
+      "closedUnmerged": 218
+    }
+  },
+  "totals": {
+    "issues": 1218,
+    "prs": 2047,
+    "rows": 3265
+  },
+  "issueApplicability": {
+    "out-of-scope": 399,
+    "applicable": 341,
+    "uncertain": 478
+  },
+  "issueReviewDepth": {
+    "title": 1108,
+    "body": 106,
+    "body+comments": 4
+  },
+  "prRelevance": {
+    "context": 234,
+    "direct": 697,
+    "adjacent": 667,
+    "background": 449
+  },
+  "prMerged": {
+    "merged": 1058,
+    "not-merged": 989
+  },
+  "evidenceFiles": {
+    "data/manifest.json": "aac7e13ba4a3a68bd692eed548fcf74a7b0e061bf59dd8c4eb670c4a745d4613",
+    "data/catalog.jsonl": "7873dfa206abb62b8300df117dace2489f09f7d3ab17dc5a6e8679c2619a6811",
+    "data/issue-bodies.jsonl": "177c253dbcd7398e3b4a539b601c62813be45124f6eccce754a911ff32d39321",
+    "data/pr-bodies.jsonl": "ea3c95647e0e0ca78fab4141a61b126764283c0c48278a0deaab0c4178be42fa",
+    "research/screener/screening.jsonl": "195a224029713da54a6472ae5606d65420b7c4a30b9fb3146d8976b1f32d3c84",
+    "research/screener/deep-dives.md": "171fba7d19d5ebb75698c7f7eaf32aa24bbc90894f5ab988d2f41f680611bcff",
+    "research/screener/pr-review.md": "04c76481ae3a1d53f12148b1a4f226deb37f8766a88bf9238da27ef71dfe8f0e",
+    "research/screener/coverage.md": "80dc753ad76d5b995ee98d4c1c7feedbf952a06b0c9fed73a61a5b8ef6836c2b",
+    "research/mapper/mapping.md": "7efaec590fc5863466dc1fde6ba07b19b0749e4b8b3454926ecdc9691381ff11",
+    "research/mapper/mapping.jsonl": "3ea90a1f9be57b0e7e8a121ff78cefa35802c63f19ee9404da2cf5a8f9b77cd6",
+    "research/mapper/provenance.json": "6521f9cce90d33d4e727f1ead377041fd4134d761eadd843f485310bc4267d8f"
+  }
+}
