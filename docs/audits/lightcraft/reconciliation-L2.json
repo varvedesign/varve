@@ -1,0 +1,32 @@
+{
+  "cutoff": "L1 frozen 2026-10-28T17:10:57.432Z..17:11:48.379Z",
+  "reconciliation": {
+    "startedAtUtc": "2026-10-28T18:00:20.982Z",
+    "endedAtUtc": "2026-10-28T18:00:24.834Z"
+  },
+  "searchTotals": {
+    "issues": 1219,
+    "prs": 2047
+  },
+  "latestRecords": {
+    "issuesScanned": 100,
+    "prsScanned": 100
+  },
+  "newIssues": [
+    {
+      "n": 3270,
+      "t": "LightCraft 0.13.0–0.15.0 — two sharpness issues found comparing with Lightroom Classic",
+      "d": "2026-10-28T17:57:40Z",
+      "s": "open"
+    }
+  ],
+  "newPrs": [],
+  "updatedIssuesWithoutNewCommentsUnknown": [
+    {
+      "n": 3174,
+      "s": "open",
+      "u": "2026-10-28T17:24:42Z"
+    }
+  ],
+  "updatedIssueCount": 1
+}

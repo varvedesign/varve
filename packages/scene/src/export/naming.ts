@@ -405,7 +405,7 @@ export function resolveCollisions(
   return { outputs: resolved, collisions, skipped, replaced };
 }
 
-function appendSuffix(relativePath: string, counter: number): string {
+export function appendSuffix(relativePath: string, counter: number): string {
   const { folder, file } = splitRelativePath(relativePath);
   const dot = file.lastIndexOf('.');
   const base = dot > 0 ? file.slice(0, dot) : file;
