@@ -122,6 +122,14 @@ interface PaintStrokeSession {
   /** True when this stroke created its own raster layer. */
   ownsLayer: boolean;
   transactionOpen: boolean;
+  /** The context that opened this session's transaction; commit/abort use it. */
+  ctx: ToolContext;
+  /** Host settle fired: no more batches will arrive for this generation. */
+  settled: boolean;
+  /** Cancelled: late batches for this generation must never paint. */
+  aborted: boolean;
+  /** A handoff already committed this session's mask plane. */
+  maskFinalized: boolean;
   /** Union of every dab's bounds, in layer pixels. */
   dirty: { minX: number; minY: number; maxX: number; maxY: number } | null;
   dabCount: number;
@@ -137,6 +145,21 @@ export class PaintTool extends BaseTool {
   private symmetry: SymmetrySettings | null = null;
   private workerHost: BrushWorkerHost | null = null;
   private session: PaintStrokeSession | null = null;
+  /**
+   * Live stroke sessions keyed by generation. Late batches route to their own
+   * session instead of whichever stroke happens to be current — a batch that
+   * arrives after the next stroke replaced `session` is real ink for its own
+   * stroke, not stale input (the drop lost whole strokes when the brush
+   * worker answered past the next pointer-down).
+   */
+  private sessions = new Map<number, PaintStrokeSession>();
+  /** Generation owning the single open paint transaction, or null in a handoff gap. */
+  private txOpenFor: number | null = null;
+  /** Batches that arrived while no paint transaction was open (handoff gap). */
+  private heldBatches: StrokeBatchEvent[] = [];
+  /** A stroke start deferred one task so a superseding commit can finalize first. */
+  private pendingStart: { e: PointerEvent; ctx: ToolContext } | null = null;
+  private pendingStartTimer: ReturnType<typeof setTimeout> | null = null;
   private nextGeneration = 1;
   private lastSamplePoint: import('@varve/scene').StrokePoint | null = null;
   private ctxRef: ToolContext | null = null;
@@ -264,13 +287,17 @@ export class PaintTool extends BaseTool {
     // confirmed tail. Switching tools at that point must let the endStroke
     // callback commit the transaction; only an actively held gesture is a
     // cancellation.
+    this.clearPendingStart();
     if (this.session && this.drag.kind === 'dragging') this.abortStroke(ctx);
     ctx.setDraft(null);
   }
 
   destroy(): void {
+    this.clearPendingStart();
     this.workerHost?.destroy();
     this.workerHost = null;
+    this.sessions.clear();
+    this.heldBatches = [];
   }
 
   // ── Pointer lifecycle ─────────────────────────────────────────────────────
@@ -280,6 +307,82 @@ export class PaintTool extends BaseTool {
     const result = super.onPointerDown(e, ctx);
     if (!result.consumed) return result;
 
+    if (this.sessions.size > 0) {
+      // A previous stroke's confirmed tail is still draining. Close its
+      // transaction and start the new stroke ONLY once that commit's finalizer
+      // has actually run: commitTransaction finalizes inside a deferred
+      // setState, so a task-order guess (setTimeout after commit) races React's
+      // scheduler — nesting depth 2 into a closing transaction leaves a zombie
+      // depth where no later mutation records an undo entry. The commit's
+      // onDone callback IS the barrier; the timer below is a backstop for a
+      // callback that never fires.
+      this.pendingStart = { e, ctx };
+      this.pendingStartTimer = setTimeout(() => this.flushPendingStart(), 1500);
+      this.handoffUnsettledSessions(() => this.flushPendingStart());
+      return result;
+    }
+    return this.startStroke(e, ctx, result);
+  }
+
+  private flushPendingStart(): void {
+    const pending = this.pendingStart;
+    this.clearPendingStart();
+    if (!pending) return;
+    if (this.drag.kind !== 'dragging' || this.drag.pointerId !== pending.e.pointerId) return;
+    this.startStroke(pending.e, pending.ctx, { consumed: true });
+  }
+
+  private clearPendingStart(): void {
+    if (this.pendingStartTimer !== null) clearTimeout(this.pendingStartTimer);
+    this.pendingStartTimer = null;
+    this.pendingStart = null;
+  }
+
+  /**
+   * Close every unsettled stroke's transaction before a new stroke begins.
+   * Late batches of a handed-off stroke still apply (their own session owns
+   * them; they join the newer stroke's open transaction), and a superseded
+   * mask stroke is finalized here because a mask plane materializes only at
+   * commit — its post-handoff dabs are dropped rather than re-committed.
+   */
+  private handoffUnsettledSessions(onDone?: () => void): void {
+    const targets = [...this.sessions.values()].filter((s) => s.transactionOpen);
+    if (targets.length === 0) {
+      onDone?.();
+      return;
+    }
+    let remaining = targets.length;
+    const closed = () => {
+      remaining -= 1;
+      if (remaining === 0) onDone?.();
+    };
+    for (const session of targets) {
+      const sctx = session.ctx;
+      session.transactionOpen = false;
+      if (this.txOpenFor === session.generation) this.txOpenFor = null;
+      if (session.mask) {
+        const committed = commitMaskPaintSession(sctx, session.mask, encodeMaskRgba);
+        session.mask = null;
+        session.maskFinalized = true;
+        if (!committed) {
+          // Nothing was painted: leave no empty history entry behind.
+          sctx.abortTransaction();
+          closed();
+          continue;
+        }
+      }
+      sctx.commitTransaction(closed);
+    }
+    if (this.session && !this.session.transactionOpen) {
+      // The superseded gesture is over (pointer-up already ran); its settle
+      // path is session-scoped, and a null current session makes Escape in
+      // the handoff gap clear only the pending start.
+      this.session = null;
+    }
+  }
+
+  private startStroke(e: PointerEvent, ctx: ToolContext, base: GestureResult): GestureResult {
+    this.handoffUnsettledSessions();
     this.ctxRef = ctx;
     ctx.beginTransaction();
     const startWorld = this.drag.startWorld;
@@ -338,6 +441,10 @@ export class PaintTool extends BaseTool {
     const session: PaintStrokeSession = {
       strokeId: baseStrokeId,
       generation,
+      ctx,
+      settled: false,
+      aborted: false,
+      maskFinalized: false,
       rasterNodeId,
       // Snapshot: the rest of the stroke is immune to settings changes.
       preset,
@@ -367,6 +474,8 @@ export class PaintTool extends BaseTool {
       dabCount: 0,
       startedAt: nowMs(),
     };
+    this.sessions.set(generation, session);
+    this.txOpenFor = generation;
     this.session = session;
 
     const host = this.getWorkerHost();
@@ -386,9 +495,26 @@ export class PaintTool extends BaseTool {
     const sp = inputToStrokePoint(this.withPressurePreference(normalizeInputEvent(e), ctx), local);
     this.lastSamplePoint = sp;
     this.dispatch(session, [sp]);
+    // Batches held while no transaction was open (the one-task handoff gap)
+    // land inside this stroke's transaction rather than outside any, which
+    // would record a raw undo entry and a persistent revision per batch.
+    this.flushHeldBatches();
 
     this.updatePreview(ctx);
-    return result;
+    return base;
+  }
+
+  private flushHeldBatches(): void {
+    if (this.heldBatches.length === 0) return;
+    const held = this.heldBatches;
+    this.heldBatches = [];
+    for (const batch of held) this.applyBatch(batch);
+    // A settled stroke whose held batches just landed can now leave the map.
+    for (const [generation, session] of [...this.sessions]) {
+      if (!session.settled) continue;
+      this.sessions.delete(generation);
+      this.residualSessionCleanup(session);
+    }
   }
 
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
@@ -434,9 +560,10 @@ export class PaintTool extends BaseTool {
     for (const branch of session.branches) {
       host.endStroke(branch.strokeId, session.generation, () => {
         outstanding--;
-        // A cancel between pointer-up and the last batch replaces the session.
-        if (outstanding > 0 || this.session !== session) return;
-        this.finishStroke(ctx);
+        if (outstanding > 0) return;
+        // Finish THIS session regardless of currency: skipping a superseded
+        // stroke's finish left its transaction depth unbalanced forever.
+        this.onStrokeSettled(session);
       });
     }
   }
@@ -568,13 +695,24 @@ export class PaintTool extends BaseTool {
 
   /** Apply one generated batch to canonical document state. */
   private applyBatch(batch: StrokeBatchEvent): void {
-    const session = this.session;
     const ctx = this.ctxRef;
-    if (!session || !ctx) return;
-    // Identity check: a batch from a superseded stroke must never paint.
-    if (batch.generation !== session.generation) return;
+    if (!ctx) return;
+    // Route by the batch's OWN generation: a superseded stroke's ink is still
+    // its stroke's ink. Only cancelled (or unknown) generations never paint —
+    // the identity a cancellation carries, not "whichever stroke is current".
+    const session = this.sessions.get(batch.generation);
+    if (!session || session.aborted) return;
     if (!session.branches.some((b) => b.strokeId === batch.strokeId)) return;
     if (batch.dabs.length === 0) return;
+    if (session.mask && session.maskFinalized) return;
+    if (this.txOpenFor === null) {
+      // Handoff gap: no paint transaction is open yet. Writing now would run
+      // outside a transaction — a raw undo entry and a persistent revision
+      // per batch — so hold the batch until the next stroke's transaction is
+      // open and flush it there.
+      this.heldBatches.push(batch);
+      return;
+    }
 
     const { alphaLock, eraser, color, areaSelection, rasterNodeId } = session;
     const profiler = getPaintProfiler();
@@ -739,8 +877,18 @@ export class PaintTool extends BaseTool {
   }
 
   private abortStroke(ctx: ToolContext): void {
+    // Escape in the handoff gap cancels the not-yet-started stroke without
+    // touching the superseded stroke's already-committed pixels.
+    this.clearPendingStart();
     const session = this.session;
     if (!session) return;
+    // Mark the owner dead first: its late batches must never paint, even if
+    // the worker answers after this cancellation.
+    session.aborted = true;
+    const owned = session.transactionOpen;
+    session.transactionOpen = false;
+    this.sessions.delete(session.generation);
+    if (this.txOpenFor === session.generation) this.txOpenFor = null;
     session.strokeOpacity?.tiles.clear();
     this.session = null;
     // Cancel the stroke that is actually in flight — its own generation, not a
@@ -748,16 +896,14 @@ export class PaintTool extends BaseTool {
     for (const branch of session.branches) {
       this.workerHost?.cancelStroke(branch.strokeId, session.generation);
     }
-    if (session.transactionOpen) ctx.abortTransaction();
+    if (owned) ctx.abortTransaction();
     ctx.setDraft(null);
     this.lastSamplePoint = null;
   }
 
-  private finishStroke(ctx: ToolContext): void {
-    const session = this.session;
-    if (!session) return;
+  /** Terminal bookkeeping for a session that still owns its transaction. */
+  private finishStroke(session: PaintStrokeSession, ctx: ToolContext): void {
     session.strokeOpacity?.tiles.clear();
-    this.session = null;
     if (session.dirty) {
       this.lastStrokeBounds = {
         x: session.dirty.minX,
@@ -766,20 +912,65 @@ export class PaintTool extends BaseTool {
         h: session.dirty.maxY - session.dirty.minY,
       };
     }
-    if (session.mask) {
+    if (session.mask && !session.maskFinalized) {
       const committed = commitMaskPaintSession(ctx, session.mask, encodeMaskRgba);
+      session.maskFinalized = true;
       if (!committed) {
         // Nothing was painted (or encoding failed): do not leave an empty
         // entry in history for the user to undo past.
         if (session.transactionOpen) ctx.abortTransaction();
-        ctx.setDraft(null);
-        this.lastSamplePoint = null;
+        session.transactionOpen = false;
+        if (this.txOpenFor === session.generation) this.txOpenFor = null;
+        this.currentOnlySessionCleanup(session);
         return;
       }
     }
-    if (session.transactionOpen) ctx.commitTransaction();
-    ctx.setDraft(null);
+    if (session.transactionOpen) {
+      session.transactionOpen = false;
+      if (this.txOpenFor === session.generation) this.txOpenFor = null;
+      ctx.commitTransaction();
+    }
+    this.currentOnlySessionCleanup(session);
+  }
+
+  /** All session state is terminal; clear the CURRENT-gesture-only fields. */
+  private currentOnlySessionCleanup(session: PaintStrokeSession): void {
+    if (this.session !== session) return;
+    this.session = null;
+    session.ctx.setDraft(null);
     this.lastSamplePoint = null;
+  }
+
+  /** Residual cleanup for a session whose transaction was already handed off. */
+  private residualSessionCleanup(session: PaintStrokeSession): void {
+    session.strokeOpacity?.tiles.clear();
+    if (session.dirty) {
+      this.lastStrokeBounds = {
+        x: session.dirty.minX,
+        y: session.dirty.minY,
+        w: session.dirty.maxX - session.dirty.minX,
+        h: session.dirty.maxY - session.dirty.minY,
+      };
+    }
+    this.currentOnlySessionCleanup(session);
+  }
+
+  /** Host settle: every confirmed batch of this session has arrived. */
+  private onStrokeSettled(session: PaintStrokeSession): void {
+    if (session.aborted) return;
+    session.settled = true;
+    if (this.heldBatches.some((b) => b.generation === session.generation)) {
+      // Its held batches have not flushed yet; the flush owns map removal and
+      // residual cleanup (removing now would make the flush's lookup miss and
+      // drop the ink the hold was protecting).
+      return;
+    }
+    this.sessions.delete(session.generation);
+    if (session.transactionOpen) {
+      this.finishStroke(session, session.ctx);
+    } else {
+      this.residualSessionCleanup(session);
+    }
   }
 }
 

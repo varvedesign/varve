@@ -484,9 +484,13 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const undo = useCallback(async (): Promise<boolean> => {
     const generation = navigationGenerationRef.current;
     await captureQueueRef.current;
-    if (generation !== navigationGenerationRef.current) return false;
+    if (generation !== navigationGenerationRef.current) {
+      return false;
+    }
     const session = sessionRef.current;
-    if (!session?.attached) return false;
+    if (!session?.attached) {
+      return false;
+    }
     await attachPromiseRef.current;
     const result = await session.undo();
     if (
@@ -494,8 +498,9 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
       sessionRef.current !== session ||
       activeDocumentRef.current !== session.documentId ||
       generation !== navigationGenerationRef.current
-    )
+    ) {
       return false;
+    }
     applyLoadedRevision(result, session.canUndo, session.canRedo);
     return true;
   }, [applyLoadedRevision]);

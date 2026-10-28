@@ -1311,7 +1311,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   ) => void;
   /** Start an undo-coalesced edit; preview transactions stay clean until commit. */
   beginTransaction: (mode?: 'edit' | 'preview') => void;
-  commitTransaction: () => void;
+  /** `onDone` fires only after the deferred finalizer has actually run. */
+  commitTransaction: (onDone?: () => void) => void;
   abortTransaction: (reconcile?: (snapshot: Document, current: Document) => Document) => void;
   /** Typography: Create a text chain for linked text frames. */
   createTextChain: (name: string, frameIds: NodeId[]) => void;
@@ -3193,6 +3194,16 @@ export function EditorProvider({
   const txLabelRef = useRef('Edit');
   const txSnapshotRef = useRef<Document | null>(null);
   /**
+   * An undo/redo issued while a transaction is still open (a paint stroke
+   * settling in the worker, a drag still in progress). Popping the stack
+   * before the gesture commits removes the PREVIOUS step and lets the late
+   * commit land as a stray capture; instead the command waits for the
+   * transaction boundary and then runs against the committed stack.
+   */
+  const pendingHistoryActionRef = useRef<'undo' | 'redo' | null>(null);
+  /** Latest undo/redo closures; the finalizer is defined before `value`. */
+  const performHistoryActionRef = useRef<((action: 'undo' | 'redo') => void) | null>(null);
+  /**
    * Monotonic identity for the currently open transaction.
    *
    * `commitTransaction` finalizes inside a deferred `setState`, so with two
@@ -3654,104 +3665,135 @@ export function EditorProvider({
     getTransactionHooks().onBeginTransaction();
   }, []);
 
-  const commitTransaction = useCallback(() => {
-    if (!inTransactionRef.current) return;
-    if (txDepthRef.current > 1) {
-      txDepthRef.current -= 1;
-      return;
-    }
-    txDepthRef.current = 0;
-    // Identity of the transaction this call is closing. A later transaction may
-    // begin before this finalizer runs (deferred into setState below), so the
-    // finalizer must not touch state that belongs to a newer generation.
-    const generation = txGenerationRef.current;
-    // Queue finalization behind any document updater scheduled by the same
-    // pointer event. Ending the transaction synchronously lets that updater
-    // observe `inTransaction=false` and push the already-transformed document
-    // on top of the real snapshot, making the first Undo appear to do nothing.
-    setState((current) => {
-      if (inTransactionRef.current && txGenerationRef.current === generation) {
-        const transactionMode = transactionModeRef.current;
-        inTransactionRef.current = false;
-        const transactionLabel = txLabelRef.current;
-        // Only record an undo entry if the transaction actually changed the
-        // document. The document is updated immutably (structural sharing), so
-        // a transaction that mutated nothing leaves the reference identical to
-        // the begin-time snapshot. Empty transactions are common — a plain
-        // click that only selects a node still begins+commits one, and the
-        // drag-end reparent pass opens one even when no node is reparented.
-        // Pushing those produced spurious "undo does nothing" steps, so one
-        // gesture took several undos to reverse. Comparing by reference here
-        // fixes every empty-transaction source at once and can never skip a
-        // real edit, which always yields a fresh document reference.
-        const changed =
-          txSnapshotRef.current !== null && txSnapshotRef.current !== current.document;
-        if (changed) {
-          undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current!];
-          undoSelStackRef.current = [...undoSelStackRef.current.slice(-49), txSelRef.current ?? []];
-          undoLabelsRef.current = [...undoLabelsRef.current.slice(-49), transactionLabel];
-          redoStackRef.current = [];
-          redoSelStackRef.current = [];
-          redoLabelsRef.current = [];
-          // Persistent history (M7): route the committed transaction into the
-          // revision store. Diffed against the begin-state document; empty
-          // transactions are suppressed by the reference check above.
-          // Captured even while history is still attaching: the capture queue
-          // holds it behind attach, whereas leaving it to the document watcher
-          // would lose the gesture (the watcher skips every render of an open
-          // transaction, and the commit render changes no document).
-          const before = txSnapshotRef.current;
-          const persistentNow = persistentHistoryRef.current;
-          if (before && persistentNow) {
-            historySkipRef.current = true;
-            // Read selection from the finalized state in this updater. The
-            // hook's render-time selection ref can still describe the prior
-            // render, so using it here loses selections made in the same
-            // transaction (for example, selecting a newly created shape).
-            persistentNow.capture(
-              before,
-              current.document,
-              transactionLabel,
-              'modify',
-              current.selection,
-            );
+  const drainPendingHistoryAction = useCallback(() => {
+    if (inTransactionRef.current) return;
+    const pending = pendingHistoryActionRef.current;
+    if (!pending) return;
+    pendingHistoryActionRef.current = null;
+    queueMicrotask(() => performHistoryActionRef.current?.(pending));
+  }, []);
+
+  const commitTransaction = useCallback(
+    (onDone?: () => void) => {
+      if (!inTransactionRef.current) {
+        onDone?.();
+        return;
+      }
+      if (txDepthRef.current > 1) {
+        txDepthRef.current -= 1;
+        onDone?.();
+        return;
+      }
+      txDepthRef.current = 0;
+      // Identity of the transaction this call is closing. A later transaction may
+      // begin before this finalizer runs (deferred into setState below), so the
+      // finalizer must not touch state that belongs to a newer generation.
+      const generation = txGenerationRef.current;
+      // Queue finalization behind any document updater scheduled by the same
+      // pointer event. Ending the transaction synchronously lets that updater
+      // observe `inTransaction=false` and push the already-transformed document
+      // on top of the real snapshot, making the first Undo appear to do nothing.
+      setState((current) => {
+        if (inTransactionRef.current && txGenerationRef.current === generation) {
+          const transactionMode = transactionModeRef.current;
+          inTransactionRef.current = false;
+          // Completion signal for callers that must begin a NEW transaction only
+          // after this one truly closed (the paint tool's supersede handoff).
+          // Queued as a microtask so it runs after THIS updater has finished —
+          // firing it inline would hand back a caller that sees the pre-finalizer
+          // flag and nests depth into a closing transaction (the zombie depth no
+          // undo entry can escape). The finalizer never changes the document
+          // itself (labels/refs only), so the caller's begin-time snapshot —
+          // read from stateRef, refreshed by the last batch's render at the
+          // event boundary — is already the finalized document.
+          queueMicrotask(() => {
+            onDone?.();
+            drainPendingHistoryAction();
+          });
+          const transactionLabel = txLabelRef.current;
+          // Only record an undo entry if the transaction actually changed the
+          // document. The document is updated immutably (structural sharing), so
+          // a transaction that mutated nothing leaves the reference identical to
+          // the begin-time snapshot. Empty transactions are common — a plain
+          // click that only selects a node still begins+commits one, and the
+          // drag-end reparent pass opens one even when no node is reparented.
+          // Pushing those produced spurious "undo does nothing" steps, so one
+          // gesture took several undos to reverse. Comparing by reference here
+          // fixes every empty-transaction source at once and can never skip a
+          // real edit, which always yields a fresh document reference.
+          const changed =
+            txSnapshotRef.current !== null && txSnapshotRef.current !== current.document;
+          if (changed) {
+            undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current!];
+            undoSelStackRef.current = [
+              ...undoSelStackRef.current.slice(-49),
+              txSelRef.current ?? [],
+            ];
+            undoLabelsRef.current = [...undoLabelsRef.current.slice(-49), transactionLabel];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+            redoLabelsRef.current = [];
+            // Persistent history (M7): route the committed transaction into the
+            // revision store. Diffed against the begin-state document; empty
+            // transactions are suppressed by the reference check above.
+            // Captured even while history is still attaching: the capture queue
+            // holds it behind attach, whereas leaving it to the document watcher
+            // would lose the gesture (the watcher skips every render of an open
+            // transaction, and the commit render changes no document).
+            const before = txSnapshotRef.current;
+            const persistentNow = persistentHistoryRef.current;
+            if (before && persistentNow) {
+              historySkipRef.current = true;
+              // Read selection from the finalized state in this updater. The
+              // hook's render-time selection ref can still describe the prior
+              // render, so using it here loses selections made in the same
+              // transaction (for example, selecting a newly created shape).
+              persistentNow.capture(
+                before,
+                current.document,
+                transactionLabel,
+                'modify',
+                current.selection,
+              );
+            }
+            if (transactionMode === 'preview' && onMutationRef.current) {
+              lastMutatedDocRef.current = {
+                // See above: auxiliary windows decode through DocumentCodec.
+                documentJson: serializeSceneDocument(current.document),
+                baseDocumentRevision:
+                  txBaseDocumentRevisionRef.current ?? documentRevisionRef.current,
+              };
+            }
           }
-          if (transactionMode === 'preview' && onMutationRef.current) {
-            lastMutatedDocRef.current = {
-              // See above: auxiliary windows decode through DocumentCodec.
-              documentJson: serializeSceneDocument(current.document),
-              baseDocumentRevision:
-                txBaseDocumentRevisionRef.current ?? documentRevisionRef.current,
+          txSnapshotRef.current = null;
+          txSelRef.current = null;
+          txBaseDocumentRevisionRef.current = null;
+          txRollbackStateRef.current = null;
+          txSelectionHistoryRef.current = null;
+          txLastMutationRef.current = null;
+          transactionModeRef.current = 'edit';
+          txLabelRef.current = 'Edit';
+          getTransactionHooks().onCommitTransaction();
+          if (transactionMode === 'preview' && changed) {
+            return {
+              ...current,
+              dirty: true,
+              canUndo: true,
+              canRedo: false,
+              undoLabel: 'Edit',
+              redoLabel: 'Redo',
+              revision: current.revision + 1,
+              sessions: current.sessions.map((sess) =>
+                sess.id === current.activeId ? { ...sess, dirty: true } : sess,
+              ),
             };
           }
         }
-        txSnapshotRef.current = null;
-        txSelRef.current = null;
-        txBaseDocumentRevisionRef.current = null;
-        txRollbackStateRef.current = null;
-        txSelectionHistoryRef.current = null;
-        txLastMutationRef.current = null;
-        transactionModeRef.current = 'edit';
-        txLabelRef.current = 'Edit';
-        getTransactionHooks().onCommitTransaction();
-        if (transactionMode === 'preview' && changed) {
-          return {
-            ...current,
-            dirty: true,
-            canUndo: true,
-            canRedo: false,
-            undoLabel: 'Edit',
-            redoLabel: 'Redo',
-            revision: current.revision + 1,
-            sessions: current.sessions.map((sess) =>
-              sess.id === current.activeId ? { ...sess, dirty: true } : sess,
-            ),
-          };
-        }
-      }
-      return current;
-    });
-  }, []);
+        return current;
+      });
+    },
+    [drainPendingHistoryAction],
+  );
 
   const abortTransaction = useCallback(
     (reconcile?: (snapshot: Document, current: Document) => Document) => {
@@ -3803,8 +3845,9 @@ export function EditorProvider({
       transactionModeRef.current = 'edit';
       txLabelRef.current = 'Edit';
       getTransactionHooks().onAbortTransaction();
+      queueMicrotask(drainPendingHistoryAction);
     },
-    [patch],
+    [drainPendingHistoryAction, patch],
   );
   /** Run related mutations as one user-visible history step without overwriting an outer label. */
   const groupCompoundOperation = useCallback(
@@ -6634,6 +6677,10 @@ export function EditorProvider({
       removeFrameFromChain,
 
       undo: () => {
+        if (inTransactionRef.current) {
+          pendingHistoryActionRef.current = 'undo';
+          return;
+        }
         const previousAreaSelection = areaUndoStackRef.current.at(-1);
         if (
           previousAreaSelection &&
@@ -6686,6 +6733,9 @@ export function EditorProvider({
         redoLabelsRef.current = [...redoLabelsRef.current, prevLabel ?? 'Undo'];
         const synced = editorGridFromDoc(prev);
         persistentHistoryRef.current?.noteLocalNavigation('undo', prev);
+        // Session-applied change: the document watcher must not record the
+        // undo itself as a new forward step.
+        historySkipRef.current = true;
         patch({
           document: prev,
           selection: prevSel ?? [],
@@ -6704,6 +6754,10 @@ export function EditorProvider({
       },
 
       redo: () => {
+        if (inTransactionRef.current) {
+          pendingHistoryActionRef.current = 'redo';
+          return;
+        }
         const nextAreaSelection = areaRedoStackRef.current.at(-1);
         const redoDocumentFirst =
           nextAreaSelection !== undefined &&
@@ -6746,6 +6800,7 @@ export function EditorProvider({
         undoLabelsRef.current = [...undoLabelsRef.current, nextLabel ?? 'Redo'];
         const synced = editorGridFromDoc(next);
         persistentHistoryRef.current?.noteLocalNavigation('redo', next);
+        historySkipRef.current = true;
         patch({
           document: next,
           selection: nextSel ?? [],
@@ -11124,6 +11179,13 @@ export function EditorProvider({
       loadDocument,
     ],
   );
+
+  // Read by the transaction finalizer; assigned during render so the deferred
+  // command uses the session's latest state, not the state it was queued in.
+  performHistoryActionRef.current = (action) => {
+    if (action === 'undo') value.undo();
+    else value.redo();
+  };
 
   const documentValue = useMemo<DocumentContextValue>(
     () => ({

@@ -487,7 +487,7 @@ export function buildToolContext(
     hitTestWithPolicy: (world, policyName) => e.hitTestNodeWithPolicy(world, policyName),
 
     beginTransaction: () => e.beginTransaction(),
-    commitTransaction: () => e.commitTransaction(),
+    commitTransaction: (onDone?: () => void) => e.commitTransaction(onDone),
     abortTransaction: () => e.abortTransaction(),
 
     setTool: (id) => e.setTool(id),

@@ -367,7 +367,8 @@ export interface ToolContext {
   canvasElement: HTMLCanvasElement | null;
 
   beginTransaction: () => void;
-  commitTransaction: () => void;
+  /** `onDone` fires only after the transaction's deferred finalizer has run. */
+  commitTransaction: (onDone?: () => void) => void;
   abortTransaction: () => void;
 
   setTool: (id: ToolId) => void;

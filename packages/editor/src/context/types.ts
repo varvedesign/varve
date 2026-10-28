@@ -1063,7 +1063,8 @@ export interface EditorContextValue {
   resetImageBounds: () => void;
   /** Start an undo-coalesced edit; preview transactions stay clean until commit. */
   beginTransaction: (mode?: 'edit' | 'preview') => void;
-  commitTransaction: () => void;
+  /** `onDone` fires only after the finalizer has actually run (deferred setState). */
+  commitTransaction: (onDone?: () => void) => void;
   abortTransaction: (reconcile?: (snapshot: Document, current: Document) => Document) => void;
   /** Run a named collection of mutations as one undoable history step. */
   groupCompoundOperation: (label: string, action: () => void) => void;

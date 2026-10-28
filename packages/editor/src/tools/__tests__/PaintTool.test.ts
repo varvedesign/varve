@@ -78,7 +78,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     hitTest: vi.fn(() => null),
     canvasElement: null,
     beginTransaction: vi.fn(),
-    commitTransaction: vi.fn(),
+    commitTransaction: vi.fn((onDone?: () => void) => onDone?.()),
     abortTransaction: vi.fn(),
     snapPosition: vi.fn((b: { x: number; y: number; w: number; h: number }) => ({
       x: b.x,
@@ -603,6 +603,156 @@ describe('PaintTool', () => {
 
     expect(ctx.abortTransaction).toHaveBeenCalled();
     expect(ctx.setDraft).toHaveBeenLastCalledWith(null);
+  });
+
+  // Supersede handoff: a stroke's confirmed tail can arrive after the next
+  // stroke's pointer-down (BATCH_TIMEOUT_MS fallback is 1.5 s). The old
+  // current-session gate dropped that tail — losing the whole stroke — and
+  // skipped the superseded stroke's finish, leaving a transaction depth that
+  // never finalized (no undo entries at all). These four pin the repair.
+
+  function makeDrainingWorker(settlers: Array<() => void>) {
+    const worker = {
+      isUsingWorker: true,
+      beginStroke: vi.fn(),
+      appendPoints: vi.fn(),
+      endStroke: vi.fn((_id: string, _gen: number, onSettled?: () => void) => {
+        if (onSettled) settlers.push(onSettled);
+      }),
+      cancelStroke: vi.fn(),
+      destroy: vi.fn(),
+      onBatch: null as
+        | null
+        | ((batch: Parameters<NonNullable<BrushWorkerHost['onBatch']>>[0]) => void),
+    };
+    const tool_ = tool;
+    tool_.setWorkerHost(worker as unknown as BrushWorkerHost);
+    return worker;
+  }
+
+  const makeDab = (x: number, y: number) =>
+    ({
+      x,
+      y,
+      radius: 5,
+      opacity: 1,
+      flow: 1,
+      hardness: 1,
+      angle: 0,
+      roundness: 1,
+      progress: 1,
+      strokeT: 1,
+      strokeDistance: 1,
+    }) as import('@varve/scene').BrushDab;
+
+  it("applies a superseded stroke's late batch instead of dropping it", () => {
+    vi.useFakeTimers();
+    try {
+      const settlers: Array<() => void> = [];
+      const worker = makeDrainingWorker(settlers);
+      const down = makePointerEvent(100, 200);
+      const up = makePointerEvent(140, 220);
+
+      tool.onPointerDown(down, ctx);
+      const firstCall = worker.beginStroke.mock.calls[0];
+      const strokeId = firstCall?.[0] as string;
+      const generation = firstCall?.[1] as number;
+      tool.onPointerUp(up, ctx);
+      expect(settlers).toHaveLength(1);
+
+      // The next stroke starts while the tail is still in flight.
+      tool.onPointerDown(makePointerEvent(300, 300), ctx);
+      vi.runAllTimers();
+      expect(ctx.commitTransaction).toHaveBeenCalledOnce(); // stroke 1 handed off
+
+      worker.onBatch?.({
+        strokeId,
+        generation,
+        dabs: [makeDab(12, 12)],
+        bounds: { x: 7, y: 7, w: 10, h: 10 },
+        seq: 1,
+        final: true,
+        source: 'sync',
+      });
+
+      // Pre-fix this was `DROP generation` and the ink was lost forever.
+      expect(ctx.updateNode).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('commits the superseded stroke before the next stroke transaction opens', () => {
+    vi.useFakeTimers();
+    try {
+      const settlers: Array<() => void> = [];
+      makeDrainingWorker(settlers);
+      tool.onPointerDown(makePointerEvent(100, 200), ctx);
+      tool.onPointerUp(makePointerEvent(140, 220), ctx);
+      expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+      expect(ctx.commitTransaction).not.toHaveBeenCalled();
+
+      tool.onPointerDown(makePointerEvent(300, 300), ctx);
+      // Pre-fix: the second begin nested depth 2 into the open transaction and
+      // the first stroke's finish was skipped by the currency guard, so the
+      // depth never returned to zero and no undo entry was ever recorded.
+      expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+      vi.runAllTimers();
+      expect(ctx.beginTransaction).toHaveBeenCalledTimes(2);
+
+      // Release stroke 2's gesture so it registers its own settle, then drain
+      // both tails: one commit each, no zombie depth.
+      tool.onPointerUp(makePointerEvent(320, 340), ctx);
+      expect(settlers).toHaveLength(2);
+      for (const settle of settlers) settle();
+      expect(ctx.commitTransaction).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels a stroke start deferred by the handoff gap', () => {
+    vi.useFakeTimers();
+    try {
+      const settlers: Array<() => void> = [];
+      makeDrainingWorker(settlers);
+      // Capture the handoff commit's onDone instead of invoking it, so the
+      // gap between "stroke 1's transaction closing" and "stroke 2 starting"
+      // is observable under the synchronous test context (in the editor the
+      // deferred finalizer provides this window naturally).
+      ctx = makeCtx({ commitTransaction: vi.fn() });
+      tool.onPointerDown(makePointerEvent(100, 200), ctx);
+      tool.onPointerUp(makePointerEvent(140, 220), ctx);
+
+      const second = makePointerEvent(300, 300);
+      tool.onPointerDown(second, ctx);
+      // Escape in the gap must cancel the not-yet-started stroke only.
+      tool.onKeyDown({ key: 'Escape' } as KeyboardEvent, ctx);
+      vi.runAllTimers();
+      expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+      expect(ctx.abortTransaction).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never paints a cancelled stroke's late batch", () => {
+    const worker = makeDrainingWorker([]);
+    tool.onPointerDown(makePointerEvent(100, 200), ctx);
+    const strokeId = worker.beginStroke.mock.calls[0]?.[0] as string;
+    const generation = worker.beginStroke.mock.calls[0]?.[1] as number;
+    tool.onDragCancel(ctx);
+
+    worker.onBatch?.({
+      strokeId,
+      generation,
+      dabs: [makeDab(12, 12)],
+      bounds: { x: 7, y: 7, w: 10, h: 10 },
+      seq: 1,
+      final: true,
+      source: 'sync',
+    });
+    expect(ctx.updateNode).not.toHaveBeenCalled();
   });
 });
 

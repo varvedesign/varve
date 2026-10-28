@@ -670,7 +670,7 @@ export function DocumentPanel() {
                     });
                   }
                 }}
-                onBlur={commitTransaction}
+                onBlur={() => commitTransaction()}
                 className="insp-num__input"
                 aria-label={`Grid rotation ${Math.round(((state.documentGrid.rotation ?? 0) * 180) / Math.PI)} degrees`}
               />
