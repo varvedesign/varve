@@ -832,7 +832,6 @@
     "scripts/perf/productionEvidence.mjs": 429,
     "scripts/perf/run-native-paired-qualification.mjs": 442,
     "scripts/perf/run-native-qualification.mjs": 747,
-    "scripts/perf/run-production-workload.mjs": 1969,
     "scripts/perf/run-webgl2-qualification.mjs": 523,
     "scripts/perf/webkit-profile.mjs": 427,
     "scripts/perf/webkit/run-ghosting-oracle.py": 463,
