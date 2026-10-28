@@ -1,130 +1,310 @@
-# Seam Execution — Batch {{BATCH}}, Entry {{ENTRY_ID}}
+# Seam execution - Batch A, entry A-04 (IntelligencePanel tabs)
 
-## Inputs (attach only these)
-- `@{{REMEDIATION_DOC}}`
-- `@{{BASELINE_FILE}}`
-- `@{{GODSPLIT_PLAN_TOOL}}`
-- `@{{TARGET_FILE}}`
-- `@{{COVERING_TEST_FILE_1}}` … only the tests that directly cover the target declarations
+Repo-native rewrite of the Go-oriented execution template. One seam, one
+worktree, one commit. Reuse the skeleton for the next entry by changing only the
+resolved values below; the protocol and commands are identical.
 
-## Step 1 — Re-verify the seam hypothesis
-Before coding, answer in `SEAM_SPEC.md`:
-- Which top-level declarations form this seam?
-- What is the single concern?
-- What is the extraction destination file?
-- What is the exact declaration set before extraction?
-- Which edge cases from `GAP_ANALYSIS.md` apply?
-- What is the expected line reduction for the target and the expected new file size?
-- What is the proof that this is behavior-preserving?
+## Resolved values (this entry)
 
-If the seam requires two concerns, stop. Write a continuation prompt for the second seam and execute only the first.
+| Key | Value |
+|-----|-------|
+| Batch | A |
+| Entry id | A-04 |
+| Package | `packages/editor` |
+| Target file | `packages/editor/src/panels/IntelligencePanel.tsx` - 3,191 lines, frozen at 3191 |
+| Covering test | `packages/editor/src/panels/IntelligencePanel.test.tsx` - 259 lines, 9 tests |
+| Seam | one module per tab under the destination directory plus shared severity, histogram, and helper modules; the panel stays a thin tab router |
+| Destination | `packages/editor/src/panels/intelligence/` - a destination directory counts as one seam (precedent: `packages/editor/src/menu/defs.ts` became an 11-line barrel plus 15 modules under `menu/defs/`) |
+| Worktree | `.worktrees/A-04` |
+| Branch | `seam/A/A-04-intelligence-panel` |
+| Baseline | `.file-size-baseline.json` |
+| Remediation doc | `docs/quality/agent-context-remediation-2026-10-28.md` |
+| Campaign plan | `docs/plans/agent-infrastructure-campaign-2026-10-28.md` |
+| Policy | `docs/quality/file-size-policy.md` |
+| Gate | `pnpm audit:filesize` |
+| Declaration planner | `node scripts/quality/godsplit-plan.mjs <file> [--json] [--top N]` |
+| Move verifier | `node scripts/quality/refactor-verify.mjs --base <git-ref> --target <path> --dest <dir> [--json]` |
+| Ledger | `BACKLOG_LEDGER.md` |
+| Expected ratchet | 960 -> 959 frozen entries; exactly one entry removed; 0 added, 0 grown |
 
-## Step 2 — Create an isolated worktree
+Inputs to attach: the four docs above, each as an exact path;
+`@packages/editor/src/panels/IntelligencePanel.tsx` read by line range;
+`@packages/editor/src/panels/IntelligencePanel.test.tsx` (259 lines, read
+fully); only the specs that directly cover the moved declarations.
+
+## Step 0 - pre-flight in a clean worktree
+
+This step is executable only after the foundation checkpoint commit exists on
+local `master` (guards, baseline, policy docs, seam tooling, completed split
+batches). Verify in the main checkout first:
+
 ```bash
-git fetch origin
-git worktree add .worktrees/{{ENTRY_ID}} -b seam/{{BATCH}}/{{ENTRY_ID}}-{{SLUG}} origin/main
+git rev-parse --verify master
+git log -1 --oneline master
+pnpm audit:filesize            # exit 0; checkpoint state is 960 frozen entries
+pnpm check:agent               # exit 0 (queued recursive tsc)
+test -f scripts/quality/godsplit-plan.mjs
+test -f scripts/quality/refactor-verify.mjs
+```
 
-Work only inside that worktree. Do not edit the main checkout. If another active worktree touches the same file, stop and record the conflict; do not “merge carefully” by hand.
+Then create the task worktree **from local `master`**, never from
+`origin/main`: the remote does not contain `.file-size-baseline.json`, the
+guard scripts under `scripts/quality/`, the `audit:filesize` script, or the
+completed split batches. A worktree from `origin/main` has no ratchet to run,
+and a PR cut from it would re-introduce god files that are already split
+locally (for example the 2,269-line `packages/engine/src/replay-fill.test.ts`).
 
-Step 3 — Run the baseline gate before editing
-bash
+```bash
+git worktree add .worktrees/A-04 -b seam/A/A-04-intelligence-panel master
+cd .worktrees/A-04
+pnpm install --frozen-lockfile
+pnpm audit:filesize            # exit 0 at 960 entries
+pnpm check:agent               # exit 0
+node scripts/quality/godsplit-plan.mjs packages/editor/src/panels/IntelligencePanel.tsx --top 5
+node scripts/quality/refactor-verify.mjs --base master \
+  --target packages/editor/src/panels/IntelligencePanel.tsx --json
+```
 
-go build ./...
-go vet ./...
-go test ./{{PACKAGE}}/...
-{{GATE_COMMAND}}   # e.g. fak hygiene --gates GOD_FILE_GROWTH
+Both seam tools exit 2 when invoked without usable input, so the planner smoke
+must exit 0 with a block table, and the verifier smoke must exit 0 with
+`missing: []` and `missingExports: []`. Record all pre-flight output in
+`SEAM_SPEC.md`. If a gate is red or a tool is absent, stop and report the
+blocker; do not edit source and do not force the baseline. Claim the paths
+advisory-only: `pnpm claims claim --task "A-04 intelligence panel split" --path
+packages/editor/src/panels --path .file-size-baseline.json --path
+docs/agents/repo-map.generated.md --path BACKLOG_LEDGER.md --path remediation/A-04`.
 
-Record the output in SEAM_SPEC.md. Do not edit if the baseline is already red for an unrelated reason; record the blocker instead.
-Step 4 — Plan boundaries, do not hand-cut
+## Step 1 - SEAM_SPEC.md before coding
 
-Run the planner:
-bash
+Write `remediation/A-04/SEAM_SPEC.md`. It must contain:
 
-{{GODSPLIT_PLAN_COMMAND}} {{TARGET_FILE}}
+- **Declaration inventory (mandatory, hand-completed).** Seed it with
+  `node scripts/quality/godsplit-plan.mjs packages/editor/src/panels/IntelligencePanel.tsx --top 200`,
+  then read each block range and confirm/correct by hand. List every top-level
+  declaration with kind, line range, export status, and destination module (or
+  "stays in the router"). The observed plan is 41 blocks over 3,191 lines; the
+  router keeps `IntelligencePanel`, the tab metadata/applicability hook, and the
+  shared shell, and the tabs are `LinterTab`, `LinterConfigEditor`, `ReviewTab`,
+  `AuditTab`, `SpacingTab`, `NamingTab`, `GovernanceTab`, `DebtTab`,
+  `PrototypeTab`, `LayoutTab`, `ComponentsTab`, `SimilarTab` plus their local
+  helpers and dialogs. The list is a starting point, not an excuse to skip the
+  read: `godsplit-plan` gives ranges and hazards but never proposes a
+  destination.
+- **Single concern.** Pure code motion of the panel's presentation modules; no
+  behavior, rendering, API, or error-state change.
+- **Destination map.** One module per tab plus shared modules for severity
+  marks/labels, histogram bars, tab metadata/applicability, and genuinely shared
+  helpers. Every module at or under 400 lines (350-400 target where the tab is
+  naturally that large; smaller is fine when cohesive). The parent keeps the
+  public `export function IntelligencePanel` and ends under the 400-line cap.
+- **Before and expected-after declaration sets**, the parent's expected line
+  count, and each destination module's expected size.
+- **Edge-case answers** from `GAP_ANALYSIS.md`, in particular: `auditPool`
+  stays a single import-time singleton (line 833) with unchanged evaluation
+  timing; the CSS side-effect import appears exactly once; relative imports are
+  rebased for the deeper destination; `IntelligencePanel` stays the named export
+  of the same module path for `components/Inspector/panels/AuditPanel.tsx` and
+  the test; `ExtendedTab` and the `initialTab` prop contract are unchanged; each
+  shared helper has one home; strings and JSX text are untouched.
+- **Proof plan.** `refactor-verify` exit 0, 9/9 component tests before and after,
+  `pnpm check:agent` exit 0, biome clean, baseline diff exactly one removed
+  entry.
 
-Use its doc-comment-aware block_start..block_end ranges. Do not invent cut lines. If the planner flags a hazard, resolve it before extraction:
+If the inventory shows two unrelated concerns, stop: execute only the first and
+write a continuation prompt for the second.
 
-    per-file build tags
+## Step 2 - extraction rules
 
-    init() order
+- Move declarations by the planner's declaration boundaries only. Never cut by
+  line count, alphabetical range, or brace matching across template literals,
+  JSX text, or comments.
+- Preserve comments and JSDoc verbatim; do not rename declarations to make the
+  move compile; do not add behavior, features, or new state.
+- Move imports with the code and rebase relative specifiers. Keep the
+  side-effect CSS import exactly once; keep the `auditPool` construction in one
+  module and import the instance.
+- One home per shared helper; no copy-paste duplicates; do not export a helper
+  just because a sibling module imports it (a local import is fine).
+- No new over-cap file and no line added to a frozen file to prepare the split.
+  If a tab is too large for one module, split it further inside the same
+  destination directory (still one seam) and record the split in `SEAM_SPEC.md`.
 
-    aliased imports
+## Step 3 - prove no declaration was dropped (before tests)
 
-    raw strings
+```bash
+node scripts/quality/refactor-verify.mjs --base master \
+  --target packages/editor/src/panels/IntelligencePanel.tsx \
+  --dest packages/editor/src/panels/intelligence --json
+```
 
-    receiver-qualified function identity
+Exit codes: 0 preserved; 1 a declaration or exported name is missing; 2 bad
+input. This must exit 0 before tests run. If it fails, the cut is incomplete:
+fix the extraction, never suppress or edit the verifier. Record the JSON summary
+(`baseCount`, `presentCount`, `missing`, `missingExports`) in
+`SEAM_SPEC.md`. The tool parses TypeScript/JavaScript only; Rust seams are out
+of its scope.
 
-Step 5 — Extract one seam
+## Step 4 - focused tests, then static checks
 
-    Move only the planned declarations to the destination file.
+Before editing, on the clean worktree:
 
-    Preserve comments and doc comments verbatim.
+```bash
+pnpm test:agent packages/editor/src/panels/IntelligencePanel.test.tsx
+```
 
-    Do not reformat unrelated code.
+Record the pass count (9 tests today) and 0 failures. After the extraction, run
+the same command and require the identical count and 0 failures. Do not weaken,
+skip, or delete tests, and do not add snapshots for a pure move. This jsdom
+suite with `EditorProvider` is the real-world scenario: it renders the panel,
+checks tab semantics and applicability, exercises contrast, naming,
+similar-search, and the promote dialog. Then:
 
-    Do not rename declarations unless required for package-level uniqueness.
+```bash
+pnpm exec biome check --write packages/editor/src/panels/IntelligencePanel.tsx \
+  packages/editor/src/panels/intelligence
+pnpm exec biome check packages/editor/src/panels/IntelligencePanel.tsx \
+  packages/editor/src/panels/intelligence
+pnpm check:agent
+node scripts/audit-health.mjs   # hub caps, complexity ceilings, cycles
+```
 
-    Do not add new behavior.
+Biome may fix formatting and import order; it must not be used to rewrite moved
+logic. `check:agent` is the recursive type gate and is mandatory.
 
-Step 6 — Prove no declaration was dropped
-bash
+## Step 5 - ratchet the baseline down
 
-{{REFACTOR_VERIFY_COMMAND}} {{PACKAGE}}
+```bash
+node scripts/quality/audit-file-size.mjs --update
+git diff -- .file-size-baseline.json
+pnpm audit:filesize
+node scripts/quality/audit-file-size.mjs --report
+```
 
-This must pass before tests. If it fails, the cut is incomplete; fix the extraction, do not suppress the verifier.
-Step 7 — Real-world verification
+Required result: 960 -> 959 frozen entries. The baseline diff removes exactly
+`packages/editor/src/panels/IntelligencePanel.tsx` and nothing else: 0 added,
+0 grown. The parent and every new module are at or under 400 lines, and the
+report no longer lists the target in the top offenders. Do not hand-edit the
+baseline. If `--update` refuses, adds an entry, or grows a frozen file, stop and
+report; `--update --force` is forbidden.
 
-Run, in this order:
-bash
+## Step 6 - generated surfaces and staged checkpoint
 
-gofmt -w {{TARGET_FILE}} {{DEST_FILE}}
-goimports -w {{TARGET_FILE}} {{DEST_FILE}}
-go build ./...
-go vet ./...
-go test ./{{PACKAGE}}/... -count=1
-go test ./... -count=1          # only if package tests do not cover callers
-{{GATE_COMMAND}}
+Stage the seam first so the generated map is built from the staged tree:
 
-Additionally write and run at least one real-world scenario test that uses the full target file, not a toy fixture. For Go seams, include a test that exercises the moved declarations through the package’s public entry point and asserts the same output before/after. For non-Go, use the platform’s equivalent end-to-end harness.
-Step 8 — Ratchet down
+```bash
+git add packages/editor/src/panels/IntelligencePanel.tsx \
+        packages/editor/src/panels/intelligence \
+        .file-size-baseline.json \
+        remediation/A-04
+pnpm agent:map
+git add docs/agents/repo-map.generated.md BACKLOG_LEDGER.md
+node scripts/quality/generate-agent-map.mjs --staged
+pnpm verify:commit
+```
 
-    Regenerate the baseline only if the target file genuinely shrank.
+`pnpm agent:map` writes `docs/agents/repo-map.generated.md` from the staged
+tree (it reads `git ls-files --cached`), so stage the new modules before
+regenerating; never hand-edit the map. `pnpm verify:commit` is the staged-only
+pre-commit checkpoint (emoji, staged map, staged file-size, health, docs, and
+direct staged tests). It is the same driver the git hook would run, so run it
+explicitly before committing. Add the covering test to the commit only if its
+path or imports had to change; expected outcome for a pure move is no test edit.
 
-    The regenerated baseline must have one fewer entry or a smaller ceiling for this entry. If it adds an entry or raises a ceiling, stop and report.
+## Step 7 - one ledger row
 
-    Confirm FROZEN_COUNT in BACKLOG_LEDGER.md is non-increasing.
+Append exactly one row to `BACKLOG_LEDGER.md` using its existing column order:
+timestamp (caller-generated ISO-8601, `date --iso-8601=seconds`), batch `A`,
+entry `A-04`, target path, frozen_lines `3191`, current_lines (the router's
+measured lines, or 0 if the path was deleted), seam_status, worktree
+`.worktrees/A-04`, commit (the branch name; the SHA is reported to the Lead
+after the commit - see Step 8), frozen_count_after `959`, and notes (module
+count, test counts before/after, verifier summary, baseline diff). Do not edit
+the dated remediation record or the campaign plan; the orchestrator records
+merged seams there. Never invent a timestamp or a count.
 
-    Remove the entry if the file is now under the cap; shrink it if it remains above the cap.
+## Step 8 - commit only the seam
 
-Step 9 — Commit and review
+```bash
+git status --short
+git add <the exact paths from Step 6>
+git commit -m "refactor(editor): split intelligence panel tabs into panels/intelligence/ (Batch A/A-04)"
+```
 
-Commit only the seam files and the baseline change:
-bash
+The commit contains only: the parent plus destination modules; the covering test
+if its path changed; `.file-size-baseline.json`;
+`docs/agents/repo-map.generated.md`; `BACKLOG_LEDGER.md`;
+`remediation/A-04/RESEARCH.md`, `GAP_ANALYSIS.md`, `SEAM_SPEC.md`. It must not
+contain `NEXT_PROMPT.md`, lockfiles, package manifests, unrelated formatting,
+build output, screenshots, or another session's work. No AI-tool attribution,
+co-author, or "generated by" trailers. Body: what moved, test counts
+before/after, verifier result, 960 -> 959. Do not amend the commit to embed its
+own SHA; report the SHA to the Lead and add it through a ledger-only follow-up
+commit only if the orchestrator requires the exact SHA in the ledger.
 
-git add {{TARGET_FILE}} {{DEST_FILE}} {{BASELINE_FILE}} {{TEST_FILES}}
-git commit -m "refactor({{PACKAGE}}): split {{SEAM_NAME}} seam from {{TARGET_FILE}} (Batch {{BATCH}}/{{ENTRY_ID}})"
+## Step 9 - PR rule
 
-The commit must not include unrelated formatting or generated noise. Open the PR against main. Record the commit SHA and PR link in BACKLOG_LEDGER.md.
-Step 10 — Clean up and continue
+Default: no push. Leave the commit on
+`seam/A/A-04-intelligence-panel` for Lead review. Push and open a PR only when
+the Lead explicitly authorizes a remote push **and** the remote base contains the
+foundation checkpoint (local `master` does; `origin/main` does not). Then:
 
-Remove the worktree only after the PR is merged or explicitly closed:
-bash
+```bash
+git push -u origin seam/A/A-04-intelligence-panel
+```
 
-git worktree remove .worktrees/{{ENTRY_ID}}
+Open the PR against the foundation base (never against an unfounded remote
+`main`), with a body naming the seam, the test counts, the baseline diff, the
+verifier result, and "no visual surface changed". Workers never merge.
 
-Generate NEXT_PROMPT.md from templates/NEXT-PROMPT.md. Do not start the next seam in this session.
-Definition of Done
+## Step 10 - handoff and stop
 
-    REFACTOR_VERIFY passes.
+In the main checkout root (`../..` from `.worktrees/A-04`), instantiate
+`templates/NEXT-PROMPT.md` for the following unblocked entry: fill every
+placeholder from its table with fresh measurements (`node
+scripts/quality/audit-file-size.mjs --report` on the committed branch worktree;
+the next entry from the batch tables crossed with the ledger; blockers
+cleared/remaining), write `NEXT_PROMPT.md` at the main repo root, and leave it
+untracked. Do not start that entry. Then report to the Lead: branch, worktree,
+commit SHA, changed files, test counts before/after, verifier JSON, baseline
+diff summary, FROZEN_COUNT 959, PR status, and remaining blockers.
 
-    go build, go vet, and package tests pass.
+## Definition of done
 
-    Real-world scenario test passes.
+- `refactor-verify` exit 0 with every declaration preserved and exported names
+  intact.
+- The covering component test has the same count before and after, 0 failures;
+  `pnpm check:agent`, biome, and `node scripts/audit-health.mjs` pass.
+- Every touched source file is at most 400 lines; the parent is under the cap.
+- `pnpm audit:filesize` exits 0 at 959 frozen entries; the baseline diff is
+  exactly one removed entry, with 0 added and 0 grown; no `--force`.
+- Repo map regenerated and staged; `pnpm verify:commit` passed.
+- Exactly one `BACKLOG_LEDGER.md` row; `NEXT_PROMPT.md` regenerated; one commit
+  on `seam/A/A-04-intelligence-panel`; no merge; no PR unless authorized.
+- `SEAM_SPEC.md` states "no visual surface changed" and names the covering test
+  that proves it. The front-end necessity gate does not fire for this seam.
 
-    Gate passes and FROZEN_COUNT decreased.
+## Do not
 
-    Baseline contains no new entry and no raised ceiling.
+- Do not use `--update --force`, hand-edit the baseline, or freeze untracked
+  WIP.
+- Do not create the worktree or PR from `origin/main`.
+- Do not change behavior, rename declarations, redesign UI, add a dialog or
+  state, or split the seam into two concerns.
+- Do not let a new module exceed 400 lines, and do not grow a frozen file.
+- Do not weaken or skip tests, update snapshots, or run visual baselines for a
+  pure move.
+- Do not edit the dated remediation doc, campaign plan, `docs/README.md`,
+  package manifests, or lockfiles.
+- Do not commit `NEXT_PROMPT.md`, build output, screenshots, or another
+  session's files; do not add AI-tool attribution trailers.
+- Do not merge, prune the unmerged worktree, run the full gate, or start the
+  next entry in this session.
 
-    PR is linked in BACKLOG_LEDGER.md.
+## Reusing this prompt
 
-    NEXT_PROMPT.md exists.
+For the next entry change only the resolved values table (batch, entry, package,
+target, covering test, seam, destination, worktree, branch, expected ratchet) and
+the seam-specific inventory description in Step 1. The pre-flight, extraction,
+verification, baseline, staging, commit, PR, and handoff rules are the repo
+protocol and stay fixed. This file deliberately contains no template placeholders;
+`templates/NEXT-PROMPT.md` is where the placeholder syntax lives.

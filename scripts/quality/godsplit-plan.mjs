@@ -8,37 +8,55 @@
  * planner instead of hand-invented cut lines; this is the repo-native one.
  *
  * Usage:
- *   node scripts/quality/godsplit-plan.mjs <file.ts|tsx|js|jsx|mjs> [--json] [--top 40]
+ *   node scripts/quality/godsplit-plan.mjs <file.ts|tsx|js|jsx|mjs|...> [--json]
  *
- * Exit codes: 0 plan printed; 2 unreadable/unsupported input.
+ * Exit codes: 0 plan printed; 2 unreadable/unsupported input or bad usage.
  *
  * The planner is intentionally read-only. It never suggests destinations: the
  * seam (which declarations are one concern) is a review decision.
  */
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { extname, resolve } from 'node:path';
+import ts from 'typescript';
+import { isMainModule } from '../is-main-module.mjs';
 
-const require = createRequire(import.meta.url);
-const ts = require('typescript');
-
+/** File-size cap and the split target the budget policy uses. */
 export const OVER_CAP = 400;
 export const SUB_SPLIT_LINES = 350;
 
-const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
-const SCRIPT_KINDS = {
-  '.ts': ts.ScriptKind.TS,
-  '.tsx': ts.ScriptKind.TSX,
-  '.js': ts.ScriptKind.JS,
-  '.jsx': ts.ScriptKind.JSX,
-  '.mjs': ts.ScriptKind.JS,
-  '.cjs': ts.ScriptKind.JS,
-};
+/** Source extensions the planner can map to a TypeScript script kind. */
+export const SOURCE_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+]);
+
+/** Invalid command-line usage; reported with the usage text and exit 2. */
+export class UsageError extends Error {}
+
+function countLines(source) {
+  if (source.length === 0) return 0;
+  const segments = source.split('\n').length;
+  return source.endsWith('\n') ? segments - 1 : segments;
+}
+
+function scriptKindFor(extension) {
+  if (extension === '.tsx') return ts.ScriptKind.TSX;
+  if (extension === '.jsx') return ts.ScriptKind.JSX;
+  if (extension === '.js' || extension === '.mjs' || extension === '.cjs') return ts.ScriptKind.JS;
+  return ts.ScriptKind.TS;
+}
 
 function docFirstLine(source, node) {
   const ranges = ts.getLeadingCommentRanges(source, node.getFullStart()) ?? [];
   if (ranges.length === 0) return '';
-  const raw = source.slice(ranges[ranges.length - 1].pos, ranges[ranges.length - 1].end);
+  const range = ranges[ranges.length - 1];
+  const raw = source.slice(range.pos, range.end);
   const body = raw
     .replace(/^\/\*+/, '')
     .replace(/\*+\/$/, '')
@@ -48,9 +66,21 @@ function docFirstLine(source, node) {
   return body[0] ?? '';
 }
 
-function declarationName(statement, source) {
+/** Every identifier a variable-declaration binding pattern introduces. */
+function bindingNames(pattern, visit) {
+  if (ts.isIdentifier(pattern)) {
+    visit(pattern.text);
+    return;
+  }
+  if (!ts.isObjectBindingPattern(pattern) && !ts.isArrayBindingPattern(pattern)) return;
+  for (const element of pattern.elements) {
+    if (ts.isBindingElement(element)) bindingNames(element.name, visit);
+  }
+}
+
+function declarationName(statement) {
   if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) {
-    return statement.name ? statement.name.text : '(anonymous)';
+    return statement.name === undefined ? '(anonymous)' : statement.name.text;
   }
   if (
     ts.isInterfaceDeclaration(statement) ||
@@ -59,20 +89,34 @@ function declarationName(statement, source) {
   ) {
     return statement.name.text;
   }
+  if (ts.isModuleDeclaration(statement)) return statement.name.text;
   if (ts.isVariableStatement(statement)) {
-    return statement.declarationList.declarations
-      .map((declaration) => declaration.name.getText(source))
-      .join(', ');
+    const names = [];
+    for (const declaration of statement.declarationList.declarations) {
+      bindingNames(declaration.name, (name) => names.push(name));
+    }
+    return names.join(', ');
   }
   return '';
 }
 
+function blockKind(statement) {
+  if (ts.isVariableStatement(statement)) return 'Variable';
+  if (ts.isExportAssignment(statement)) return 'ExportAssignment';
+  return ts.SyntaxKind[statement.kind].replace('Declaration', '').replace('Statement', '');
+}
+
 function isExported(statement) {
-  return Boolean(
-    ts.canHaveModifiers(statement) &&
-      (ts.getModifiers(statement) ?? []).some(
-        (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
-      ),
+  if (ts.isExportAssignment(statement)) {
+    const exportEquals = statement.isExportEquals === true || statement.isExportAssignment === true;
+    return !exportEquals;
+  }
+  if (!ts.canHaveModifiers(statement)) return false;
+  const modifiers = ts.getModifiers(statement) ?? [];
+  return modifiers.some(
+    (modifier) =>
+      modifier.kind === ts.SyntaxKind.ExportKeyword ||
+      modifier.kind === ts.SyntaxKind.DefaultKeyword,
   );
 }
 
@@ -84,23 +128,23 @@ function isExported(statement) {
 export function planGodFile(filePath) {
   const extension = extname(filePath);
   const source = readFileSync(filePath, 'utf8');
+  const totalLines = countLines(source);
   if (!SOURCE_EXTENSIONS.has(extension)) {
     return {
       file: filePath,
-      totalLines: source.split('\n').length,
+      totalLines,
       imports: 0,
       blocks: [],
-      hazards: ['unsupported file extension: ' + extension],
+      hazards: [`unsupported file extension: ${extension}`],
       unsupported: true,
     };
   }
-  const scriptKind = SCRIPT_KINDS[extension];
   const sourceFile = ts.createSourceFile(
     filePath,
     source,
     ts.ScriptTarget.Latest,
     true,
-    scriptKind,
+    scriptKindFor(extension),
   );
   const blocks = [];
   let imports = 0;
@@ -113,38 +157,26 @@ export function planGodFile(filePath) {
     const startLine =
       sourceFile.getLineAndCharacterOfPosition(statement.getStart(sourceFile)).line + 1;
     const endLine = sourceFile.getLineAndCharacterOfPosition(statement.getEnd()).line + 1;
-    const lines = endLine - startLine + 1;
     blocks.push({
       startLine,
       endLine,
-      lines,
-      kind: ts.SyntaxKind[statement.kind].replace('Declaration', '').replace('Statement', ''),
-      name: declarationName(statement, sourceFile),
+      lines: endLine - startLine + 1,
+      kind: blockKind(statement),
+      name: declarationName(statement),
       exported: isExported(statement),
       doc: docFirstLine(source, statement),
     });
   }
-  const totalLines = source.split('\n').length - (source.endsWith('\n') ? 1 : 0);
   const hazards = [];
   if (totalLines > OVER_CAP) {
     hazards.push(
-      'target is over the ' +
-        OVER_CAP +
-        '-line cap: the split must leave every result at or under it',
+      `target is over the ${OVER_CAP}-line cap: the split must leave every result at or under it`,
     );
   }
   for (const block of blocks) {
     if (block.lines > SUB_SPLIT_LINES) {
       hazards.push(
-        'sub-split required: ' +
-          (block.name || block.kind) +
-          ' lines ' +
-          block.startLine +
-          '-' +
-          block.endLine +
-          ' is ' +
-          block.lines +
-          ' lines on its own',
+        `sub-split required: ${block.name || block.kind} lines ${block.startLine}-${block.endLine} is ${block.lines} lines on its own`,
       );
     }
   }
@@ -153,71 +185,95 @@ export function planGodFile(filePath) {
 
 export function formatPlan(plan) {
   const lines = [];
-  lines.push('God-file seam plan: ' + plan.file);
+  lines.push(`God-file seam plan: ${plan.file}`);
   lines.push(
-    'Lines: ' +
-      plan.totalLines +
-      ' | imports: ' +
-      plan.imports +
-      ' | blocks: ' +
-      plan.blocks.length,
+    `Lines: ${plan.totalLines} | imports: ${plan.imports} | blocks: ${plan.blocks.length}`,
   );
   lines.push('');
   lines.push('| lines | range | kind | name | export | first doc line |');
   lines.push('|-------|-------|------|------|--------|----------------|');
   for (const block of plan.blocks) {
     lines.push(
-      '| ' +
-        block.lines +
-        ' | ' +
-        block.startLine +
-        '-' +
-        block.endLine +
-        ' | ' +
-        block.kind +
-        ' | ' +
-        (block.name || '-') +
-        ' | ' +
-        (block.exported ? 'yes' : 'no') +
-        ' | ' +
-        (block.doc || '-') +
-        ' |',
+      `| ${block.lines} | ${block.startLine}-${block.endLine} | ${block.kind} | ${block.name || '-'} | ${block.exported ? 'yes' : 'no'} | ${block.doc || '-'} |`,
     );
   }
   if (plan.hazards.length > 0) {
     lines.push('');
     lines.push('Hazards:');
-    for (const hazard of plan.hazards) lines.push('- ' + hazard);
+    for (const hazard of plan.hazards) lines.push(`- ${hazard}`);
   }
   return lines.join('\n');
 }
 
-function main(argv) {
-  const json = argv.includes('--json');
-  const file = argv.find((argument) => !argument.startsWith('--'));
-  if (!file) {
-    console.error('Usage: node scripts/quality/godsplit-plan.mjs <file> [--json]');
+function usageText() {
+  return [
+    'God-file seam planner.',
+    '',
+    'Usage:',
+    '  node scripts/quality/godsplit-plan.mjs <file> [--json]',
+    '',
+    'Options:',
+    '  --json         Print the full plan as one machine-readable JSON object',
+    '  --help, -h     Print this usage and exit 0',
+    '',
+    'Exit codes: 0 plan printed; 2 unreadable/unsupported input or bad usage.',
+  ].join('\n');
+}
+
+/**
+ * Parse CLI arguments into options. Throws UsageError for invalid input.
+ * @param {string[]} argv
+ */
+export function parseArguments(argv) {
+  const options = { file: null, json: false, help: false };
+  for (const argument of argv) {
+    if (argument === '--help' || argument === '-h') options.help = true;
+    else if (argument === '--json') options.json = true;
+    else if (argument.startsWith('-')) throw new UsageError(`unknown argument: ${argument}`);
+    else if (options.file !== null) throw new UsageError(`unexpected argument: ${argument}`);
+    else options.file = argument;
+  }
+  if (options.help) return options;
+  if (options.file === null) throw new UsageError('missing <file>');
+  return options;
+}
+
+/**
+ * CLI entry point.
+ * @param {string} [cwd]
+ * @param {string[]} [argv]
+ * @returns {number} exit code
+ */
+export function runGodsplitPlan(cwd = process.cwd(), argv = process.argv.slice(2)) {
+  let options;
+  try {
+    options = parseArguments(argv);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`godsplit-plan: ${message}`);
+    console.error(usageText());
     return 2;
+  }
+  if (options.help) {
+    console.log(usageText());
+    return 0;
   }
   let plan;
   try {
-    plan = planGodFile(resolve(file));
+    plan = planGodFile(resolve(cwd, options.file));
   } catch (error) {
-    console.error('godsplit-plan: ' + (error instanceof Error ? error.message : String(error)));
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`godsplit-plan: ${message}`);
     return 2;
   }
   if (plan.unsupported) {
-    console.error('godsplit-plan: ' + plan.hazards[0]);
+    console.error(`godsplit-plan: ${plan.hazards[0]}`);
     return 2;
   }
-  if (json) {
-    console.log(JSON.stringify(plan, null, 2));
-  } else {
-    console.log(formatPlan(plan));
-  }
+  console.log(options.json ? JSON.stringify(plan, null, 2) : formatPlan(plan));
   return 0;
 }
 
-if (process.argv[1] && process.argv[1].endsWith('godsplit-plan.mjs')) {
-  process.exitCode = main(process.argv.slice(2));
+if (isMainModule(import.meta.url)) {
+  process.exitCode = runGodsplitPlan(process.cwd());
 }

@@ -1,0 +1,22 @@
+# Frozen god-file remediation — backlog ledger
+
+The ratchet is monotone non-increasing. Counts are measured from the working
+tree with `node scripts/quality/audit-file-size.mjs --report`; the baseline is
+`.file-size-baseline.json`. The orchestrator prompt's "964" target is stale:
+the campaign checkpoint measured **960** frozen entries and A-04 lowers master
+to **959** (integrated in `517696bd8`, a fast-forward after rebasing the seam
+branch onto master).
+
+Known residual, unrelated to the ratchet: the foundation checkpoint's
+`pnpm-lock.yaml` carries the `packages/automation` importer while that package
+is still untracked in the main checkout, so a clean-checkout frozen install
+needs a maintainer lockfile refresh (the sandboxed session cannot write the
+pnpm store to regenerate it). Do not hand-edit the lockfile.
+
+| timestamp | batch | entry_id | path | frozen_lines | current_lines | seam_status | worktree | commit | frozen_count_after | notes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-28T11:38:26-07:00 | A | A-08 | packages/engine/src/replay-fill.test.ts | 2269 | 0 (deleted) | done | main | 35b9fceb3 (foundation) | 960 | Split pre-existed this session and is committed in the foundation checkpoint: the tracked file is deleted, 11 replacement suites plus a shared helper replace it, and the baseline entry is absent. |
+| 2026-10-28T12:00:00-07:00 | — | FND-01 | scripts/quality/, .file-size-baseline.json, docs/quality/, docs/agents/, .ai/ | — | — | committed | main | 35b9fceb3 | 960 | Campaign foundation checkpoint: file-size guard + 960-entry baseline, IPC guard, validation queue, path claims, worktree tooling, visual-baseline audits, agent-map generator, seam tooling (godsplit-plan, refactor-verify), remediation docs + policy indexes, .ai surface, NEXT-PROMPT template, Varve adapter. 146 files; unrelated session WIP excluded. |
+| 2026-10-28T12:00:00-07:00 | — | GATE-01 | tests/e2e/canvas/modal-viewports.spec.ts | — | 292 | committed | main | a3776c2ba | 960 | The 599-line spec committed just after the baseline snapshot was split into modal-viewports.spec.ts (292), modal-workbench-switchers.spec.ts (239) and modal-viewports.helpers.ts (86); 48 Playwright test instances (16 x 3 projects) preserved, e2e typecheck and biome pass. This removed the only tracked gate violation so the ratchet is enforceable from a fresh worktree. The A-04 branch carried an equivalent prerequisite commit (8c3b640fe); it was skipped as already-applied during the integration rebase. |
+| 2026-10-28T12:18:06-07:00 | A | A-04 | packages/editor/src/panels/IntelligencePanel.tsx | 3191 | 172 | merged | .worktrees/A-04 (cleaned) | 517696bd8 (master) | 959 | One destination-directory seam: 40 top-level declarations extracted to packages/editor/src/panels/intelligence/ (23 modules, all <= 400; largest 384), parent is a 172-line tab router, only IntelligencePanel still exported. Sub-splits: ReviewTab 446 -> ReviewTab 348 + ReviewSummary 182; SimilarTab 503 -> similar/SimilarTab 212 + useSimilarSearch 384 + similarTypes 69; auditPool moved to a leaf module; inspector.css import stays in the parent. Proof: refactor-verify 40/40 preserved (43 found), 9/9 covering tests before and after (same names), editor tsc exit 0, biome clean, audit-health pass, agent map matches committed tree. Baseline diff: added 0, grown 0, removed 1, lowered 1 (pre-existing shrink-only lib.rs 7377 -> 7376 stale ceiling), 960 -> 959. Integration: branch commit 04612e194 was rebased onto master (517696bd8, duplicated prerequisite dropped) and fast-forwarded; seam documents and this ledger row follow in the integration commit. An independent parallel implementation (branch seam/A/A-04-intelligence-panel, commit bdc9af6cc) was also green (172-line parent, 23 modules, largest 333, 9/9 tests) and was validated but not merged; it is removed as duplicate work. |
+| 2026-10-28T12:31:00-07:00 | — | INT-01 | templates/NEXT-PROMPT.md, remediation/prompts/, scripts/quality/godsplit-plan.mjs, scripts/quality/refactor-verify.mjs, remediation/A-04/ | — | — | committed | main | integration follow-up commit (master HEAD) | 959 | Adopt the repo-native remediation prompts (01-04 + adapter), the deterministic NEXT-PROMPT template, and the hardened declaration planner/verifier (22 tests) after independent review; record the A-04 RESEARCH / GAP_ANALYSIS / SEAM_SPEC under remediation/A-04/. Regenerates the agent map for the added paths. |
