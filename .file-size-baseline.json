@@ -25,7 +25,6 @@
     "crates/varve-bgremove/src/model.rs": 676,
     "crates/varve-bgremove/src/session_pool.rs": 580,
     "crates/varve-bridge/src/lib.rs": 1113,
-    "crates/varve-bridge/tests/wgsl_validation.rs": 2696,
     "crates/varve-colour/src/conversions.rs": 1011,
     "crates/varve-colour/src/lib.rs": 576,
     "crates/varve-colour/src/profiles.rs": 601,

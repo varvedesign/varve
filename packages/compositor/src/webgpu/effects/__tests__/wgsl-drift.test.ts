@@ -2,11 +2,11 @@
 
 /**
  * Drift guard for the live-effects WGSL kernels: the naga-validated mirrors
- * in `crates/varve-bridge/tests/wgsl_validation.rs` must match the
+ * in `crates/varve-bridge/tests/wgsl_validation/` must match the
  * TypeScript kernel sources. Regenerate with:
  *   node packages/compositor/scripts/gen-wgsl-mirrors.mjs
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -21,15 +21,23 @@ import { RGB_SPLIT_KERNEL } from '../kernels/rgbSplit';
 import { VHS_KERNEL } from '../kernels/vhs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const rustPath = join(here, '../../../../../../crates/varve-bridge/tests/wgsl_validation.rs');
+const rustDir = join(here, '../../../../../../crates/varve-bridge/tests/wgsl_validation');
+
+function readRustMirrors(): string {
+  return readdirSync(rustDir)
+    .filter((file) => file.endsWith('.rs'))
+    .sort()
+    .map((file) => readFileSync(join(rustDir, file), 'utf8'))
+    .join('\n');
+}
 
 function extractRustWgsl(src: string, constName: string): string {
   const marker = `const ${constName}: &str = r#"`;
   const start = src.indexOf(marker);
-  if (start < 0) throw new Error(`missing ${constName} in wgsl_validation.rs`);
+  if (start < 0) throw new Error(`missing ${constName} in the wgsl_validation modules`);
   const bodyStart = start + marker.length;
   const end = src.indexOf('"#;', bodyStart);
-  if (end < 0) throw new Error(`unclosed ${constName} in wgsl_validation.rs`);
+  if (end < 0) throw new Error(`unclosed ${constName} in the wgsl_validation modules`);
   return src.slice(bodyStart, end);
 }
 
@@ -50,7 +58,7 @@ const KERNELS: Array<{ id: string; wgsl: string }> = [
 ];
 
 describe('effect kernel WGSL drift guard', () => {
-  const rust = readFileSync(rustPath, 'utf8');
+  const rust = readRustMirrors();
 
   for (const kernel of KERNELS) {
     const constName = `${kernel.id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_WGSL`;
