@@ -163,19 +163,43 @@ Effect Studio uses, so the two surfaces read identically:
   window size. Nothing clamps one axis after the fact — a height-only clamp is
   what used to squash any source on a window shorter than about 966 px.
   The stage is drawn as a recessed well so an aspect that does not fill it
-  reads as letterboxing rather than as unused dialog. The height resolves from
-  the preview column (`flex: 1 1 0`), which the grid stretches to the row the
-  settings column determines — never from the bitmap, so the fit measurement
-  keeps its definite box — with `min(58vh, 560px)` as the floor, so the stage
-  only ever grows past what it used to be (560 px to 691 px at 1919×1014 when
-  the settings leave room), never shrinks.
+  reads as letterboxing rather than as unused dialog. The stage's height is
+  whatever the preview column has left after its toolbar and footer
+  (`flex: 1 1 0`, floor `10rem`), and the column is bounded by the dialog — see
+  the next bullet — so it never resolves from the bitmap and the fit
+  measurement keeps its definite box.
+- **The workbench is bounded, so the preview is never cut off.** The dialog has
+  a definite window-derived height and its shared body is a one-row grid whose
+  row is exactly the visible body height, so the preview column (stage, hint,
+  navigator, Inspect region) is always entirely on screen. When the settings do
+  not fit, the **settings column is the one scroller** and the preview stays put
+  — a setting can be changed and its effect watched in the same glance. Edge
+  shadows appear only over content that is actually hidden. At full-HD nothing
+  scrolls at all. Below 860 px wide or 520 px tall two bounded panes no longer
+  fit, so they stack and the shared body becomes the single scroller (the stage
+  takes a definite `clamp(14rem, 55vh, 32rem)` height there). The earlier
+  content-derived height let the preview grow to the settings column's height
+  and slide under the dialog footer on any window shorter than the settings
+  (hint and Inspect region unreachable at 1918×729).
+- **Geometry does not move while a preview regenerates.** The stage's reference
+  size comes from the preview *region* and scale, never from whether the pixels
+  have arrived (the earlier whole-source fallback resized the stage twice per
+  change and re-centred a zoomed pan). A queued request reports "Generating
+  preview…" from the moment its inputs change — through the 250 ms debounce too
+  — so the pending notice never claims "No processed preview yet" for a preview
+  that was requested, not failed. "Generating preview…" is a badge over the
+  stage, not a row beneath it, so it costs the stage no height.
 - **Inspect region** sits on the hint line under the stage, beside a navigator
   of the whole source with the computed window over it, rather than occupying
   its own row above the stage — where it read as an unexplained keypad and cost
   a screen-line of modal height.
-- At 100% and 200% the stage pans by scrolling (pointer, wheel, or arrow keys
-  once focused) and Center restores the origin. Pointer drag stays reserved for
-  the before/after split, which is the established Enhance gesture.
+- At 100% and 200% the stage keeps its size and the bitmap pans *inside* it
+  (drag, wheel, scrollbars, or arrow keys once focused); a surface smaller than
+  the stage is centred, and Center restores the origin. Dragging pans in Before
+  and After (`usePanOnDrag`, so the grab cursor is honest); while comparing,
+  drag stays reserved for the before/after split, which is the established
+  Enhance gesture, and the wheel, scrollbars and keys pan instead. A change to a
+  setting that does not alter the geometry leaves the pan where it was.
 - A failed preview sets a visible error with **Retry preview** rather than
   logging to the console and leaving a stale frame.
 

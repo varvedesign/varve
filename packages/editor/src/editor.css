@@ -3793,7 +3793,9 @@ dialog.varve-dialog--settings[open] {
 .settings-dialog__nav {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  /* No gap: a gap is height that cannot shrink, and 17 sections need every
+   * pixel of row height to be flexible (see .settings-dialog__tab). */
+  gap: 0;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -3802,11 +3804,18 @@ dialog.varve-dialog--settings[open] {
   padding: var(--space-panel-compact);
 }
 .settings-dialog__tab {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
-  flex-shrink: 0;
-  min-height: 32px;
-  padding: var(--space-menu-item) var(--space-3);
+  /* 17 sections at a fixed 32px row plus gap want ~610px; the nav is never
+   * taller than ~570px (the dialog caps at 760px), so at every window height it
+   * grew a second scrollbar beside the content's, against the dialog's own
+   * "only the content scrolls" contract. Rows start at 36px and shrink toward
+   * 26px (above the 24px WCAG 2.5.8 target) to fit whatever the nav has, so
+   * there is neither a clipped last row nor dead space beneath it. */
+  flex: 0 1 36px;
+  min-height: 26px;
+  padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-control);
   background: transparent;
@@ -3887,6 +3896,17 @@ dialog.varve-dialog--settings[open] {
   border: var(--border-micro);
   border-radius: var(--radius-control);
   padding: var(--space-panel);
+}
+/* Short-window density. Declared AFTER the base rule: at equal specificity the
+ * later rule wins, and an earlier copy of this override silently never applied.
+ * The dialog height is window-derived, so a viewport media query is the right
+ * trigger. The card's padding and row gaps were the 16-34px by which Appearance
+ * and Export overflowed, giving them a scrollbar that revealed only spacing. */
+@media (max-height: 800px) {
+  .settings-section {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
 }
 .settings-section__title {
   margin: 0;
@@ -4061,14 +4081,37 @@ dialog.varve-dialog--settings[open] {
   gap: var(--space-3);
 }
 .settings-field-row__label {
-  min-width: var(--settings-label-column);
+  /* A fixed column, not a minimum. `min-width` let a label wider than the
+   * column ("Canvas background", "Autosave interval (min)") grow its own row's
+   * column and push that row's control 20-40px right of every other control;
+   * the hints, which indent by this same width, then no longer lined up either.
+   * A long label wraps inside the column instead. */
+  flex: 0 0 var(--settings-label-column);
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  flex-shrink: 0;
 }
 .settings-field-row__control {
   flex: 1;
   min-width: 0;
+}
+/* Rows with a swatch beside an action were laid out as inline content in a
+ * block, so the swatch (an inline-block) and the Reset button aligned on text
+ * baselines and sat at different heights. */
+.settings-field-row__control:has(> .settings-color-swatch) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* A numeric field is a short value, not a text box: it starts on the same
+ * edge as the selects above it and stops at a width that suits a number,
+ * instead of taking the browser's default input width. */
+.settings-field-row__control > .varve-number-input {
+  inline-size: min(100%, 10rem);
+  box-sizing: border-box;
+  /* Same height as the selects it sits under (it was the compact 28px). */
+  min-height: var(--component-default-height);
 }
 /* At enlarged text sizes, the fixed label column can consume nearly all of a
    compact settings pane and leave selects too narrow to use. Query the actual
@@ -4136,9 +4179,11 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-primary);
 }
 .settings-color-swatch {
-  width: var(--space-5);
+  /* A swatch is a square. It was 20x24 (width from a spacing token, height from
+   * a control-height token), which drew as a tall oval beside the Reset button. */
+  width: var(--component-xs-height);
   height: var(--component-xs-height);
-  min-width: var(--space-5);
+  min-width: var(--component-xs-height);
   min-height: var(--component-xs-height);
   border-radius: var(--radius-control);
   border: var(--border-micro);

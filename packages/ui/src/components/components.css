@@ -1336,6 +1336,18 @@
  */
 .varve-segmented {
   display: inline-flex;
+  /* Hug the segments, in every parent. An `inline-flex` box with `width: auto`
+   * is blockified to a flex/grid item when its parent is a flex column or a
+   * grid, and then STRETCHES across the whole container: a 1090px track under
+   * four segments that hug its left edge, which reads as an uneven, broken
+   * control. An explicit width is not stretched. `max-width` plus wrap keeps
+   * every option reachable in a narrow rail instead of clipping the overflow
+   * (2026-09-20 review). Hosts that want a full-width equal-segment track opt
+   * in with `.varve-segmented--distribute` or their own width. */
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
   gap: var(--space-05);
   padding: var(--space-05);
   background: var(--color-surface-sunken);
@@ -2191,6 +2203,19 @@
 .varve-slider--lg {
   --varve-native-range-track: 8px;
   --varve-native-range-thumb: 24px;
+}
+/* Compact density: label beside the range, one thumb-height (24px) row per
+ * slider instead of a legend row plus a range row. */
+.varve-slider--compact {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 40%) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-2);
+}
+.varve-slider--compact .varve-slider__legend {
+  margin: 0;
+  line-height: var(--font-line-label);
+  overflow-wrap: anywhere;
 }
 .varve-slider__value {
   min-width: var(--space-8);

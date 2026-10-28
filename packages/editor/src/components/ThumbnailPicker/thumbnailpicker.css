@@ -8,6 +8,11 @@
 .thumbnail-picker__preview {
   position: relative;
   aspect-ratio: 4 / 3;
+  /* Never taller than the window can spare: the source list and linked-hint
+     below it are what the user is choosing between, and a full 4:3 preview at
+     the dialog's width pushed them under the fold on a short window. */
+  max-height: min(40vh, 22rem);
+  width: 100%;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control, 6px);
   overflow: hidden;
@@ -120,10 +125,10 @@
 
 .thumbnail-picker__footer {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3);
-  border-top: 1px solid var(--color-border-subtle);
+  min-width: 0;
 }
 
 .thumbnail-picker__footer-spacer {

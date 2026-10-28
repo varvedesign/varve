@@ -24,8 +24,10 @@ import {
 } from '@varve/scene';
 import { Button, Checkbox, SegmentedControl, Select, Slider, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getDesktopAnalytics } from '../../analytics/desktopAnalytics';
 import { useEditor } from '../../context';
+import { usePanOnDrag } from '../../hooks/usePanOnDrag';
 import { insertTraceGroup, replaceTraceGroup } from '../../imageOperations';
 import {
   buildTraceMetadata,
@@ -141,6 +143,25 @@ export interface VectorizeWorkflowProps {
    * instead of inserting a new one beside the source.
    */
   replaceGroupId?: string | null;
+  /**
+   * Called once Apply has inserted (or replaced) the trace. A modal host closes
+   * itself here: Apply selects the new group, so without this the workflow
+   * would fall through to its "select an image layer" empty state inside a
+   * dialog that is still open.
+   */
+  onApplied?: () => void;
+  /**
+   * When provided, Cancel leaves the host (closes the dialog) instead of only
+   * resetting the preview. Inside a modal "Cancel" has to cancel the modal.
+   */
+  onCancel?: () => void;
+  /**
+   * Where to render the Apply / Cancel row. A modal host passes its sticky
+   * footer element so the primary action is never scrolled out of reach;
+   * `null` means the host has not mounted that slot yet (render nothing for
+   * now), and `undefined` keeps the row inline for panel hosts.
+   */
+  actionsContainer?: HTMLElement | null;
 }
 
 /** The selected node when it is exactly one image-filled shape. */
@@ -153,14 +174,19 @@ function selectedImageNode(
   return node && node.kind === 'shape' && isImageShape(node) ? node : null;
 }
 
+// Compact sliders: this column carries up to ten, and the stacked default costs
+// ~63px each, which is what pushed the settings past the window in the modal.
 function sliderProps(label: string, value: number, min: number, max: number, step = 1) {
-  return { label, value, min, max, step };
+  return { label, value, min, max, step, size: 'sm', density: 'compact' } as const;
 }
 
 export function VectorizeWorkflow({
   emptyStateNote,
   initialSettings,
   replaceGroupId,
+  onApplied,
+  onCancel,
+  actionsContainer,
 }: VectorizeWorkflowProps) {
   const editor = useEditor();
   const { document: doc, selection } = editor.state;
@@ -345,6 +371,7 @@ export function VectorizeWorkflow({
         `Inserted ${result.paths.length} vector path${result.paths.length === 1 ? '' : 's'}${holeNote}`,
       );
       getDesktopAnalytics().track('feature_used', { feature: 'image_trace' });
+      onApplied?.();
     } catch (error) {
       if (error instanceof Error && error.message === 'cancelled') {
         editor.announce('Vectorization cancelled');
@@ -355,7 +382,7 @@ export function VectorizeWorkflow({
     } finally {
       setApplying(false);
     }
-  }, [editor, node, settings, replaceGroupId]);
+  }, [editor, node, settings, replaceGroupId, onApplied]);
 
   const cancelPreview = useCallback(() => {
     sessionRef.current?.cancelAll();
@@ -470,6 +497,8 @@ export function VectorizeWorkflow({
   }, [previewOptions.zoom, centerStage]);
 
   const zoomIsFit = previewOptions.zoom === 'fit';
+  // The stage shows a grab cursor at 100%/200%, so a drag has to pan it.
+  const { isPanning, panHandlers } = usePanOnDrag(stageRef, !zoomIsFit);
 
   const controlPanel = (
     <div className="vectorize__settings">
@@ -648,6 +677,16 @@ export function VectorizeWorkflow({
     </div>
   );
 
+  // Where the action row goes. A modal host renders it in its footer; a panel
+  // host keeps it inline. Until a host's slot has mounted there is nothing to
+  // portal into, so nothing renders.
+  const placeActions = (row: React.ReactNode) =>
+    actionsContainer === undefined
+      ? row
+      : actionsContainer
+        ? createPortal(row, actionsContainer)
+        : null;
+
   if (!node) {
     return (
       <div className="vectorize__body">
@@ -655,6 +694,14 @@ export function VectorizeWorkflow({
           {emptyStateNote ??
             'Select an image layer to vectorize it. The result is inserted beside the source as editable paths.'}
         </p>
+        {onCancel &&
+          placeActions(
+            <div className="vectorize__button-row">
+              <Button size="sm" variant="secondary" onClick={onCancel}>
+                Close
+              </Button>
+            </div>,
+          )}
       </div>
     );
   }
@@ -711,8 +758,9 @@ export function VectorizeWorkflow({
 
       <section
         ref={stageRef}
-        className="vectorize__preview"
+        className={`vectorize__preview${isPanning ? ' vectorize__preview--panning' : ''}`}
         data-zoom={zoomIsFit ? 'fit' : String(previewOptions.zoom)}
+        {...panHandlers}
         aria-label={
           preview.status === 'ready' && diagnostics
             ? `Vectorization preview: ${diagnostics.pathCount} path${diagnostics.pathCount === 1 ? '' : 's'}, ${diagnostics.pointCount} points`
@@ -826,42 +874,44 @@ export function VectorizeWorkflow({
         )}
       </div>
 
-      <div className="vectorize__button-row">
-        <Tooltip
-          label="Insert the traced paths beside the source (undoable)"
-          disabledReason={
-            preview.status !== 'ready'
-              ? 'Run a preview first'
-              : centerlineUnavailable
-                ? 'Centerline tracing is unavailable on this platform'
-                : undefined
-          }
-        >
+      {placeActions(
+        <div className="vectorize__button-row">
+          <Tooltip
+            label="Insert the traced paths beside the source (undoable)"
+            disabledReason={
+              preview.status !== 'ready'
+                ? 'Run a preview first'
+                : centerlineUnavailable
+                  ? 'Centerline tracing is unavailable on this platform'
+                  : undefined
+            }
+          >
+            <Button
+              size="sm"
+              loading={applying}
+              disabled={
+                preview.status !== 'ready' ||
+                applying ||
+                validation.warnings.length > 0 ||
+                (settings.traceMode === 'centerline' && centerlineUnavailable)
+              }
+              onClick={() => void apply()}
+            >
+              {applying && traceProgress !== null
+                ? `Apply trace ${Math.round(traceProgress * 100)}%`
+                : 'Apply trace'}
+            </Button>
+          </Tooltip>
           <Button
             size="sm"
-            loading={applying}
-            disabled={
-              preview.status !== 'ready' ||
-              applying ||
-              validation.warnings.length > 0 ||
-              (settings.traceMode === 'centerline' && centerlineUnavailable)
-            }
-            onClick={() => void apply()}
+            variant="secondary"
+            disabled={onCancel ? applying : preview.status === 'idle'}
+            onClick={onCancel ?? cancelPreview}
           >
-            {applying && traceProgress !== null
-              ? `Apply trace ${Math.round(traceProgress * 100)}%`
-              : 'Apply trace'}
+            Cancel
           </Button>
-        </Tooltip>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={preview.status === 'idle'}
-          onClick={cancelPreview}
-        >
-          Cancel
-        </Button>
-      </div>
+        </div>,
+      )}
       <p className="vectorize__muted vectorize__source-note">
         {sourceIsLarge
           ? 'Large source — final trace may take a moment.'

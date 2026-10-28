@@ -73,6 +73,15 @@ canonical 6/18. On coarse pointers the input's hit band rises to 44px while the
 visual track stays the same. The thumb never drops below the 24×24 WCAG 2.5.8
 target measured on the input box, which is the full row height.
 
+`Slider`'s `density="compact"` puts the label beside the range on a single
+thumb-height (24px) row instead of a legend row above a range row, so the same
+control costs ~32px including its gap instead of ~63px. It exists for settings
+columns inside a bounded dialog (Vectorize carries up to ten), where the stacked
+default is what pushed the column past the window and forced an inner
+scrollbar. A rendered `<legend>` cannot share a row with its control, so compact
+renders a named group (`role="group"` + `aria-labelledby`) over a two-column
+grid; the range is named by the same label either way. Pair it with `size="sm"`.
+
 ## Forced colors
 
 Under `forced-colors: active` (Windows Contrast Themes) the skin switches to

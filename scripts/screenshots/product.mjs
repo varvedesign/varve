@@ -1590,7 +1590,8 @@ const SCENES = [
       await openCleanEditor(page);
       // The default Dialog caps at 42rem even in a taller viewport. This
       // rights-cleared 16:9 photograph keeps the genuine warning, complete
-      // preview, diagnostics, and Apply/Cancel row in its bounded body.
+      // preview and diagnostics in the bounded preview column, with
+      // Apply/Cancel in the dialog footer.
       // Source/license/hash: tests/e2e/fixtures/PROVENANCE.md.
       await importImage(page, '../../../tests/e2e/fixtures/real-life-noaa-deepwater.jpg');
       await selectImageNode(page);
@@ -1622,25 +1623,11 @@ const SCENES = [
       // only render with a settled result instead of a fixed delay, so the
       // capture never shows the previous mode's (or an empty) preview.
       await dialog.locator('.vectorize__diagnostics').waitFor({ state: 'visible', timeout: 30000 });
-      // Frame the actual complexity warning and bounded result together.
-      // Scrolling only the preview previously left the warning's final word
-      // clipped below the sticky heading. Never hide a warning for a capture.
-      const warning = dialog.getByRole('alert').filter({ hasText: /extremely complex/i });
+      // The preview column is bounded to the dialog, so the warning, the
+      // complete preview and the diagnostics are on screen together without any
+      // scrolling, and Apply/Cancel live in the sticky footer. Never hide a
+      // warning for a capture: assert it is visible and in frame below.
       await expect(warning).toBeVisible();
-      await warning.evaluate((element) => {
-        const body = element.closest('.varve-dialog__body');
-        const actions = body?.querySelector('.vectorize__button-row');
-        if (!body || !actions) throw new Error('Vectorize dialog has no bounded result body');
-        const bodyRect = body.getBoundingClientRect();
-        const warningRect = element.getBoundingClientRect();
-        const actionsRect = actions.getBoundingClientRect();
-        const firstScroll = body.scrollTop + actionsRect.bottom - bodyRect.bottom + 4;
-        const lastScroll = body.scrollTop + warningRect.top - bodyRect.top - 4;
-        if (firstScroll > lastScroll) {
-          throw new Error('Vectorize warning and Apply/Cancel row cannot fit together');
-        }
-        body.scrollTop = Math.max(0, firstScroll);
-      });
       await page.waitForTimeout(400);
       for (const element of [
         warning,

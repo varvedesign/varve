@@ -16,11 +16,15 @@
  *   restoration pipeline produced.
  * - Both comparison sides share one measured box, so a split at any zoom still
  *   lines up with the pixels it is revealing.
- * - At 100% and 200% the stage pans by scrolling (pointer, wheel, or arrow
- *   keys once focused); **Center** restores the inspection origin.
- * - Dragging the image moves the before/after split — the established
- *   Enhance gesture — so panning deliberately uses the scroll container
- *   rather than stealing that gesture.
+ * - The stage has a fixed size at every zoom: it is bounded by the dialog, so
+ *   a zoomed bitmap pans *inside* it and never grows the dialog or pushes the
+ *   controls under the fold.
+ * - At 100% and 200% the stage pans by dragging (Before and After), the wheel,
+ *   scrollbars, or arrow keys once focused; **Center** restores the inspection
+ *   origin.
+ * - While comparing, dragging the image moves the before/after split — the
+ *   established Enhance gesture — so panning there uses the wheel, scrollbars
+ *   and arrow keys instead of stealing that gesture.
  * - The view mode is the *user's intent*, kept separate from what currently
  *   has pixels: After and Compare stay selectable while a preview is
  *   generating or failed so that notice is reachable, and only a missing
@@ -33,7 +37,15 @@
  *   stays a visible, retryable error instead of a console-only one.
  */
 import { Button, SegmentedControl, Select } from '@varve/ui';
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { usePanOnDrag } from '../../hooks/usePanOnDrag';
 import { regionKey, regionOptions } from './previewRegions';
 
 /**
@@ -145,6 +157,14 @@ export function UpscalePreviewPanel({
     PREVIEW_FIT_BOUNDS,
   );
 
+  // Read the stage before the first paint so the first frame is already sized
+  // from the real box rather than from PREVIEW_FIT_BOUNDS and then corrected.
+  useLayoutEffect(() => {
+    const el = viewportRef.current;
+    if (!el || el.clientWidth <= 0 || el.clientHeight <= 0) return;
+    setAvailableBox({ width: el.clientWidth, height: el.clientHeight });
+  }, []);
+
   useEffect(() => {
     const el = viewportRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -210,6 +230,13 @@ export function UpscalePreviewPanel({
     setIsDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
   }, []);
+
+  // Pan by dragging, in every zoomed view except the comparison (where a drag
+  // is the split). The scroll container is the single source of pan state, so
+  // wheel, scrollbars, arrow keys and drag can never disagree about where the
+  // view is.
+  const comparing = activeView === 'compare' && canRenderAfter;
+  const { isPanning, panHandlers } = usePanOnDrag(viewportRef, zoom !== 'fit' && !comparing);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -322,128 +349,151 @@ export function UpscalePreviewPanel({
         </div>
       </div>
 
-      <section
-        ref={viewportRef}
-        className={`upscale-preview__viewport ${zoom !== 'fit' ? 'upscale-preview__viewport--zoomed' : ''}`}
-        data-zoom={zoom}
-        aria-label="Preview viewport"
-        tabIndex={zoom === 'fit' ? -1 : 0}
-      >
-        <div
-          ref={imageRef}
-          className={surfaceBoxClass}
-          style={surfaceStyle}
-          onPointerDown={activeView === 'compare' && canRenderAfter ? handlePointerDown : undefined}
-          onPointerMove={activeView === 'compare' && canRenderAfter ? handlePointerMove : undefined}
-          onPointerUp={activeView === 'compare' && canRenderAfter ? handlePointerUp : undefined}
-          onPointerCancel={activeView === 'compare' && canRenderAfter ? handlePointerUp : undefined}
+      <div className="upscale-preview__stage">
+        <section
+          ref={viewportRef}
+          className={[
+            'upscale-preview__viewport',
+            zoom !== 'fit' ? 'upscale-preview__viewport--zoomed' : '',
+            isPanning ? 'upscale-preview__viewport--panning' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          data-zoom={zoom}
+          aria-label="Preview viewport"
+          tabIndex={zoom === 'fit' ? -1 : 0}
+          {...panHandlers}
         >
-          {canRenderBefore && (
-            <img
-              src={baselineUrl ?? (sourceDataUrl || undefined)}
-              alt="Original preview — same crop as enhanced output"
-              className="upscale-preview__image upscale-preview__image--original"
-              style={{ width: '100%', height: '100%', imageRendering: rendering }}
-            />
-          )}
+          <div
+            ref={imageRef}
+            className={surfaceBoxClass}
+            style={surfaceStyle}
+            onPointerDown={
+              activeView === 'compare' && canRenderAfter ? handlePointerDown : undefined
+            }
+            onPointerMove={
+              activeView === 'compare' && canRenderAfter ? handlePointerMove : undefined
+            }
+            onPointerUp={activeView === 'compare' && canRenderAfter ? handlePointerUp : undefined}
+            onPointerCancel={
+              activeView === 'compare' && canRenderAfter ? handlePointerUp : undefined
+            }
+          >
+            {canRenderBefore && (
+              <img
+                src={baselineUrl ?? (sourceDataUrl || undefined)}
+                alt="Original preview — same crop as enhanced output"
+                className="upscale-preview__image upscale-preview__image--original"
+                style={{ width: '100%', height: '100%', imageRendering: rendering }}
+              />
+            )}
 
-          {/* The result side is driven by the user's intent, not by what is
+            {/* The result side is driven by the user's intent, not by what is
               renderable, so the pending/failed notice is reachable. Before a
               preview lands there are no processed pixels to paint — the notice
               stands in for them, it is never labelled as processed output. */}
-          {view !== 'before' &&
-            (canRenderAfter ? (
-              <div
-                className="upscale-preview__overlay"
-                style={{
-                  clipPath: view === 'compare' ? `inset(0 0 0 ${split}%)` : undefined,
-                  display: view === 'compare' ? undefined : 'block',
-                }}
-              >
-                <img
-                  src={enhancedUrl ?? undefined}
-                  alt="Enhanced preview — same crop and output size as original"
-                  className="upscale-preview__image upscale-preview__image--upscaled"
+            {view !== 'before' &&
+              (canRenderAfter ? (
+                <div
+                  className="upscale-preview__overlay"
                   style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'fill',
-                    imageRendering: rendering,
+                    clipPath: view === 'compare' ? `inset(0 0 0 ${split}%)` : undefined,
+                    display: view === 'compare' ? undefined : 'block',
                   }}
-                />
-              </div>
-            ) : previewGenerating ? null : (
-              /* While generating, the message lives only in the live status
-               * row below the stage: showing it here as well would print the
-               * same words twice for anyone reading the screen. */
-              <div className="upscale-preview__pending">
-                {previewError ? (
-                  <span className="upscale-preview__pending-error">Preview failed</span>
-                ) : (
-                  'No processed preview yet'
-                )}
-              </div>
-            ))}
+                >
+                  <img
+                    src={enhancedUrl ?? undefined}
+                    alt="Enhanced preview — same crop and output size as original"
+                    className="upscale-preview__image upscale-preview__image--upscaled"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'fill',
+                      imageRendering: rendering,
+                    }}
+                  />
+                </div>
+              ) : previewGenerating ? null : (
+                /* While generating, the message lives only in the live status
+                 * row below the stage: showing it here as well would print the
+                 * same words twice for anyone reading the screen. */
+                <div className="upscale-preview__pending">
+                  {previewError ? (
+                    <span className="upscale-preview__pending-error">Preview failed</span>
+                  ) : (
+                    'No processed preview yet'
+                  )}
+                </div>
+              ))}
 
-          {view === 'compare' && canRenderAfter && (
-            <div
-              className="upscale-preview__slider"
-              role="slider"
-              aria-label="Before / after comparison"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(split)}
-              aria-valuetext={`${Math.round(split)}% enhanced`}
-              tabIndex={0}
-              style={
-                {
-                  '--upscale-slider-position': `${split}%`,
-                } as CSSProperties & { '--upscale-slider-position': string }
-              }
-              onKeyDown={handleSplitKeyDown}
-            >
-              <div className="upscale-preview__slider-line" />
+            {view === 'compare' && canRenderAfter && (
               <div
-                className={`upscale-preview__slider-handle ${
-                  split <= 0
-                    ? 'upscale-preview__slider-handle--start'
-                    : split >= 100
-                      ? 'upscale-preview__slider-handle--end'
-                      : ''
-                }`.trim()}
-                aria-hidden="true"
+                className="upscale-preview__slider"
+                role="slider"
+                aria-label="Before / after comparison"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(split)}
+                aria-valuetext={`${Math.round(split)}% enhanced`}
+                tabIndex={0}
+                style={
+                  {
+                    '--upscale-slider-position': `${split}%`,
+                  } as CSSProperties & { '--upscale-slider-position': string }
+                }
+                onKeyDown={handleSplitKeyDown}
               >
-                <span aria-hidden="true">&lt;-&gt;</span>
+                <div className="upscale-preview__slider-line" />
+                <div
+                  className={`upscale-preview__slider-handle ${
+                    split <= 0
+                      ? 'upscale-preview__slider-handle--start'
+                      : split >= 100
+                        ? 'upscale-preview__slider-handle--end'
+                        : ''
+                  }`.trim()}
+                  aria-hidden="true"
+                >
+                  <span aria-hidden="true">&lt;-&gt;</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Both sides are labelled while both are on screen. A side with no
+            {/* Both sides are labelled while both are on screen. A side with no
               processed pixels gets the pending notice instead, so a label never
               claims a result that is not there. */}
-          {view !== 'after' && canRenderBefore && (
-            <span className="upscale-preview__label upscale-preview__label--before">Original</span>
-          )}
-          {view !== 'before' && canRenderAfter && (
-            <span className="upscale-preview__label upscale-preview__label--after">
-              {afterLabel}
-            </span>
-          )}
+            {view !== 'after' && canRenderBefore && (
+              <span className="upscale-preview__label upscale-preview__label--before">
+                Original
+              </span>
+            )}
+            {view !== 'before' && canRenderAfter && (
+              <span className="upscale-preview__label upscale-preview__label--after">
+                {afterLabel}
+              </span>
+            )}
 
-          {view !== 'before' && aiHint && !enhancedUrl && (
-            <p className="upscale-preview__ai-hint">{aiHint}</p>
-          )}
-        </div>
-      </section>
+            {view !== 'before' && aiHint && !enhancedUrl && (
+              <p className="upscale-preview__ai-hint">{aiHint}</p>
+            )}
+          </div>
+        </section>
 
-      {/* One live region for preview state at a time: the stage's pending
+        {/* One live region for preview state at a time: the stage's pending
           notice is presentational, and either the progress line or the error
-          below is announced, never both competing for the same event. */}
-      {previewGenerating && (
-        <div className="upscale-preview__status-row" role="status" aria-live="polite">
-          <p className="upscale-preview__hint">Generating preview…</p>
-        </div>
-      )}
+          below is announced, never both competing for the same event. The
+          progress line is a badge over the stage, not a row under it, so
+          generating never changes how much height the stage has. */}
+        {previewGenerating && (
+          <div
+            className="upscale-preview__status-row upscale-preview__status-row--busy"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="upscale-preview__hint">Generating preview…</p>
+          </div>
+        )}
+      </div>
 
       {previewError && (
         <div className="upscale-preview__status-row">
@@ -470,7 +520,7 @@ export function UpscalePreviewPanel({
             ? `Drag to compare. 100% shows whether the detail differs. ${outputNote}`
             : zoom === 'fit'
               ? `Fit view. ${outputNote}`
-              : `${zoom} pixel view — scroll or use arrow keys to pan; Center recentres. ${outputNote}`}
+              : `${zoom} pixel view — drag, scroll or use arrow keys to pan; Center recentres. ${outputNote}`}
         </p>
         <div className="upscale-preview__region-group">
           {showNavigator && windowStyle && (

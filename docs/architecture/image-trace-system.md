@@ -60,19 +60,35 @@ each grid area names exactly one child (two elements assigned one area occupy
 the same cell and overlap), and the dialog is given an explicit workbench width
 so the columns have room rather than overflowing a narrow modal.
 
-**Sized to its content, clamped only by the window.** The dialog uses
-`height: min-content` with `max-height: calc(100dvh - 3rem)`, so the modal grows
-to hold every control and nothing scrolls at all when the window has room.
-That is the case it shipped broken in: a `46rem` cap left the settings column
-32px short on a 1014px window while 139px of window sat unused below it, so the
-last controls looked cut off even though the content fit. The settings column is
-`overflow: visible` and never owns a scrollbar — an inner column scroller is
-what makes content read as severed rather than as a panel. When a window is
-genuinely too short for the workbench, the dialog's body is the single scroller
-(`overflow-y: auto`) and moves as a whole.
+**A bounded workbench, with Apply in the footer.** On a window wide and tall
+enough for two columns the dialog has a definite window-derived height
+(`min(100dvh - 1.5rem, 56rem)`) and its shared body is a one-row grid whose row
+is exactly the visible body height. The preview column (stage, notices,
+diagnostics) is therefore always whole, and the **settings column is the one
+scroller** when it cannot fit, with edge shadows that show only over hidden
+content; the preview never moves while it scrolls. Nothing scrolls at a window
+that can hold the workbench. The previous `height: min-content` sizing made the
+dialog body the scroller, so on any window shorter than the settings the preview
+scrolled away with them (1918x729: 685px of content in a 623px body). Narrow
+(< 64 rem) or very short (< 32.5 rem) windows fall back to a single scroll flow
+with the preview first.
+
+**Apply and Cancel live in the dialog's sticky footer** (the workflow portals
+its action row into the host's footer slot via `actionsContainer`), so the
+primary action is never something to scroll to. In the modal, **Apply closes the
+dialog** (`onApplied`) — Apply selects the new trace group, which used to drop
+the still-open modal onto its "select an image layer" empty state — and
+**Cancel closes it** (`onCancel`). In the Logo panel, which passes neither,
+Cancel still only resets the preview.
+
+At 100% and 200% the stage keeps its size and the canvas pans inside it
+(`usePanOnDrag`); a trace smaller than the stage is centred by auto margins
+instead of hugging the top-left corner.
 
 `tests/e2e/canvas/image-modal-aspect.spec.ts` holds this across five source
-aspects at two window sizes; `tests/e2e/canvas/image-trace.spec.ts` asserts that
+aspects at two window sizes; `tests/e2e/canvas/modal-viewports.spec.ts` holds the
+short-window contract (1918x729: footer actions, bounded panes, pan, Apply and
+Cancel closing the dialog); `tests/e2e/canvas/image-trace.spec.ts` asserts that
 nothing scrolls at a window large enough to hold the workbench.
 
 ## Source preparation

@@ -265,3 +265,55 @@ class of false pass cannot recur.
   read proved unreliable.
 - Full `pnpm verify:affected --staged` result: recorded in the commit message
   for this change.
+
+## Follow-up 2026-10-28: short windows and the components under the modals
+
+The 2026-10-26 pass was verified at 1919×1014 and 1280×800 and shipped the
+settings column as `overflow: visible`. At the window sizes people actually
+have (1918×729, 1120×776) the same modals were still broken, and most of the
+cause sat below the modals, in shared components.
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Enhance: hint, Inspect region and the Original/Enhanced labels under the footer; preview scrolls away with the settings | Preview column as tall as the settings column; shared body the only scroller | Bounded two-pane workbench: one-row grid whose row is the visible body height, settings column the one scroller when it genuinely cannot fit |
+| Enhance at 200%: stage grew to 1033px, controls off screen; 100% hugged the left edge | `height: auto` zoomed viewport; `display: block` start-aligned | Fixed-size stage, auto-margin centring, `usePanOnDrag` |
+| Every setting change flashed "No processed preview yet", resized the stage four times, re-centred a zoomed pan | Flag raised only when the debounce fired; geometry derived from whether pixels had arrived; status was a row that took stage height | "Generating" from the moment the request is queued; geometry from region and scale; status is a badge over the stage |
+| Vectorize: Apply left the modal open on "Select an image layer…"; Cancel never closed it; Apply sat in a scrolling column | Apply selects the new group; Cancel only reset the preview; actions inline | `onApplied` / `onCancel`; action row portaled into the sticky footer |
+| File Thumbnail: Apply/Cancel below the fold | Action row was the last child of the scrolling body | Dialog `footer` prop |
+| **Switchers stretched across the whole dialog** (1090px track under four segments) | `.varve-segmented` is `inline-flex` with `width: auto`; a flex-column or grid parent blockifies and stretches it. Enhance had hidden this with a local patch | `width: fit-content; max-width: 100%; flex-wrap: wrap` on the base rule; the local patch removed. Runtime scan: 3 stretched switchers before (all Vectorize), 0 after, across the inspector, 6 dialogs, 17 Settings sections and Home |
+| Vectorize settings scrolled at 776px | Stacked slider ≈ 63px × 6, and the range input is a fixed 24px | `Slider density="compact"`: label beside the range, one row. Fits at 1120×776 and 1918×900 |
+| Settings dialog: nav had its own scrollbar, contradicting the dialog's own "only the content scrolls" contract (17 rows × ~34px want ~610px; the nav is never taller than ~570px, so this held at *every* window height, not just short ones); Appearance and Export scrolled by 16–34px of spacing | Fixed row height plus a gap that cannot shrink; card padding | Nav rows are flexible (`flex: 0 1 36px`, min 26px, no gap) so they fit whatever height the nav has with no clipped row and no dead space; short-window (`max-height: 800px`) card padding, declared *after* the base rule (an earlier copy silently never applied) |
+| Settings: "Canvas background" and "Autosave interval (min)" pushed their control 20–40px right of every other control; swatch drawn as a tall oval and sitting on a different baseline from Reset; number field shorter than the selects | `.settings-field-row__label` used `min-width`, so a label wider than the column grew its own row's column; swatch 20×24; swatch and button were inline content in a block | Label column is a real column (`flex: 0 0`, wraps); swatch row is a flex row; swatch is square; number field matches select height and starts on the control edge |
+| Enhance: rows cramped on a tall window with the bottom half of the column empty | I had applied one tight rhythm at every height | Rhythm tiers by window height (compact under 815px, comfortable, roomy from 1000px); Inspect-region label centred on its trigger |
+| Enhance: a Quality toggle that regenerated an identical preview; a disabled Denoise row under Upscale | The dialog always sends explicit strengths, so the engine's policy default is never consulted except for compression clean-up (no model installed) | Not offered when inert (also returns ~170px) |
+| Slider focus-ring / forced-colors lint warnings | High-specificity focus rule declared before the base and forced-colors rules | Reordered; cascade unchanged (asserted by `modal-viewports.spec.ts`) |
+
+**Decisions left for the owner**
+
+1. **Apply closes the Vectorize dialog.** `image-trace.spec.ts` carried the
+   comment "it stays open after Apply for tweaks"; that flow could not work
+   (the selection moves to the new group). Keeping the dialog open would need
+   the source node pinned at open time — a feature, not a fix.
+2. **Vectorize Cancel now closes the dialog.** The old "cancel a finished
+   preview" gesture is gone from the modal (the Logo panel keeps it). There is
+   no Stop control for a long-running preview short of closing.
+3. **Quality policy is hidden, not repaired.** Making Faithful/Balanced do what
+   the label says changes restoration output and belongs with the model-quality
+   work, not here.
+4. **Some overflow is unavoidable on very short windows.** Enhance in Auto fits
+   with no scrolling at 1280×720 and 1919×1014 (screenshots read); below that,
+   and in the stacked fallback under 520px tall, the settings column is the
+   single inner scroller and the preview does not move. The spare height on a
+   tall window is left as space under the last group rather than stretched
+   between groups.
+
+**Not covered.** The sweep reached the dialogs with a menu entry point. Effect
+Studio, Batch Remove Background, HDR merge, Palette preview and Auto Arrange were
+not opened, and the product-screenshot script's Vectorize scenario was edited
+but not run.
+
+**Evidence.** `tests/e2e/canvas/modal-viewports.spec.ts` (short-window
+contract, switchers, nested scrollers, pan, Apply/Cancel, Settings nav) plus the
+existing `image-modal-aspect`, `image-trace`, `image-enhancement`,
+`upscale-dialog-visual` and `settings-dialog` specs. Five baselines were
+regenerated and read (four Enhance, one Settings narrow).

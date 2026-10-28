@@ -54,6 +54,24 @@ describe('Slider', () => {
     expect(screen.getByRole('slider', { name: 'Volume' })).toBeDefined();
   });
 
+  it('names the range from the same label in compact density, as a labelled group', () => {
+    const { container } = render(
+      <Slider
+        value={30}
+        min={0}
+        max={100}
+        label="Threshold"
+        density="compact"
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole('slider', { name: 'Threshold' })).toBeDefined();
+    // A legend cannot share a row with its control, so compact is a named group.
+    expect(screen.getByRole('group', { name: 'Threshold' })).toBeDefined();
+    expect(container.querySelector('fieldset')).toBeNull();
+    expect(container.querySelector('.varve-slider')).toHaveClass('varve-slider--compact');
+  });
+
   it('reports value changes through onChange', () => {
     let val = 50;
     const onChange = (v: number) => {

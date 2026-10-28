@@ -282,6 +282,13 @@ export function UpscaleDialog({
   const selectedUpscaleModeUnavailable = usesUpscale && selectedModeUnavailable;
   const usesDenoise = effectiveOperation === 'denoise' || effectiveOperation === 'restore-upscale';
   const requiresDenoiseModel = usesDenoise && denoiseStrength !== 'none';
+  // The quality policy only picks a default strength when a restoration step is
+  // not given one. This dialog always sends an explicit Denoise or Deblur
+  // strength, so the one step left to consult the policy is compression
+  // clean-up. For every other operation the control changes nothing, so it is
+  // not offered: a control that silently changes nothing reads as broken, and
+  // the row it would occupy is height the settings column does not have.
+  const qualityPolicyApplies = effectiveOperation === 'compression-restoration';
 
   const buildRestorationRequest = useCallback(
     (preview = true): RestorationRequest => {
@@ -482,8 +489,11 @@ export function UpscaleDialog({
       noOpRequested ||
       processing ||
       mode.isAi ||
+      selectedUpscaleModeUnavailable ||
       (operation === 'auto' && !effectiveOperation)
     ) {
+      // Nothing is queued, so nothing may keep claiming to generate.
+      setPreviewGenerating(false);
       return;
     }
     // Cancel previous preview
@@ -491,6 +501,11 @@ export function UpscaleDialog({
     if (previewTimeoutRef.current) {
       clearTimeout(previewTimeoutRef.current);
     }
+    // The request is queued from the moment its inputs change, so the stage
+    // reports "generating" through the debounce as well. Leaving the flag down
+    // until the timer fired made every change flash "No processed preview yet"
+    // for 250ms, as though the preview had failed rather than been requested.
+    setPreviewGenerating(true);
     // Debounce 250ms
     previewTimeoutRef.current = setTimeout(() => {
       generatePreview();
@@ -521,17 +536,19 @@ export function UpscaleDialog({
     pixelArtAlgorithm,
     qualityPolicy,
     effectiveOperation,
+    selectedUpscaleModeUnavailable,
   ]);
 
   // Clear preview when the operation changes or becomes unavailable.
   // Stale preview data from a previous operation must not persist while
-  // the new preview is generating (250ms debounce + processing).
+  // the new preview is generating (250ms debounce + processing). The
+  // generating flag is deliberately not touched here: it belongs to the
+  // scheduling effect above, which owns whether a request is queued.
   useEffect(() => {
     previewRequestIdRef.current += 1;
     previewAbortRef.current?.abort();
     setPreviewDataUrl(null);
     setPreviewBaselineUrl(null);
-    setPreviewGenerating(false);
     setPreviewError(null);
   }, [
     operation,
@@ -560,6 +577,7 @@ export function UpscaleDialog({
       processing ||
       (operation === 'auto' && !effectiveOperation)
     ) {
+      setPreviewGenerating(false);
       return;
     }
     const abort = new AbortController();
@@ -797,12 +815,13 @@ export function UpscaleDialog({
       previewFocus,
     },
   );
-  const previewReferenceWidth = previewBaselineUrl
-    ? previewRegion.width * (usesUpscale ? scale : 1)
-    : sourceWidth;
-  const previewReferenceHeight = previewBaselineUrl
-    ? previewRegion.height * (usesUpscale ? scale : 1)
-    : sourceHeight;
+  // The stage geometry comes from the region alone, never from whether its
+  // pixels have arrived. Falling back to the whole source until the baseline
+  // landed resized the stage twice per change (and, at 100%/200%, re-centred
+  // the pan twice) while the user was trying to inspect one spot. The region
+  // keeps the source aspect, so the whole-source placeholder fits the box.
+  const previewReferenceWidth = previewRegion.width * (usesUpscale ? scale : 1);
+  const previewReferenceHeight = previewRegion.height * (usesUpscale ? scale : 1);
   const inspectNote = describeInspectRegion(
     previewRegion,
     Math.max(1, sourceWidth),
@@ -1048,27 +1067,29 @@ export function UpscaleDialog({
               )}
             </div>
 
-            <div className="upscale-settings__group">
-              <span className="upscale-settings__label">Quality</span>
-              <SegmentedControl
-                label="Quality policy"
-                value={qualityPolicy}
-                disabled={processing}
-                options={[
-                  { value: 'faithful', label: 'Faithful' },
-                  { value: 'balanced', label: 'Balanced' },
-                ]}
-                onChange={(v) => {
-                  markPresetCustom();
-                  setQualityPolicy(v as 'faithful' | 'balanced');
-                }}
-              />
-              <p className="insp-hint">
-                {qualityPolicy === 'faithful'
-                  ? 'Preserve original detail. Lighter restoration, fewer artifacts.'
-                  : 'Allow stronger reconstruction for better perceptual results.'}
-              </p>
-            </div>
+            {qualityPolicyApplies && (
+              <div className="upscale-settings__group">
+                <span className="upscale-settings__label">Quality</span>
+                <SegmentedControl
+                  label="Quality policy"
+                  value={qualityPolicy}
+                  disabled={processing}
+                  options={[
+                    { value: 'faithful', label: 'Faithful' },
+                    { value: 'balanced', label: 'Balanced' },
+                  ]}
+                  onChange={(v) => {
+                    markPresetCustom();
+                    setQualityPolicy(v as 'faithful' | 'balanced');
+                  }}
+                />
+                <p className="insp-hint">
+                  {qualityPolicy === 'faithful'
+                    ? 'Preserve original detail. Lighter restoration, fewer artifacts.'
+                    : 'Allow stronger reconstruction for better perceptual results.'}
+                </p>
+              </div>
+            )}
 
             {usesUpscale && (
               <div className="upscale-settings__group">
@@ -1106,13 +1127,13 @@ export function UpscaleDialog({
               </div>
             )}
 
-            {(usesDenoise || operation === 'upscale') && operation !== 'deblur-upscale' && (
+            {usesDenoise && operation !== 'deblur-upscale' && (
               <div className="upscale-settings__group">
                 <span className="upscale-settings__label">Denoise</span>
                 <SegmentedControl
                   label="Denoise strength"
                   value={denoiseStrength}
-                  disabled={processing || operation === 'upscale'}
+                  disabled={processing}
                   options={[
                     { value: 'none', label: 'None' },
                     { value: 'light', label: 'Light' },
@@ -1125,13 +1146,11 @@ export function UpscaleDialog({
                     setDenoiseStrength(v as DenoiseStrength);
                   }}
                 />
-                {operation !== 'upscale' && (
-                  <p className="insp-hint">
-                    {denoiseStrength === 'none'
-                      ? 'No denoising'
-                      : `${denoiseStrength} denoise before upscale`}
-                  </p>
-                )}
+                <p className="insp-hint">
+                  {denoiseStrength === 'none'
+                    ? 'No denoising'
+                    : `${denoiseStrength} denoise before upscale`}
+                </p>
               </div>
             )}
 

@@ -144,7 +144,34 @@ export function ThumbnailPickerDialog({ open, onClose }: ThumbnailPickerDialogPr
   }, []);
 
   return (
-    <Dialog open={open} onClose={handleClose} title="File Thumbnail" className="thumbnail-picker">
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      title="File Thumbnail"
+      className="thumbnail-picker"
+      // The actions are the dialog's sticky footer, not the last row of the
+      // scrolling body: at a short window the preview and the source list are
+      // taller than the dialog, and Apply must not be something to scroll to.
+      footer={
+        <div className="thumbnail-picker__footer">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={applyReset}
+            disabled={source.type === 'automatic'}
+          >
+            Reset to Automatic
+          </Button>
+          <div className="thumbnail-picker__footer-spacer" />
+          <Button variant="ghost" size="sm" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button variant="default" size="sm" onClick={() => void handleApply()}>
+            Apply
+          </Button>
+        </div>
+      }
+    >
       <section className="thumbnail-picker__body" aria-label="Thumbnail picker controls">
         <div
           className="thumbnail-picker__preview"
@@ -263,24 +290,6 @@ export function ThumbnailPickerDialog({ open, onClose }: ThumbnailPickerDialogPr
           <span>The thumbnail stays linked to the design — it updates as you edit.</span>
         </div>
       </section>
-
-      <div className="thumbnail-picker__footer">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={applyReset}
-          disabled={source.type === 'automatic'}
-        >
-          Reset to Automatic
-        </Button>
-        <div className="thumbnail-picker__footer-spacer" />
-        <Button variant="ghost" size="sm" onClick={handleClose}>
-          Cancel
-        </Button>
-        <Button variant="default" size="sm" onClick={() => void handleApply()}>
-          Apply
-        </Button>
-      </div>
     </Dialog>
   );
 }

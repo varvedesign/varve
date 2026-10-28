@@ -3,18 +3,22 @@
    scrollable body, sticky footer). These rules keep the enhance workspace's
    larger two-column layout. */
 
+/* A bounded two-pane workbench. The row is exactly the visible height of the
+   dialog body, so neither pane can be taller than what the user can see:
+   the preview column (stage, hint, inspect region) is always fully on screen,
+   and when the settings do not fit it is the settings column that scrolls
+   while the preview stays put — which is what lets a setting be changed and
+   its effect watched in the same glance. Content-derived heights are what
+   used to let the preview grow to the settings column's height and slide
+   under the dialog footer on any window shorter than the settings. */
 .upscale-dialog__body {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.75fr);
+  grid-template-rows: minmax(0, 1fr);
   align-items: stretch;
   gap: var(--space-5);
   min-height: 0;
-  /* Safety net only: this grid is auto-height, so it grows with its content
-     and the SCROLL actually happens on the shared .varve-dialog__body that
-     wraps it — that is the element to assert on when testing "nothing
-     scrolls". Kept auto so a future constraint on this box could not clip
-     content without a scrollbar. */
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .upscale-dialog__footer {
@@ -146,6 +150,19 @@
   flex: 0 0 auto;
 }
 
+/* The label sits beside the trigger, not beside trigger-plus-description:
+ * give it the trigger's own height and centre on that, instead of top-aligning
+ * a text line that is shorter than the control (it read ~6px high). */
+.upscale-preview__control-group--region > .upscale-preview__control-label {
+  display: flex;
+  align-items: center;
+  min-height: var(--component-default-height);
+}
+
+.upscale-preview__region-select .varve-select__trigger {
+  min-height: var(--component-default-height);
+}
+
 .upscale-preview__region-select {
   min-width: 12rem;
 }
@@ -179,27 +196,29 @@
   outline-offset: -2px;
 }
 
-.upscale-preview__viewport {
-  align-self: stretch;
+/* The stage takes whatever height the preview column has left after its
+   toolbar and footer, and never more: its height resolves from the bounded
+   column, never from the bitmap it is sizing (that was self-referential, and
+   the max-height-only clamp that replaced it squashed every non-square
+   source). It is also the positioning context for the busy badge, which sits
+   over the stage precisely so that "Generating" costs the layout no height. */
+.upscale-preview__stage {
+  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 100%;
-  /* Definite height in Fit: the stage is what gets measured to size the
-     bitmap, so it must not depend on the bitmap it is sizing. Deriving it
-     from the content made the fit self-referential, and the old
-     max-height-only clamp then shortened one axis without the other —
-     squashing every source that was not already square.
-
-     `flex: 1 1 0` keeps that property while letting the stage use the space
-     the settings column leaves behind: the height still resolves from the
-     column, which is stretched by the grid row that the sibling settings
-     determine — never from the bitmap. The min-height is the floor the fit
-     was previously measured against, so no configuration gets a smaller
-     stage than before; it only grows when there is surplus to give. */
+  align-self: stretch;
   flex: 1 1 0;
-  min-height: min(58vh, 560px);
+  /* Below this a bitmap is not inspectable; the stacked layout takes over
+     before the column can get here. */
+  min-height: 10rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.upscale-preview__viewport {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   /* A recessed well, so letterboxing around an aspect that does not fill the
      stage reads as a viewport rather than as unused dialog. */
@@ -208,20 +227,17 @@
   border-radius: var(--radius-control);
 }
 
-/* At 100%/200% the stage grows with the bitmap and pans by scrolling (pointer
- * drag stays reserved for the before/after split). Center recentres it.
- * Content-sized again here: flex-basis 0 would pin it to the column and take
- * the "grows with the bitmap" half of the contract away. */
+/* At 100%/200% the stage keeps its size and the bitmap pans inside it: the
+ * surface is centred by auto margins while it is smaller than the stage and
+ * scrolls from the origin once it is larger (justify-content: center would
+ * clip the overflowing start edge unreachably). Drag pans too, except while
+ * comparing, where drag is the before/after split. Center recentres it. */
 .upscale-preview__viewport--zoomed {
-  display: block;
-  flex: 0 0 auto;
-  height: auto;
-  min-height: min(58vh, 560px);
   overflow: auto;
   cursor: grab;
 }
 
-.upscale-preview__viewport--zoomed:active {
+.upscale-preview__viewport--panning {
   cursor: grabbing;
 }
 
@@ -229,6 +245,9 @@
   position: relative;
   display: block;
   flex: 0 0 auto;
+  /* Centres in both axes at Fit and while smaller than the stage at zoom, and
+     degrades to flush-start (scrollable) when larger. */
+  margin: auto;
   border-radius: var(--radius-control);
   overflow: hidden;
   /* An outline keeps the comparison halves exactly the same size. A border
@@ -256,10 +275,9 @@
 }
 
 /* At zoom the bitmap sets its own pixel size and the viewport scrolls, so the
- * container must not be constrained by the flex stage. */
+ * container must not be shrunk by the flex stage. */
 .upscale-preview__image-container--zoomed {
   flex: none;
-  display: inline-block;
 }
 
 /* Honest empty state for a side that has no processed pixels yet. Never
@@ -299,17 +317,21 @@
   font-size: var(--font-size-xs);
 }
 
-.upscale-preview__generating {
+/* "Generating preview…" is a badge over the stage, not a row under it: a row
+ * took height from the stage, so every regeneration shrank the fitted bitmap
+ * and grew it back when the result landed. The element is still the one live
+ * region, so it is announced exactly once. */
+.upscale-preview__status-row--busy {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: var(--space-1) var(--space-2);
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 5;
+  margin: 0;
+  padding: 2px var(--space-2);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-overlay);
   color: var(--color-text-primary-on-overlay);
-  font-size: var(--font-size-xs);
-  z-index: 5;
+  pointer-events: none;
 }
 
 .upscale-preview__image {
@@ -354,15 +376,6 @@
   height: 100%;
   pointer-events: none;
   z-index: 3;
-}
-
-.upscale-preview__slider:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
-  outline-offset: 2px;
-}
-
-.upscale-preview__slider:focus-visible .upscale-preview__slider-handle {
-  box-shadow: 0 0 0 3px var(--color-accent-subtle);
 }
 
 .upscale-preview__slider-line {
@@ -450,9 +463,26 @@
   text-align: left;
 }
 
+/* The busy badge reuses the hint element so it stays the one live region; it
+ * sits on an overlay surface, so it takes that surface's text colour. Placed
+ * after the base rule it overrides. */
+.upscale-preview__status-row--busy .upscale-preview__hint {
+  flex: none;
+  color: inherit;
+}
+
 /* ── Settings ────────────────────────────────────────────────────────────── */
 
+/* Spacing follows the window, not one density for every size. The comfortable
+   tier is the rhythm that fits Auto (the tallest configuration) at full HD; a
+   window of 1000px or more has measured spare height, which goes to the gaps so
+   the column does not read as cramped above an empty half; under ~815px the
+   rows tighten so the same content still clears the fold. */
 .upscale-settings {
+  --upscale-rhythm: var(--space-1);
+  --upscale-control-height: 36px;
+  --upscale-segment-height: 32px;
+  --upscale-info-pad: var(--space-2) var(--space-3);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -462,13 +492,28 @@
      the tallest configuration, and the one a real photo produces. Measured at
      1919x1014: the column wanted 889px against 874px available, so every gap
      here is spent against that 44px, not chosen for looks. */
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
-  /* Never its own scroller. An inner scrollbar is what makes settings read as
-     content that has been cut off: the column now sizes to its content, and
-     the dialog grows with it — or the body above scrolls as one unit when the
-     window is too short to allow that. */
-  overflow: visible;
+  gap: var(--upscale-rhythm);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-2);
+  /* The settings column is the one scroller, and only when the window cannot
+     hold it: at full-HD nothing scrolls. The preview beside it never moves, so
+     a change can be made and watched without scrolling either away. The edge
+     shadows (the `scroll` layers) appear only over content that is actually
+     hidden, so a clipped group reads as "more below" rather than as cut off;
+     the `local` layers cover them again once the end is reached. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Text colour at low alpha rather than a border token: border-subtle is solid
+     white in high contrast, which made the edge a hard band. No reserved
+     scrollbar gutter either — it left a strip the `local` cover layers do not
+     paint, so the top shadow showed there even at scroll origin. */
+  --upscale-scroll-shadow: color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+  background:
+    linear-gradient(var(--color-surface-raised) 30%, transparent) top / 100% 1.5rem no-repeat local,
+    linear-gradient(transparent, var(--color-surface-raised) 70%) bottom / 100% 1.5rem no-repeat
+    local,
+    linear-gradient(var(--upscale-scroll-shadow), transparent) top / 100% 0.5rem no-repeat scroll,
+    linear-gradient(transparent, var(--upscale-scroll-shadow)) bottom / 100% 0.5rem no-repeat scroll;
 }
 
 .upscale-settings__group {
@@ -480,7 +525,7 @@
 /* The border line does the visual separation between groups, so the padding
    either side of it can be halved without the groups reading as merged. */
 .upscale-settings__group + .upscale-settings__group {
-  padding-top: var(--space-1);
+  padding-top: var(--upscale-rhythm);
   border-top: 1px solid var(--color-border-subtle);
 }
 
@@ -494,7 +539,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--upscale-info-pad);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
@@ -505,23 +550,28 @@
  * compete with the preview for vertical space. Keep coarse-pointer targets
  * at the shared touch minimum. */
 .upscale-settings .varve-select__trigger {
-  min-height: 36px;
-}
-
-.upscale-settings .varve-segmented {
-  align-self: flex-start;
-  width: fit-content;
-  max-width: 100%;
-  box-sizing: border-box;
-  /* Wrap onto a second row instead of a horizontal scroll strip: a clipped
-   * or scrolled segmented control hides options (2026-09-20 review). */
-  flex-wrap: wrap;
+  min-height: var(--upscale-control-height);
 }
 
 .upscale-settings .varve-segmented__btn {
-  min-height: 32px;
+  min-height: var(--upscale-segment-height);
   padding: var(--space-1) var(--space-2);
   white-space: nowrap;
+}
+
+@media (min-height: 1000px) {
+  .upscale-settings {
+    --upscale-rhythm: var(--space-2);
+  }
+}
+
+@media (max-height: 814px) {
+  .upscale-settings {
+    --upscale-rhythm: var(--space-05);
+    --upscale-control-height: 32px;
+    --upscale-segment-height: 28px;
+    --upscale-info-pad: var(--space-1) var(--space-2);
+  }
 }
 
 @media (pointer: coarse) {
@@ -531,23 +581,6 @@
 
   .upscale-settings .varve-segmented__btn {
     min-height: var(--touch-target-min);
-  }
-}
-
-@media (max-width: 860px) {
-  .upscale-dialog {
-    height: min(900px, calc(100vh - 2 * var(--space-4)));
-    max-height: calc(100vh - 2 * var(--space-4));
-  }
-
-  .upscale-dialog__body {
-    grid-template-columns: minmax(0, 1fr);
-    overflow-y: auto;
-  }
-
-  .upscale-settings {
-    overflow: visible;
-    padding-inline: 0;
   }
 }
 
@@ -593,6 +626,21 @@
   .upscale-dialog__close {
     border: 1px solid ButtonText;
   }
+}
+
+/* Keyboard focus on the comparison slider. Declared after every other rule that
+ * styles the handle (the base rule above and the forced-colors override), since
+ * its higher specificity is what lets it win — keeping it last means source
+ * order never has to be reasoned about. The properties do not overlap with
+ * the forced-colors rules, so high contrast keeps both the system colours and
+ * the focus ring. */
+.upscale-preview__slider:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 2px;
+}
+
+.upscale-preview__slider:focus-visible .upscale-preview__slider-handle {
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
 }
 
 .upscale-model-missing {
@@ -657,22 +705,21 @@
 /* ── Workspace size override ────────────────────────────────────────────────
    The enhance workspace is deliberately much wider/taller than the shared
    lg dialog. `dialog.` elevates specificity above the base .varve-dialog
-   rule; placed last so no lower-specificity selector follows it.
+   rule; placed ahead of the stacked fallback so that rule can outrank it.
 
    Height is a definite window-derived box, not content-derived: a
    content-derived height clamped by max-height makes <dialog>'s UA
    `overflow: auto` the scroll owner, which carries the title and footer out
-   of view. A definite height lets flex shrink the body properly instead, and
-   `overflow: hidden` here keeps that UA scroll from ever activating — so the
-   body below owns the single scroll, and only when the window genuinely
-   cannot hold the content (measured: settings + chrome + margins need about
-   953px, so nothing scrolls at a full-HD 1014px browser height).
+   of view. A definite height lets flex size the body to exactly what is left
+   between header and footer, and `overflow: hidden` here keeps that UA scroll
+   from ever activating.
 
-   Auto is the tallest configuration (analysis block plus a denoise/deblur
-   row, a model notice, or the memory warning a real photo triggers: 889px of
-   settings measured against 874px available before this round's density
-   fixes), which is why the settings column must never be its own scroller:
-   it is sized to content and the body owns the scroll. */
+   Nothing inside scrolls at full-HD (the settings need about 953px with
+   chrome and margins; a 1014px browser has more). On a shorter window the
+   settings column scrolls on its own and the preview stays whole — see
+   `.upscale-settings`. Auto is the tallest configuration (analysis block plus
+   a denoise/deblur row, a model notice, or the memory warning a real photo
+   triggers), so it is the one that scrolls first. */
 dialog.upscale-dialog {
   width: min(1120px, 92vw);
   max-width: min(1120px, 92vw);
@@ -681,19 +728,54 @@ dialog.upscale-dialog {
   overflow: hidden;
 }
 
-/* Trim the shared body padding for this dialog only (the Effect Studio does
-   the same): the dialog runs edge-to-edge on content that has to clear the
-   fold, and the default --space-dialog top/bottom cost 29px of the 44px the
-   settings column was over.
+/* The shared body becomes a one-row grid whose row is exactly its own visible
+   height, which is what bounds `.upscale-dialog__body` and, through it, both
+   panes. Padding is trimmed for this dialog only (the Effect Studio does the
+   same): the dialog runs edge-to-edge on content that has to clear the fold.
 
-   `flex: 1 1 auto` is what keeps the footer flush with the dialog's bottom
-   edge: with a definite dialog height, a content-sized body would stop short
-   whenever the content is shorter than the window and leave the footer
-   floating above a strip of empty background. It grows into the surplus and
-   still shrinks (min-height: 0 comes from the base rule) when the window
-   clamps the dialog, which is when its overflow-y takes over as the single
-   scroll. */
+   `flex: 1 1 auto` keeps the footer flush with the dialog's bottom edge: with a
+   definite dialog height, a content-sized body would stop short and leave the
+   footer floating above a strip of empty background. It grows into the surplus
+   and shrinks (min-height: 0 comes from the base rule) when the window clamps
+   the dialog. The body itself never scrolls here — the stacked fallback below
+   is the only configuration in which it does. */
 .upscale-dialog .varve-dialog__body {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   flex: 1 1 auto;
   padding: var(--space-3) var(--space-4);
+  overflow: hidden;
+}
+
+/* ── Stacked fallback ───────────────────────────────────────────────────────
+   Two bounded panes need room: a narrow window cannot hold two columns, and a
+   window under ~520px tall cannot hold a stage above its toolbar and footer.
+   Either way the panes stack and the shared body is the single scroller, with
+   the stage given a definite height of its own (nothing above it is bounded
+   any more, so `flex: 1 1 0` would collapse it). Placed last so it outranks the
+   bounded rules above at equal specificity. */
+@media (max-width: 860px), (max-height: 520px) {
+  .upscale-dialog .varve-dialog__body {
+    display: block;
+    overflow-y: auto;
+  }
+
+  .upscale-dialog__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    overflow: visible;
+  }
+
+  .upscale-preview__stage {
+    flex: none;
+    height: clamp(14rem, 55vh, 32rem);
+  }
+
+  .upscale-settings {
+    overflow: visible;
+    padding-inline: 0;
+    background: none;
+  }
 }

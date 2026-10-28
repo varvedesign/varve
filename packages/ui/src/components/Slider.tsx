@@ -16,6 +16,15 @@ export interface SliderProps {
   onReset?: () => void;
   /** Size variant: 'sm' (14px thumb), 'md' (18px default), 'lg' (24px thumb). */
   size?: 'sm' | 'md' | 'lg';
+  /**
+   * Density. 'compact' puts the label beside the range on one thumb-height
+   * row, for settings columns that carry many sliders (a dialog rail), where
+   * the stacked default costs ~63px each and pushes the column past the window.
+   * The label is a named group (`role="group"` + `aria-labelledby`) rather than
+   * a fieldset legend, since a rendered legend cannot share a row with the
+   * control; the range is still named by the same label either way.
+   */
+  density?: 'default' | 'compact';
 }
 
 /**
@@ -39,6 +48,7 @@ export function Slider({
   showInput,
   onReset,
   size,
+  density,
 }: SliderProps) {
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -69,14 +79,21 @@ export function Slider({
 
   const displayValue = inputRaw !== null ? inputRaw : valueText;
 
-  const sizeClass = size ? ` varve-slider--${size}` : '';
+  const sizeClass = `${size ? ` varve-slider--${size}` : ''}${density === 'compact' ? ' varve-slider--compact' : ''}`;
   const fillPercent = max === min ? 0 : ((value - min) / (max - min)) * 100;
 
+  const compact = density === 'compact';
+  const Root = (compact ? 'div' : 'fieldset') as React.ElementType;
+  const Label = (compact ? 'span' : 'legend') as React.ElementType;
+
   return (
-    <fieldset className={`varve-slider${disabled ? ' varve-slider--disabled' : ''}${sizeClass}`}>
-      <legend className="varve-slider__legend" id={`${id}-label`}>
+    <Root
+      className={`varve-slider${disabled ? ' varve-slider--disabled' : ''}${sizeClass}`}
+      {...(compact ? { role: 'group', 'aria-labelledby': `${id}-label` } : {})}
+    >
+      <Label className="varve-slider__legend" id={`${id}-label`}>
         {label}
-      </legend>
+      </Label>
       <div className="varve-slider__row">
         <input
           type="range"
@@ -127,6 +144,6 @@ export function Slider({
           </button>
         )}
       </div>
-    </fieldset>
+    </Root>
   );
 }
