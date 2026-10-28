@@ -72,6 +72,12 @@ export function PresentationStage({
   const scratchBRef = useRef<HTMLCanvasElement | null>(null);
   const morphPlanRef = useRef<{ key: string; plan: MorphPlan | null } | null>(null);
   const lastKeyRef = useRef('');
+  // The settled branch skips repaints while the stability key holds, but a
+  // bitmap arriving for the same key is new content: without this companion
+  // the stage draws once before the capture resolves and never again, leaving
+  // the static preview (and its published capture src) empty until some later
+  // layout or navigation happens to change the key.
+  const lastBitmapVersionRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -303,10 +309,14 @@ export function PresentationStage({
       // an idle show must not burn redraws (and shadowBlur) at refresh rate.
       if (!slide) return;
       if (!hasPendingBuilds && !anyActiveBuild) {
-        if (lastKeyRef.current !== stabilityKey) {
+        if (
+          lastKeyRef.current !== stabilityKey ||
+          lastBitmapVersionRef.current !== bitmapsVersion
+        ) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           drawStatic(sample.slideIndex);
           lastKeyRef.current = stabilityKey;
+          lastBitmapVersionRef.current = bitmapsVersion;
         }
         return;
       }
