@@ -454,6 +454,9 @@ export function FontBrowser({
   // that state with a bounded estimate; a real viewport switches to the
   // measured range immediately.
   const rowsToRender = virtualItems.length > 0 ? virtualItems : fallbackVirtualItems;
+  // The first row actually in the DOM (the virtual range in a real viewport,
+  // the bounded fallback list before layout) — the roving tab stop anchor.
+  const firstRenderedIndex = rowsToRender[0]?.index ?? -1;
   const virtualContentHeight =
     virtualItems.length > 0
       ? virtualizer.getTotalSize()
@@ -463,12 +466,21 @@ export function FontBrowser({
   const lastVirtualIndex = virtualItems[virtualItems.length - 1]?.index ?? -1;
 
   useEffect(() => {
-    setActiveFamilyIndex((current) => (current >= displayEntries.length ? -1 : current));
-  }, [displayEntries.length]);
+    setActiveFamilyIndex((current) => {
+      if (current < displayEntries.length) return current;
+      return -1;
+    });
+  }, [displayEntries.length, listElement]);
 
   useEffect(() => {
+    // A filter change legitimately resets the roving stop, but async catalog
+    // settling can run this effect late, after an ArrowDown has already moved
+    // focus. Resetting then pulls the stop off the focused row (APG violation)
+    // and the next Tab leaves the list. Never reset out from under focus.
+    const inList = listElement?.contains(document.activeElement) ?? false;
+    if (inList) return;
     setActiveFamilyIndex(-1);
-  }, [activeFilter, effectiveQuery, semanticFilter]);
+  }, [activeFilter, displayEntries.length, effectiveQuery, listElement, semanticFilter]);
 
   useEffect(() => {
     if (activeFamilyIndex < 0) return;
@@ -931,11 +943,16 @@ export function FontBrowser({
                             else familyButtonRefs.current.delete(virtualRow.index);
                           }}
                           tabIndex={
-                            activeFamilyIndex < 0
-                              ? virtualRow.index === 0
+                            activeFamilyIndex >= 0
+                              ? activeFamilyIndex === virtualRow.index
                                 ? 0
                                 : -1
-                              : activeFamilyIndex === virtualRow.index
+                              : // Exactly one rendered row must carry the tab stop (APG
+                                // roving tabindex). Data index 0 is not always mounted:
+                                // the list scrolls to the selected family on open, so the
+                                // stop falls back to the first RENDERED row instead of
+                                // leaving the whole list unreachable from the keyboard.
+                                virtualRow.index === firstRenderedIndex
                                 ? 0
                                 : -1
                           }
