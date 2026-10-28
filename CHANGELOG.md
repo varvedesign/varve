@@ -14,6 +14,13 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Folder exports no longer replace an existing file.** When a desktop batch
+  export targets a folder that already contains an output, Varve saves the new
+  file under the next free name (Logo-2.png, Logo-3.png, ...) and the Export
+  Results list names the primary file that actually landed. Previously the
+  native atomic write renamed over the existing file without a prompt, so
+  re-exporting destroyed the previous deliverable. If Varve cannot verify the
+  destination, it stops that export with an error instead of writing.
 - **PDF import now reads real documents.** Content streams are decoded
   (zlib `FlateDecode`, ASCIIHex, ASCII85) and tokenized instead of being
   pattern-matched, so a compressed PDF — which is nearly every PDF — imports

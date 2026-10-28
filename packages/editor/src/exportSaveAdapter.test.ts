@@ -126,7 +126,8 @@ describe('export save adapter', () => {
     const writeBinaryFileToFolder = vi.fn<Platform['writeBinaryFileToFolder']>(
       async () => '/exports/Logo.svg',
     );
-    const platform = { kind: 'tauri', writeBinaryFileToFolder } as unknown as Platform;
+    const fileExists = vi.fn<Platform['fileExists']>(async () => false);
+    const platform = { kind: 'tauri', fileExists, writeBinaryFileToFolder } as unknown as Platform;
     const saveFile = createExportFolderSaveFile(platform, '/exports');
 
     const saved = await saveFile(
@@ -142,5 +143,157 @@ describe('export save adapter', () => {
     expect(folder).toBe('/exports');
     expect(relativePath).toBe('Logo.svg');
     expect(ArrayBuffer.isView(bytes)).toBe(true);
+  });
+});
+
+interface RecordingFolderPlatform {
+  platform: Platform;
+  writes: Array<{ folder: string; relativePath: string }>;
+  files: Set<string>;
+}
+
+/** Fake desktop platform whose "disk" is a set of absolute paths. */
+function recordingFolderPlatform(existing: string[] = []): RecordingFolderPlatform {
+  const files = new Set(existing);
+  const writes: Array<{ folder: string; relativePath: string }> = [];
+  const platform = {
+    kind: 'tauri',
+    fileExists: vi.fn(async (path: string) => files.has(path)),
+    writeBinaryFileToFolder: vi.fn(async (folder: string, relativePath: string) => {
+      writes.push({ folder, relativePath });
+      const target = `${folder.replace(/\/+$/, '')}/${relativePath}`;
+      files.add(target);
+      return target;
+    }),
+  } as unknown as Platform;
+  return { platform, writes, files };
+}
+
+describe('folder export destination conflicts', () => {
+  it('never replaces an existing file: writes the next free name and reports it', async () => {
+    const { platform, writes } = recordingFolderPlatform(['/exports/Logo.svg']);
+    const saveFile = createExportFolderSaveFile(platform, '/exports');
+    const exportJob = job('svg', 'Logo.svg');
+
+    const saved = await saveFile(
+      'Logo.svg',
+      new TextEncoder().encode('<svg id="new" />'),
+      'image/svg+xml',
+      exportJob,
+    );
+
+    expect(writes).toEqual([{ folder: '/exports', relativePath: 'Logo-2.svg' }]);
+    expect(saved).toBe('/exports/Logo-2.svg');
+    // The results report is built from the job name, so it must show the file
+    // that actually landed on disk.
+    expect(exportJob.fileName).toBe('Logo-2.svg');
+  });
+
+  it('skips every consecutively occupied suffix', async () => {
+    const { platform, writes } = recordingFolderPlatform([
+      '/exports/Logo.svg',
+      '/exports/Logo-2.svg',
+      '/exports/Logo-3.svg',
+    ]);
+    const saveFile = createExportFolderSaveFile(platform, '/exports');
+
+    await saveFile('Logo.svg', new Uint8Array([1]), 'image/svg+xml', job('svg', 'Logo.svg'));
+
+    expect(writes[0]?.relativePath).toBe('Logo-4.svg');
+  });
+
+  it('keeps the requested name when the destination folder is free', async () => {
+    const { platform, writes } = recordingFolderPlatform();
+    const saveFile = createExportFolderSaveFile(platform, '/exports/');
+    const exportJob = job('svg', 'Logo.svg');
+
+    await saveFile('Logo.svg', new Uint8Array([1]), 'image/svg+xml', exportJob);
+
+    expect(writes[0]?.relativePath).toBe('Logo.svg');
+    expect(exportJob.fileName).toBe('Logo.svg');
+    // The probe joins the portable entry to the folder on an absolute path.
+    expect(platform.fileExists).toHaveBeenCalledWith('/exports/Logo.svg');
+  });
+
+  it('does not retitle a job from one of its sibling files', async () => {
+    const { platform } = recordingFolderPlatform(['/exports/Card.module.css']);
+    const saveFile = createExportFolderSaveFile(platform, '/exports');
+    const exportJob = job('react-cssmodules', 'Card.tsx');
+
+    await saveFile('Card.module.css', new Uint8Array([1]), 'text/css', exportJob);
+
+    expect(exportJob.fileName).toBe('Card.tsx');
+  });
+
+  it('fails closed instead of writing when the existence probe fails', async () => {
+    const writeBinaryFileToFolder = vi.fn<Platform['writeBinaryFileToFolder']>(
+      async () => '/exports/Logo.svg',
+    );
+    const platform = {
+      kind: 'tauri',
+      fileExists: vi.fn(async () => {
+        throw new Error('probe unavailable');
+      }),
+      writeBinaryFileToFolder,
+    } as unknown as Platform;
+    const saveFile = createExportFolderSaveFile(platform, '/exports');
+
+    await expect(
+      saveFile('Logo.svg', new Uint8Array([1]), 'image/svg+xml', job('svg', 'Logo.svg')),
+    ).rejects.toThrow(/Could not verify whether "Logo.svg" already exists/);
+    expect(writeBinaryFileToFolder).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a later suffix probe fails instead of overwriting it', async () => {
+    const writeBinaryFileToFolder = vi.fn<Platform['writeBinaryFileToFolder']>(
+      async () => '/exports/Logo-2.svg',
+    );
+    const platform = {
+      kind: 'tauri',
+      fileExists: vi.fn(async (path: string) => {
+        if (path === '/exports/Logo.svg') return true;
+        throw new Error('probe unavailable mid-loop');
+      }),
+      writeBinaryFileToFolder,
+    } as unknown as Platform;
+    const saveFile = createExportFolderSaveFile(platform, '/exports');
+
+    await expect(
+      saveFile('Logo.svg', new Uint8Array([1]), 'image/svg+xml', job('svg', 'Logo.svg')),
+    ).rejects.toThrow(/Could not verify whether "Logo-2.svg" already exists/);
+    expect(writeBinaryFileToFolder).not.toHaveBeenCalled();
+  });
+
+  it('probes absolute paths for POSIX roots, trailing separators and Windows folders', async () => {
+    const probed: string[] = [];
+    const platform = {
+      kind: 'tauri',
+      fileExists: vi.fn(async (path: string) => {
+        probed.push(path);
+        return false;
+      }),
+      writeBinaryFileToFolder: vi.fn(async (folder: string, entry: string) => `${folder}/${entry}`),
+    } as unknown as Platform;
+
+    for (const folder of ['/', '/exports/', 'C:\\Users\\me\\exports']) {
+      const saveFile = createExportFolderSaveFile(platform, folder);
+      await saveFile('Logo.svg', new Uint8Array([1]), 'image/svg+xml', job('svg', 'Logo.svg'));
+    }
+
+    expect(probed).toEqual(['/Logo.svg', '/exports/Logo.svg', 'C:\\Users\\me\\exports/Logo.svg']);
+  });
+
+  it('refuses after the probe budget is exhausted', async () => {
+    const platform = {
+      kind: 'tauri',
+      fileExists: vi.fn(async () => true),
+      writeBinaryFileToFolder: vi.fn(async () => '/exports/Logo.svg'),
+    } as unknown as Platform;
+    const saveFile = createExportFolderSaveFile(platform, '/exports');
+
+    await expect(
+      saveFile('Logo.svg', new Uint8Array([1]), 'image/svg+xml', job('svg', 'Logo.svg')),
+    ).rejects.toThrow(/No unused file name was available/);
+    expect(platform.writeBinaryFileToFolder).not.toHaveBeenCalled();
   });
 });

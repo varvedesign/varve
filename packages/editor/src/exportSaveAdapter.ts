@@ -7,7 +7,7 @@
 
 import type { Platform } from '@varve/platform';
 import type { ExportFormat, ExportJob } from '@varve/scene';
-import { sanitizeSegment } from '@varve/scene/export';
+import { appendSuffix, sanitizeSegment } from '@varve/scene/export';
 import { zipSync } from 'fflate';
 import type { ExportRunContext } from './exportService';
 
@@ -135,12 +135,81 @@ export function createExportSaveFile(platform?: Platform): ExportRunContext['sav
   };
 }
 
+/**
+ * Attempts before a folder export gives up looking for an unused name. A
+ * destination folder with a thousand same-named files is either a mistake or a
+ * broken probe; refusing beats writing over one of them.
+ */
+const MAX_DESTINATION_NAME_PROBES = 999;
+
+/** Absolute path for a portable export entry below a chosen destination folder. */
+function joinFolderEntry(folder: string, entry: string): string {
+  const trimmed = folder.replace(/[\\/]+$/, '');
+  // A POSIX root trims to an empty string; a Windows drive root ("C:") trims to
+  // the drive prefix and joins as "C:/entry". Both stay absolute for the probe.
+  return trimmed === '' ? `/${entry}` : `${trimmed}/${entry}`;
+}
+
+type DestinationProbe = 'free' | 'occupied' | 'unknown';
+
+async function probeDestination(platform: Platform, path: string): Promise<DestinationProbe> {
+  try {
+    return (await platform.fileExists(path)) ? 'occupied' : 'free';
+  } catch {
+    // A failed probe cannot tell us whether a write is safe. Report it as
+    // unknown instead of guessing "free" and overwriting later in the loop.
+    return 'unknown';
+  }
+}
+
+/**
+ * Choose the name a folder export will actually write. Re-exporting into a
+ * folder that already contains an output used to replace the old file without
+ * a prompt; the shared conflict policy is "rename", so an occupied name is
+ * suffixed deterministically (`Logo-2.png`, `Logo-3.png`, ...) instead of
+ * silently destroying the previous export.
+ */
+async function resolveDestinationEntry(
+  platform: Platform,
+  folder: string,
+  entry: string,
+): Promise<string> {
+  const first = await probeDestination(platform, joinFolderEntry(folder, entry));
+  if (first === 'free') return entry;
+  if (first === 'unknown') {
+    // Fail closed: writing the requested name (or any suffix) without a working
+    // existence probe could replace a file the user cannot recover.
+    throw new Error(
+      `Could not verify whether "${entry}" already exists in the export folder; nothing was written. Check the destination folder and export again.`,
+    );
+  }
+  for (let counter = 2; counter <= MAX_DESTINATION_NAME_PROBES; counter += 1) {
+    const candidate = appendSuffix(entry, counter);
+    const probe = await probeDestination(platform, joinFolderEntry(folder, candidate));
+    if (probe === 'free') return candidate;
+    if (probe === 'unknown') {
+      throw new Error(
+        `Could not verify whether "${candidate}" already exists in the export folder; nothing was written. Check the destination folder and export again.`,
+      );
+    }
+  }
+  throw new Error(`No unused file name was available for "${entry}" in the export folder.`);
+}
+
 export function createExportFolderSaveFile(
   platform: Platform,
   folder: string,
 ): NonNullable<ExportRunContext['saveFile']> {
-  return async (fileName, bytes) => {
-    return await platform.writeBinaryFileToFolder(folder, safeArchiveEntryPath(fileName), bytes);
+  return async (fileName, bytes, _mimeType, job) => {
+    const requestedEntry = safeArchiveEntryPath(fileName);
+    const entry = await resolveDestinationEntry(platform, folder, requestedEntry);
+    const written = await platform.writeBinaryFileToFolder(folder, entry, bytes);
+    // The results report is built from `job.fileName`. When this call wrote the
+    // job's own output under a conflict-avoiding name, reflect the name that
+    // actually landed on disk instead of the requested one; sibling files of a
+    // multi-file deliverable keep their own names and must not retitle the job.
+    if (safeArchiveEntryPath(job.fileName) === requestedEntry) job.fileName = entry;
+    return written;
   };
 }
 
