@@ -769,7 +769,6 @@
     "packages/scene/src/tokens/store.ts": 408,
     "packages/scene/src/tokens/syncApply.ts": 776,
     "packages/scene/src/tokens/updatePlan.ts": 418,
-    "packages/scene/src/types.ts": 3055,
     "packages/scene/src/variables.ts": 615,
     "packages/scene/src/version-migrations.ts": 877,
     "packages/scene/src/version.test.ts": 1448,
