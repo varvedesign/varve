@@ -13,6 +13,7 @@ const env = {
   ...process.env,
   XDG_RUNTIME_DIR: directory,
   VARVE_LEASE_MIN_MEM_MB: '0',
+  VARVE_LEASE_MAX_LOAD_PER_CORE: '0',
   VARVE_LEASE_TIMEOUT: '4000',
   VARVE_LEASE_POLL_MS: '10',
 };

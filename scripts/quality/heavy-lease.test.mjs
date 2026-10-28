@@ -18,6 +18,11 @@ import { observeValidationChild, runValidationCommand } from './heavy-lease.mjs'
 
 const SCRIPT = fileURLToPath(new URL('./heavy-lease.mjs', import.meta.url));
 
+// These fixtures exercise lease acquisition and the memory gate; host CPU load
+// is not part of what they assert, and inheriting it would make every block
+// wait on whatever else is running on the machine.
+process.env.VARVE_LEASE_MAX_LOAD_PER_CORE = '0';
+
 /** Combined stdout+stderr: the wait/deadline messages are console.warn/error
  * (stderr, correct CLI convention) while the wrapped command's own output is
  * stdout — assertions below need both in one stream. */
@@ -321,7 +326,7 @@ function cancellationPreload(directory, marker) {
     assert.equal(result.code, 143);
     assert.match(
       output.join(''),
-      /cancelled by SIGTERM while waiting for memory; command not launched/,
+      /cancelled by SIGTERM while waiting for headroom; command not launched/,
     );
     assert.equal(existsSync(marker), false);
     assert.equal(existsSync(record.path), false);

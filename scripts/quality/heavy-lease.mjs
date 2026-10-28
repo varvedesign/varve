@@ -8,17 +8,20 @@
  * the repository's common git directory (so worktrees share one lock) before
  * it starts, waits a bounded time, and never kills unrelated processes.
  *
- * It also gates on actual system memory headroom, not just the lease: the
- * lease alone only serializes tasks that go through this script, but a
- * memory-hungry process outside that set — another agent's raw `npx
- * playwright test`, the operator's own browser — can still starve a heavy
- * task that "won" the lease. Observed repeatedly in practice: Playwright's
- * Chromium got OOM-killed by the kernel (confirmed via `journalctl`) and,
- * separately, crashed on its first page load ("Page crashed" in
- * global-setup.ts) while available memory sat under ~250MB — in both cases
- * with the lease free, because the pressure came from processes that never
- * touch this lease. Checking `MemAvailable` directly is the only way to
- * catch that case.
+ * It also gates on actual system headroom, not just the lease: the lease
+ * alone only serializes tasks that go through this script, but a
+ * memory-hungry or CPU-hungry process outside that set — another agent's raw
+ * `npx playwright test`, a full `cargo build`, the operator's own browser —
+ * can still starve a heavy task that "won" the lease. Observed repeatedly in
+ * practice: Playwright's Chromium got OOM-killed by the kernel (confirmed via
+ * `journalctl`) and, separately, crashed on its first page load ("Page
+ * crashed" in global-setup.ts) while available memory sat under ~250MB — in
+ * both cases with the lease free, because the pressure came from processes
+ * that never touch this lease. Checking `MemAvailable` directly is the only
+ * way to catch that case. The same reasoning applies to CPU: a browser
+ * launched into an already-saturated machine does not fail fast, it becomes a
+ * timing-test flake and a run that takes 10x longer while holding the lease,
+ * so admission also checks the 1-minute load against the core count.
  *
  * Usage:
  *   node scripts/quality/heavy-lease.mjs <lane-or-command> [-- cmd args...]
@@ -42,7 +45,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { constants, freemem, homedir, platform, tmpdir, totalmem } from 'node:os';
+import { constants, cpus, freemem, homedir, loadavg, platform, tmpdir, totalmem } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crossSpawn from 'cross-spawn';
@@ -55,6 +58,15 @@ const MAX_WAIT_MS = Number(process.env.VARVE_LEASE_TIMEOUT ?? 600000);
 // crashing a run (or, worse, having the kernel pick an unrelated victim
 // process) partway through.
 const MIN_MEM_MB = Number(process.env.VARVE_LEASE_MIN_MEM_MB ?? 1536);
+// Do not start a browser into a machine that already has a runnable thread per
+// core: at that point the run is competing with work that never touches this
+// lease (a full Rust build, another agent's raw Playwright invocation), and
+// timing-sensitive specs fail on load rather than on product behavior. The
+// 1-minute average is the right horizon here — long enough to include a build
+// that just started, short enough to admit the next run once it ends.
+// VARVE_LEASE_MAX_LOAD_PER_CORE=0 disables the CPU gate (the fixtures use that
+// alongside VARVE_LEASE_MIN_MEM_MB=0 so the wrapper tests never wait).
+const MAX_LOAD_PER_CORE = Number(process.env.VARVE_LEASE_MAX_LOAD_PER_CORE ?? 1);
 const MEM_POLL_MS = Number(process.env.VARVE_LEASE_MEM_POLL_MS ?? 5000);
 const LEASE_POLL_MS = Number(process.env.VARVE_LEASE_POLL_MS ?? 1000);
 
@@ -92,7 +104,7 @@ function memAvailableMB() {
   return Math.round(freemem() / (1024 * 1024));
 }
 
-async function waitForMemoryHeadroom(label) {
+async function waitForHeadroom(label) {
   const deadline = Date.now() + MAX_WAIT_MS;
   let warned = false;
   let cancelled = null;
@@ -106,13 +118,27 @@ async function waitForMemoryHeadroom(label) {
   try {
     while (Date.now() < deadline && !cancelled) {
       const availableMB = memAvailableMB();
-      if (availableMB >= MIN_MEM_MB) {
-        if (warned) console.log(`heavy-lease: memory recovered (${availableMB}MB available)`);
+      const coreCount = Math.max(1, cpus().length);
+      const load = loadavg()[0];
+      const loadPerCore = load / coreCount;
+      const memoryOk = availableMB >= MIN_MEM_MB;
+      const cpuOk = !(MAX_LOAD_PER_CORE > 0) || loadPerCore < MAX_LOAD_PER_CORE;
+      if (memoryOk && cpuOk) {
+        if (warned)
+          console.log(
+            `heavy-lease: headroom recovered (load ${load.toFixed(1)} on ${coreCount} cores, ${availableMB}MB available)`,
+          );
         return;
       }
       if (!warned) {
+        const reasons = [];
+        if (!memoryOk) reasons.push(`${availableMB}MB available, below the ${MIN_MEM_MB}MB floor`);
+        if (!cpuOk)
+          reasons.push(
+            `load ${load.toFixed(1)} on ${coreCount} cores is at or above ${MAX_LOAD_PER_CORE}/core`,
+          );
         console.warn(
-          `heavy-lease: ${availableMB}MB available, below the ${MIN_MEM_MB}MB floor for ${label} — waiting rather than risk an OOM kill or a browser crash mid-run.`,
+          `heavy-lease: waiting for headroom before ${label}: ${reasons.join('; ')} — starting now risks an OOM kill or a CPU-starved, flaky run.`,
         );
         warned = true;
       }
@@ -120,8 +146,8 @@ async function waitForMemoryHeadroom(label) {
       while (!cancelled && Date.now() < wake) await pause(Math.min(25, wake - Date.now()));
     }
     const message = cancelled
-      ? `heavy-lease: cancelled by ${cancelled} while waiting for memory; command not launched`
-      : `heavy-lease: memory still under ${MIN_MEM_MB}MB after ${MAX_WAIT_MS / 1000}s; command not launched (deadline reached)`;
+      ? `heavy-lease: cancelled by ${cancelled} while waiting for headroom; command not launched`
+      : `heavy-lease: no headroom within ${MAX_WAIT_MS / 1000}s; command not launched (deadline reached)`;
     throw Object.assign(new Error(message), { exitCode: cancelled ? signalStatus(cancelled) : 1 });
   } finally {
     for (const [signal, listener] of listeners) process.off(signal, listener);
@@ -864,7 +890,7 @@ async function main() {
   const lease = optOut || inherited ? null : await acquire(label, keys);
   if (lease) {
     try {
-      await waitForMemoryHeadroom(label);
+      await waitForHeadroom(label);
     } catch (error) {
       for (const path of keys.paths) release(path, lease.leaseId);
       console.error(error.message);
