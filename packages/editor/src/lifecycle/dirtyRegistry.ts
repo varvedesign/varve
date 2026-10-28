@@ -35,13 +35,16 @@ export function scopeSessionIds(api: EditorLifecycleApi, scope: DirtyScope): str
  * Collect the unsaved documents a scope must resolve before termination.
  * A recovery/autosave snapshot does NOT make a document clean — dirty
  * + snapshot still counts as unsaved work for intentional termination.
+ * `sessionIds` overrides the live scope (a transaction may re-check the ids it
+ * captured when it opened instead of a scope that drifted underneath it).
  */
 export function collectUnsavedDocuments(
   api: EditorLifecycleApi,
   scope: DirtyScope,
+  sessionIds?: readonly string[],
 ): UnsavedDocument[] {
   const sessions = api.getSessions();
-  const ids = scopeSessionIds(api, scope);
+  const ids = sessionIds ?? scopeSessionIds(api, scope);
   const docs: UnsavedDocument[] = [];
   for (const session of sessions) {
     if (!session.dirty || !ids.includes(session.id)) continue;

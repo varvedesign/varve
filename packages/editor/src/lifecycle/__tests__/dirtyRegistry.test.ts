@@ -98,6 +98,17 @@ describe('dirty registry', () => {
     expect(docs[1]?.untitled).toBe(true);
   });
 
+  it('an explicit session id set keeps a re-check inside the transaction scope', () => {
+    const controls = createFakeApi([
+      { id: 'a', name: 'A.varve', dirty: true, filePath: '/p/a.varve' },
+      { id: 'b', name: 'B.varve', dirty: true, filePath: '/p/b.varve' },
+    ]);
+    // A document close captures its target when the request arrives; a later
+    // active-tab change must not move the recheck to another document.
+    const docs = collectUnsavedDocuments(controls.api, 'document', ['b']);
+    expect(docs.map((d) => d.sessionId)).toEqual(['b']);
+  });
+
   it('does not leak file paths into display names', () => {
     const controls = createFakeApi([
       { id: 'a', name: 'Poster.varve', dirty: true, filePath: '/home/user/Secret/Poster.varve' },

@@ -372,4 +372,108 @@ describe('TerminationCoordinator', () => {
     expect(phases).toContain('committed');
     expect(phases[phases.length - 1]).toBe('idle');
   });
+
+  // ── stale dirty inventory (photocraft #4954) ──────────────────────────
+  // The coordinator takes its dirty inventory once. A save/close hook, an
+  // in-flight edit, or a newly created document can dirty work that was not
+  // in that set; final closure must re-derive the live inventory instead of
+  // trusting the snapshot.
+
+  it.each(['quit-application', 'close-window'] as const)(
+    're-prompts for documents dirtied or created while the save plan runs (%s)',
+    async (intent) => {
+      const { controls, harness, coordinator } = makeCoordinator({
+        sessions: [
+          { id: 'a', name: 'A.varve', dirty: true, filePath: '/p/a.varve' },
+          { id: 'b', name: 'B.varve', dirty: false, filePath: '/p/b.varve' },
+        ],
+      });
+      const gated = controls.gateSave();
+      const tx = coordinator.requestTermination(intent);
+      harness.respond({
+        kind: 'proceed',
+        choices: [{ sessionId: 'a', choice: 'save' }],
+      });
+      await harness.flush();
+      expect(controls.saveCalls).toEqual(['a']);
+      // While the save is in flight: a hook dirties the initially clean B and
+      // a new document C is created. Neither was in the answered inventory.
+      controls.setDirty('b', true);
+      controls.sessions.push({ id: 'c', name: 'C.varve', dirty: true, filePath: '/p/c.varve' });
+      controls.releaseSave();
+      await gated;
+      await vi.waitFor(() => expect(harness.requests).toHaveLength(2));
+      expect(harness.last()?.kind).toBe('unsaved');
+      expect(
+        harness
+          .last()
+          ?.docs.map((d) => d.sessionId)
+          .sort(),
+      ).toEqual(['b', 'c']);
+      harness.respond({
+        kind: 'proceed',
+        choices: [
+          { sessionId: 'b', choice: 'save' },
+          { sessionId: 'c', choice: 'save' },
+        ],
+      });
+      await expect(tx).resolves.toEqual({ outcome: 'committed' });
+      expect(controls.saveCalls).toEqual(['a', 'b', 'c']);
+    },
+  );
+
+  it('re-prompts for dirty documents left unanswered by Save Selected', async () => {
+    const { controls, harness, coordinator, discard } = makeCoordinator({
+      sessions: [
+        { id: 'a', name: 'A.varve', dirty: true, filePath: '/p/a.varve' },
+        { id: 'b', name: 'B.varve', dirty: true, filePath: '/p/b.varve' },
+      ],
+    });
+    const tx = coordinator.requestTermination('quit-application');
+    // The multi-document dialog only reports the checked documents; B was left
+    // unchecked by "Save Selected", so it still needs an explicit answer.
+    harness.respond({
+      kind: 'proceed',
+      choices: [{ sessionId: 'a', choice: 'save' }],
+    });
+    await vi.waitFor(() => expect(harness.requests).toHaveLength(2));
+    expect(harness.last()?.docs.map((d) => d.sessionId)).toEqual(['b']);
+    harness.respond({
+      kind: 'proceed',
+      choices: [{ sessionId: 'b', choice: 'discard' }],
+    });
+    await expect(tx).resolves.toEqual({ outcome: 'committed' });
+    expect(controls.saveCalls).toEqual(['a']);
+    expect(discard).toHaveBeenCalledWith([expect.objectContaining({ sessionId: 'b' })]);
+  });
+
+  it('a termination Save As that leaves the session dirty does not authorize quit', async () => {
+    const { controls, harness, coordinator, marker } = makeCoordinator({
+      sessions: [{ id: 'a', name: 'Poster.varve', dirty: true, filePath: '/p/x.varve' }],
+    });
+    controls.setSaveResult({ ok: false, cancelled: false });
+    controls.setLastSaveFailure('permission');
+    const tx = coordinator.requestTermination('quit-application');
+    harness.respond({
+      kind: 'proceed',
+      choices: [{ sessionId: 'a', choice: 'save' }],
+    });
+    await vi.waitFor(() => expect(harness.last()?.kind).toBe('save-failed'));
+    // Save As "succeeds" (a browser download hand-off / picker closed) but the
+    // session is still dirty: it must stay unresolved, not authorize commit.
+    controls.setSaveAsResult({ ok: true });
+    harness.respond({
+      kind: 'proceed',
+      choices: [{ sessionId: 'a', choice: 'save-as' }],
+    });
+    await vi.waitFor(() => expect(harness.requests.length).toBeGreaterThanOrEqual(3));
+    expect(harness.last()?.kind).toBe('save-failed');
+    expect(harness.last()?.docs[0]?.failureCategory).toBe('conflict');
+    harness.respond({
+      kind: 'proceed',
+      choices: [{ sessionId: 'a', choice: 'discard' }],
+    });
+    await expect(tx).resolves.toEqual({ outcome: 'committed' });
+    expect(marker.cleanCalls()).toBe(1);
+  });
 });

@@ -23,6 +23,7 @@ import {
 import { createSavePlan, type SavePlan } from './savePlan';
 import type {
   DialogOutcome,
+  DirtyScope,
   EditorLifecycleApi,
   FailureChoice,
   PromptKind,
@@ -181,54 +182,83 @@ export class TerminationCoordinator {
     }
 
     const plan = this.deps.savePlan ?? createSavePlan(this.deps.api);
-    const choices = new Map<string, UnsavedChoice>();
+    const discarded: UnsavedDocument[] = [];
 
-    // ── unsaved-work resolution ─────────────────────────────────────────
+    // The inventory is re-derived after each save round (photocraft #4954):
+    // a save/close hook, an in-flight edit, or a newly created document can
+    // dirty work that was not in the set the user answered for. Final closure
+    // is only allowed once every live dirty session in scope has an explicit
+    // answer for this transaction; only discard consent admits a dirty one.
     for (;;) {
       const outcome = await this.promptUser(this.dirtyDocs, intent, 'unsaved');
       if (outcome === undefined) continue; // superseded by a broader intent
       if (outcome === null) return this.cancel('user');
-      choices.clear();
-      for (const choice of outcome.choices) {
-        if (this.dirtyDocs.some((d) => d.sessionId === choice.sessionId)) {
-          if (choice.choice === 'save' || choice.choice === 'discard') {
-            choices.set(choice.sessionId, choice.choice);
-          }
+      const choices = this.parseChoices(outcome);
+      const resolved = this.dirtyDocs.filter((d) => choices.has(d.sessionId));
+      if (resolved.length === 0) return this.cancel('user');
+
+      this.phase = 'saving';
+      this.notify();
+      const saveable = resolved.filter((d) => choices.get(d.sessionId) === 'save');
+      for (const doc of resolved) {
+        if (choices.get(doc.sessionId) === 'discard') discarded.push(doc);
+      }
+      const planResult = await plan.execute(saveable);
+      this.failures = planResult.failures;
+      this.notify();
+      if (planResult.aborted) {
+        return this.cancel('save-as-cancelled');
+      }
+      if (planResult.failures.length > 0) {
+        const resolution = await this.resolveFailures(intent, planResult.failures, plan);
+        if (resolution.result) return resolution.result;
+        discarded.push(...resolution.discarded);
+      }
+
+      const unresolved = this.unresolvedDirty(scope, discarded);
+      if (unresolved.length === 0) {
+        return this.commit(intent, discarded);
+      }
+      this.dirtyDocs = unresolved;
+      this.trace({ type: 'recheck', intent, dirtyCount: unresolved.length });
+      this.notify();
+    }
+  }
+
+  /** Per-session choices from an unsaved-dialog outcome, ignoring ids that
+   *  were not part of the presented inventory. */
+  private parseChoices(outcome: DialogOutcome): Map<string, UnsavedChoice> {
+    const choices = new Map<string, UnsavedChoice>();
+    for (const choice of outcome.choices) {
+      if (this.dirtyDocs.some((d) => d.sessionId === choice.sessionId)) {
+        if (choice.choice === 'save' || choice.choice === 'discard') {
+          choices.set(choice.sessionId, choice.choice);
         }
       }
-      break;
     }
+    return choices;
+  }
 
-    // A document may have been saved externally (autosave) while the dialog
-    // was open — only unresolved ones proceed.
-    const toResolve = this.dirtyDocs.filter((d) => choices.has(d.sessionId));
-    if (toResolve.length === 0) {
-      return this.commit(intent, []);
-    }
-
-    this.phase = 'saving';
-    this.notify();
-    const saveable = toResolve.filter((d) => choices.get(d.sessionId) === 'save');
-    const discardable = toResolve.filter((d) => choices.get(d.sessionId) === 'discard');
-    const planResult = await plan.execute(saveable);
-    this.failures = planResult.failures;
-    this.notify();
-    if (planResult.aborted) {
-      return this.cancel('save-as-cancelled');
-    }
-    if (planResult.failures.length > 0) {
-      return this.resolveFailures(intent, planResult.failures, discardable, plan);
-    }
-    return this.commit(intent, discardable);
+  /** Live dirty sessions in the transaction scope that still need an explicit
+   *  answer. Application/window scopes are re-derived live so a document
+   *  created during the save round counts; a document close keeps the target
+   *  it captured when the request arrived. */
+  private unresolvedDirty(scope: DirtyScope, discarded: UnsavedDocument[]): UnsavedDocument[] {
+    this.drainPendingEdits();
+    const consented = new Set(discarded.map((d) => d.sessionId));
+    const ids = scope === 'document' ? this.scopeIds : scopeSessionIds(this.deps.api, scope);
+    return collectUnsavedDocuments(this.deps.api, scope, ids).filter(
+      (doc) => !consented.has(doc.sessionId),
+    );
   }
 
   // ── save-failure resolution ───────────────────────────────────────────
   private async resolveFailures(
     intent: TerminationIntent,
     failures: QuitDocumentResult[],
-    discardable: UnsavedDocument[],
     plan: SavePlan,
-  ): Promise<TerminationResult> {
+  ): Promise<{ result?: TerminationResult; discarded: UnsavedDocument[] }> {
+    const discarded: UnsavedDocument[] = [];
     for (;;) {
       const docs: Array<UnsavedDocument & { failureCategory?: SaveFailureCategory }> = failures.map(
         (f) => {
@@ -243,39 +273,47 @@ export class TerminationCoordinator {
       );
       const outcome = await this.promptUser(docs, intent, 'save-failed');
       if (outcome === undefined) continue;
-      if (outcome === null) return this.cancel('user');
+      if (outcome === null) return { result: this.cancel('user'), discarded };
       const remaining: QuitDocumentResult[] = [];
       for (const choice of outcome.choices) {
         const doc = this.dirtyDocs.find((d) => d.sessionId === choice.sessionId);
         if (!doc) continue;
         switch (choice.choice as FailureChoice) {
           case 'discard':
-            discardable.push(doc);
+            discarded.push(doc);
             break;
           case 'retry': {
             const rerun = await plan.execute([doc]);
-            if (rerun.aborted) return this.cancel('save-as-cancelled');
+            if (rerun.aborted) {
+              return { result: this.cancel('save-as-cancelled'), discarded };
+            }
             remaining.push(...rerun.failures);
             break;
           }
           case 'save-as': {
             const saved = await this.deps.api.saveSessionAs(doc.sessionId);
-            if (!saved.ok) {
+            // A Save As outcome only resolves the document when it is no
+            // longer dirty: a browser download hand-off or an edit during the
+            // picker leaves the session unsaved and must not authorize quit.
+            const stillDirty = this.deps.api.isSessionDirty(doc.sessionId);
+            if (!saved.ok || stillDirty) {
               remaining.push({
                 kind: 'failed',
                 sessionId: doc.sessionId,
-                category: saved.cancelled
-                  ? 'cancelled'
-                  : this.deps.api.getLastSaveFailure(doc.sessionId),
+                category: !saved.ok
+                  ? saved.cancelled
+                    ? 'cancelled'
+                    : this.deps.api.getLastSaveFailure(doc.sessionId)
+                  : 'conflict',
               });
             }
             break;
           }
           case 'cancel':
-            return this.cancel('user');
+            return { result: this.cancel('user'), discarded };
         }
       }
-      if (remaining.length === 0) return this.commit(intent, discardable);
+      if (remaining.length === 0) return { discarded };
       failures = remaining;
       this.failures = failures;
       this.notify();

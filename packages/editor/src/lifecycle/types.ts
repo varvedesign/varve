@@ -148,6 +148,7 @@ export interface Finalizer {
 export type TerminationTraceEvent =
   | { type: 'request'; intent: TerminationIntent; source?: string }
   | { type: 'scope'; intent: TerminationIntent; scope: DirtyScope; dirtyCount: number }
+  | { type: 'recheck'; intent: TerminationIntent; dirtyCount: number }
   | { type: 'dialog'; kind: PromptKind; count: number }
   | { type: 'dialog-resolved'; outcome: 'proceed' | 'cancel' | 'superseded' }
   | { type: 'save.start'; sessionId: string }
