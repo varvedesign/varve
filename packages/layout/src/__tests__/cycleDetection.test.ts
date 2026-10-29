@@ -108,6 +108,60 @@ describe('checkLayoutCycle', () => {
     expect(result.cycle.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('detects a per-axis Fill inside a Hug parent even when legacy sizing differs', () => {
+    const child = makeNode('child', {
+      layoutSizing: 'fixed',
+      layoutSizingWidth: 'fill',
+    } as Partial<SceneNode>);
+    const parent = makeFrame('parent', {
+      layoutSizing: 'fixed',
+      layoutSizingWidth: 'hug',
+      layoutStyle: layoutStyle(),
+      children: ['child'],
+    } as Partial<SceneNode>);
+    let doc = createDocument('test');
+    doc = addToDoc(doc, parent, child);
+    doc = { ...doc, rootChildren: ['parent'] };
+
+    expect(checkLayoutCycle(doc, 'child')).toMatchObject({
+      verdict: 'cycle_detected',
+      axis: 'width',
+      cycle: ['child', 'parent'],
+    });
+  });
+
+  it('does not report a cycle when Fill and Hug apply to different axes', () => {
+    const child = makeNode('child', { layoutSizingWidth: 'fill' } as Partial<SceneNode>);
+    const parent = makeFrame('parent', {
+      layoutSizingHeight: 'hug',
+      layoutStyle: layoutStyle(),
+      children: ['child'],
+    } as Partial<SceneNode>);
+    let doc = createDocument('test');
+    doc = addToDoc(doc, parent, child);
+    doc = { ...doc, rootChildren: ['parent'] };
+
+    expect(checkLayoutCycle(doc, 'child').verdict).toBe('no_cycle');
+  });
+
+  it('ignores hidden or absolute children because they do not contribute to Hug size', () => {
+    for (const overrides of [{ visible: false }, { layoutPosition: 'absolute' as const }]) {
+      const child = makeNode('child', {
+        layoutSizingWidth: 'fill',
+        ...overrides,
+      } as Partial<SceneNode>);
+      const parent = makeFrame('parent', {
+        layoutSizingWidth: 'hug',
+        layoutStyle: layoutStyle(),
+        children: ['child'],
+      } as Partial<SceneNode>);
+      let doc = createDocument('test');
+      doc = addToDoc(doc, parent, child);
+      doc = { ...doc, rootChildren: ['parent'] };
+      expect(checkLayoutCycle(doc, 'child').verdict).toBe('no_cycle');
+    }
+  });
+
   it('detects nested fill-in-hug cycle', () => {
     const child = makeNode('child', {
       layoutSizing: 'fill',

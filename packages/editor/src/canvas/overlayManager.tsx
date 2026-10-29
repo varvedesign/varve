@@ -47,6 +47,7 @@ import {
 } from '../scene/transformCache';
 import { nodeLocalBounds } from '../scene/world';
 import type { DraftShape, PenConstructionDraft, PredictedStrokeDraft } from '../tools/types';
+import { resolveAutoGridLines } from './autoGridGeometry';
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { computeGridLines, renderGridOnCtx, resolveCanvasColor } from './gridRenderer';
@@ -62,6 +63,7 @@ import {
 export interface UseOverlayDrawOptions {
   overlayCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
   stateRef: MutableRefObject<EditorState>;
+  document: Document;
   transformCacheRef: MutableRefObject<TransformCache>;
   displayDpr: number;
   accentColorRef: MutableRefObject<string>;
@@ -708,6 +710,7 @@ function drawObjectSelectionPrompts(
 export function useOverlayDraw({
   overlayCanvasRef,
   stateRef,
+  document: sceneDocument,
   transformCacheRef,
   displayDpr,
   accentColorRef,
@@ -1091,7 +1094,29 @@ export function useOverlayDraw({
       }
     }
 
-    // ── Layout grid overlay ────────────────────────────────────────────
+    // ── Selected auto-grid tracks ──────────────────────────────────────
+    const selectedGridId = s.selection.length === 1 ? s.selection[0] : undefined;
+    const selectedGrid = selectedGridId ? doc.nodes[selectedGridId] : undefined;
+    if (selectedGrid?.kind === 'frame' && selectedGrid.layoutStyle?.mode === 'grid') {
+      const world = getCachedWorldTransform(cache, doc, selectedGrid.id);
+      const lines = resolveAutoGridLines(doc, selectedGrid);
+      ctx.save();
+      ctx.strokeStyle = accentColor;
+      ctx.globalAlpha = 0.65;
+      ctx.lineWidth = 1 / s.zoom;
+      ctx.setLineDash([3 / s.zoom, 3 / s.zoom]);
+      for (const line of lines) {
+        const start = applyAffine(world, [line.start.x, line.start.y]);
+        const end = applyAffine(world, [line.end.x, line.end.y]);
+        ctx.beginPath();
+        ctx.moveTo(start[0], start[1]);
+        ctx.lineTo(end[0], end[1]);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // ── Authored layout guide overlay ──────────────────────────────────
     const layoutGrids = doc.gridSettings?.layoutGrids;
     if (s.layoutGridVisible && layoutGrids) {
       const sceneScope = resolveEditorSceneScope(doc, {
@@ -1313,6 +1338,7 @@ export function useOverlayDraw({
   }, [
     overlayCanvasRef,
     stateRef,
+    sceneDocument,
     transformCacheRef,
     displayDpr,
     accentColorRef,

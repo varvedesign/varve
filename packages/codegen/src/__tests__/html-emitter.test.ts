@@ -8,6 +8,102 @@ import { exportIrToHtml } from '../html';
 import { sceneToIR } from '../ir-converter';
 
 describe('exportIrToHtml', () => {
+  it('preserves stable grid tracks and authored child spans in CSS', () => {
+    const doc = createDocument('Grid export');
+    const child = {
+      ...makeFrameNode('card', { name: 'Card', w: 180, h: 80 }),
+      gridPlacement: {
+        gridColumnStartTrackId: 'middle',
+        gridColumnSpan: 2,
+        gridRowStart: 1,
+      },
+    };
+    const frame = makeFrameNode('grid', {
+      name: 'Dashboard',
+      w: 600,
+      h: 300,
+      children: [child.id],
+      layoutStyle: {
+        mode: 'grid',
+        direction: 'row',
+        gap: 12,
+        padding: [16, 16, 16, 16],
+        wrap: false,
+        grow: 0,
+        shrink: 0,
+        gridColumnTracks: [
+          { id: 'left', size: '1fr' },
+          { id: 'middle', size: '2fr' },
+          { id: 'right', size: '1fr' },
+        ],
+        rowGap: 18,
+        columnGap: 12,
+      },
+    });
+    const docWithNodes = {
+      ...doc,
+      nodes: { [frame.id]: frame, [child.id]: child },
+      rootChildren: [frame.id],
+    };
+
+    const result = exportIrToHtml(sceneToIR(docWithNodes));
+
+    expect(result.css).toContain('grid-template-columns: 1fr 2fr 1fr;');
+    expect(result.css).toContain('row-gap: 18px;');
+    expect(result.css).toContain('column-gap: 12px;');
+    expect(result.css).toContain('grid-column: 2 / span 2;');
+    expect(result.css).toContain('grid-row: 1;');
+  });
+
+  it('exports around and evenly distribution without normalizing either to between', () => {
+    const doc = createDocument('Distributed spacing');
+    const aroundFirst = makeFrameNode('around-first', { name: 'Around first', w: 50, h: 30 });
+    const aroundSecond = makeFrameNode('around-second', { name: 'Around second', w: 50, h: 30 });
+    const evenlyFirst = makeFrameNode('evenly-first', { name: 'Evenly first', w: 50, h: 30 });
+    const evenlySecond = makeFrameNode('evenly-second', { name: 'Evenly second', w: 50, h: 30 });
+    const baseStyle = {
+      mode: 'flex' as const,
+      direction: 'row' as const,
+      gap: 0,
+      padding: [0, 0, 0, 0] as [number, number, number, number],
+      wrap: false,
+      grow: 0,
+      shrink: 0,
+    };
+    const around = makeFrameNode('around', {
+      name: 'Around',
+      w: 400,
+      h: 100,
+      children: [aroundFirst.id, aroundSecond.id],
+      layoutStyle: { ...baseStyle, justifyContent: 'spaceAround' },
+    });
+    const evenly = makeFrameNode('evenly', {
+      name: 'Evenly',
+      w: 400,
+      h: 100,
+      children: [evenlyFirst.id, evenlySecond.id],
+      layoutStyle: { ...baseStyle, justifyContent: 'spaceEvenly' },
+    });
+    const result = exportIrToHtml(
+      sceneToIR({
+        ...doc,
+        nodes: {
+          [around.id]: around,
+          [aroundFirst.id]: aroundFirst,
+          [aroundSecond.id]: aroundSecond,
+          [evenly.id]: evenly,
+          [evenlyFirst.id]: evenlyFirst,
+          [evenlySecond.id]: evenlySecond,
+        },
+        rootChildren: [around.id, evenly.id],
+      }),
+    );
+
+    expect(result.css).toContain('justify-content: space-around;');
+    expect(result.css).toContain('justify-content: space-evenly;');
+    expect(result.css).not.toContain('justify-content: space-between;');
+  });
+
   it('produces valid HTML document structure', () => {
     const doc = createDocument('Test Design');
     const frame = makeFrameNode('f1', { name: 'Container' });

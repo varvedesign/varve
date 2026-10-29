@@ -1,6 +1,7 @@
 import type { FrameNode, SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { computeFlexLayout } from '../computeFlexLayout';
+import { computeFlexLayout, computeFlexLayoutDetailed } from '../computeFlexLayout';
+import { measureNodeSize } from '../measure';
 
 function makeFrame(layoutStyle: FrameNode['layoutStyle']): FrameNode {
   return {
@@ -48,6 +49,67 @@ function makeChild(id: string, x: number, y: number, w: number, h: number): Scen
 }
 
 describe('computeFlexLayout', () => {
+  it('reports visible overflow when shrinking is disabled', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 150;
+    const children = [makeChild('c1', 0, 0, 100, 40), makeChild('c2', 0, 0, 100, 40)];
+
+    const result = computeFlexLayoutDetailed(frame, children);
+
+    expect(result.diagnostic).toBe('main-axis-overflow');
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((item) => item.w)).toEqual([100, 100]);
+  });
+
+  it('reports overflow when shrinkable items hit their minimum bounds', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 150;
+    const children = [makeChild('c1', 0, 0, 100, 40), makeChild('c2', 0, 0, 100, 40)];
+    for (const child of children) {
+      child.minWidth = 90;
+      Object.assign(child, { layoutStyle: { shrink: 1 } });
+    }
+
+    const result = computeFlexLayoutDetailed(frame, children);
+
+    expect(result.diagnostic).toBe('main-axis-overflow');
+    expect(result.items.map((item) => item.w)).toEqual([90, 90]);
+  });
+
+  it('reports invalid flex bounds without returning geometry', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = Number.NaN;
+
+    expect(computeFlexLayoutDetailed(frame, [makeChild('c1', 12, 13, 100, 40)])).toEqual({
+      items: [],
+      diagnostic: 'invalid-flex-bounds',
+    });
+  });
+
   it('lays out row children sequentially with gap', () => {
     const frame = makeFrame({
       mode: 'flex',
@@ -373,6 +435,31 @@ describe('computeFlexLayout', () => {
     expect(results.map((result) => result.w)).toEqual([60, 60]);
   });
 
+  it('redistributes shrink when an item reaches its minimum', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 100;
+    const first = makeChild('first', 0, 0, 80, 40);
+    first.minWidth = 70;
+    Object.assign(first, { layoutStyle: { shrink: 1 } });
+    const second = makeChild('second', 0, 0, 80, 40);
+    Object.assign(second, { layoutStyle: { shrink: 1 } });
+
+    const results = computeFlexLayout(frame, [first, second]);
+
+    expect(results.map(({ x, w }) => [x, w])).toEqual([
+      [0, 70],
+      [70, 30],
+    ]);
+  });
+
   it('aligns a capped cross-axis fill item using its final size', () => {
     const frame = makeFrame({
       mode: 'flex',
@@ -457,6 +544,150 @@ describe('computeFlexLayout', () => {
     expect(results.map((result) => result.w)).toEqual([40, 250]);
   });
 
+  it('allocates Fill space after fixed children and gaps', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 500;
+    const fixed = makeChild('fixed', 0, 0, 100, 40);
+    fixed.layoutSizingWidth = 'fixed';
+    const first = makeChild('first', 0, 0, 0, 40);
+    first.layoutSizingWidth = 'fill';
+    const second = makeChild('second', 0, 0, 0, 40);
+    second.layoutSizingWidth = 'fill';
+
+    const results = computeFlexLayout(frame, [fixed, first, second]);
+    expect(results.map(({ x, w }) => [x, w])).toEqual([
+      [0, 100],
+      [110, 190],
+      [310, 190],
+    ]);
+  });
+
+  it('forms wrap lines from minimum bases, then redistributes Fill per line', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      layoutSemanticsVersion: 2,
+      direction: 'row',
+      gap: 5,
+      columnGap: 10,
+      rowGap: 24,
+      wrap: true,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 230;
+    const children = ['a', 'b', 'c', 'd'].map((id) => {
+      const child = makeChild(id, 0, 0, 0, 20);
+      child.layoutSizingWidth = 'fill';
+      child.minWidth = 100;
+      return child;
+    });
+
+    const results = computeFlexLayout(frame, children);
+    expect(results.map(({ id, x, y, w }) => [id, x, y, w])).toEqual([
+      ['a', 0, 0, 110],
+      ['b', 120, 0, 110],
+      ['c', 0, 44, 110],
+      ['d', 120, 44, 110],
+    ]);
+  });
+
+  it('uses physical row and column gaps when wrapping a vertical flow', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      layoutSemanticsVersion: 2,
+      direction: 'column',
+      gap: 3,
+      rowGap: 12,
+      columnGap: 20,
+      wrap: true,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 240;
+    frame.h = 100;
+    const children = ['a', 'b', 'c', 'd'].map((id) => {
+      const child = makeChild(id, 0, 0, 20, 60);
+      child.layoutSizingHeight = 'fill';
+      child.minHeight = 40;
+      return child;
+    });
+
+    const results = computeFlexLayout(frame, children);
+    expect(results.map(({ id, x, y, h }) => [id, x, y, h])).toEqual([
+      ['a', 0, 0, 44],
+      ['b', 0, 56, 44],
+      ['c', 40, 0, 44],
+      ['d', 40, 56, 44],
+    ]);
+  });
+
+  it('preserves legacy global Fill allocation for an unversioned wrapped frame', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: true,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 230;
+    const children = ['a', 'b', 'c', 'd'].map((id) => {
+      const child = makeChild(id, 0, 0, 0, 20);
+      child.layoutSizingWidth = 'fill';
+      child.minWidth = 100;
+      return child;
+    });
+
+    expect(computeFlexLayout(frame, children).map(({ x, y, w }) => [x, y, w])).toEqual([
+      [0, 0, 100],
+      [110, 0, 100],
+      [0, 30, 100],
+      [110, 30, 100],
+    ]);
+    frame.layoutStyle = { ...frame.layoutStyle!, layoutSemanticsVersion: 2 };
+    expect(computeFlexLayout(frame, children).map(({ x, y, w }) => [x, y, w])).toEqual([
+      [0, 0, 110],
+      [120, 0, 110],
+      [0, 30, 110],
+      [120, 30, 110],
+    ]);
+  });
+
+  it('aligns versioned wrapped children within each line rather than the whole frame', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      layoutSemanticsVersion: 2,
+      direction: 'row',
+      gap: 10,
+      wrap: true,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      alignItems: 'center',
+    });
+    frame.w = 230;
+    frame.h = 200;
+    const children = [
+      makeChild('a', 0, 0, 100, 20),
+      makeChild('b', 0, 0, 100, 40),
+      makeChild('c', 0, 0, 100, 30),
+      makeChild('d', 0, 0, 100, 50),
+    ];
+
+    expect(computeFlexLayout(frame, children).map(({ y }) => y)).toEqual([10, 0, 60, 50]);
+  });
+
   it('a child cross-axis sizing set to hug is never stretched by parent alignItems', () => {
     const frame = makeFrame({
       mode: 'flex',
@@ -526,5 +757,83 @@ describe('computeFlexLayout', () => {
     // occupied footprint used for spacing.
     expect(results[0]).toMatchObject({ w: 100, occupiedW: 108 });
     expect(results[1]).toMatchObject({ x: 118 });
+  });
+
+  it('remeasures auto-height text after a fill width is allocated', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 60;
+    const text: SceneNode = {
+      id: 'wrapped-copy',
+      name: 'Wrapped copy',
+      kind: 'text',
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 1 },
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      text: 'A sentence that wraps to several lines after its fill width is resolved.',
+      fontSize: 16,
+      fontFamily: 'Arial',
+      textResizing: 'autoHeight',
+      w: 140,
+      h: 20,
+      layoutSizingWidth: 'fill',
+      layoutSizingHeight: 'hug',
+      strokes: [],
+      effects: [],
+    } as SceneNode;
+
+    const [result] = computeFlexLayout(frame, [text]);
+
+    expect(result?.w).toBe(60);
+    expect(result?.h).toBe(measureNodeSize({ ...text, w: 60 } as SceneNode).h);
+    expect(result?.h).toBeGreaterThan(measureNodeSize(text).h);
+  });
+
+  it('ignores non-finite grow weights without producing non-finite geometry', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 100;
+    const child = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: Number.POSITIVE_INFINITY,
+      shrink: 0,
+    });
+    child.id = 'invalid-grow';
+    child.w = 20;
+    child.h = 20;
+
+    const results = computeFlexLayout(frame, [child]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ x: 0, y: 0, w: 20, h: 20 });
+    expect(
+      Object.values(results[0] ?? {}).every(
+        (value) => typeof value !== 'number' || Number.isFinite(value),
+      ),
+    ).toBe(true);
   });
 });

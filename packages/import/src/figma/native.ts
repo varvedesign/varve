@@ -334,6 +334,13 @@ function firstNumber(record: RecordValue, keys: string[], fallback = 0): number 
   return fallback;
 }
 
+function firstOptionalNumber(record: RecordValue, keys: string[]): number | undefined {
+  for (const key of keys) {
+    if (typeof record[key] === 'number' && Number.isFinite(record[key])) return record[key];
+  }
+  return undefined;
+}
+
 function arrayValue(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
@@ -701,6 +708,20 @@ function normalizedLayout(
   | 'counterAxisAlignItems'
   | 'primaryAxisSizingMode'
   | 'counterAxisSizingMode'
+  | 'gridRowCount'
+  | 'gridColumnCount'
+  | 'gridRowGap'
+  | 'gridColumnGap'
+  | 'gridRowsSizing'
+  | 'gridColumnsSizing'
+  | 'gridAutoTracks'
+  | 'gridItemsPositioning'
+  | 'gridChildHorizontalAlign'
+  | 'gridChildVerticalAlign'
+  | 'gridRowAnchorIndex'
+  | 'gridColumnAnchorIndex'
+  | 'gridRowSpan'
+  | 'gridColumnSpan'
   | 'layoutSizingHorizontal'
   | 'layoutSizingVertical'
   | 'layoutGrow'
@@ -726,6 +747,20 @@ function normalizedLayout(
     counterAxisAlignItems: firstString(raw, ['stackCounterAlignItems', 'counterAxisAlignItems']),
     primaryAxisSizingMode: firstString(raw, ['stackPrimarySizing', 'primaryAxisSizingMode']),
     counterAxisSizingMode: firstString(raw, ['stackCounterSizing', 'counterAxisSizingMode']),
+    gridRowCount: firstOptionalNumber(raw, ['gridRowCount']),
+    gridColumnCount: firstOptionalNumber(raw, ['gridColumnCount']),
+    gridRowGap: firstNumber(raw, ['gridRowGap']),
+    gridColumnGap: firstNumber(raw, ['gridColumnGap']),
+    gridRowsSizing: firstString(raw, ['gridRowsSizing']),
+    gridColumnsSizing: firstString(raw, ['gridColumnsSizing']),
+    gridAutoTracks: firstString(raw, ['gridAutoTracks']),
+    gridItemsPositioning: firstString(raw, ['gridItemsPositioning']),
+    gridChildHorizontalAlign: firstString(raw, ['gridChildHorizontalAlign']),
+    gridChildVerticalAlign: firstString(raw, ['gridChildVerticalAlign']),
+    gridRowAnchorIndex: firstNumber(raw, ['gridRowAnchorIndex']),
+    gridColumnAnchorIndex: firstNumber(raw, ['gridColumnAnchorIndex']),
+    gridRowSpan: firstNumber(raw, ['gridRowSpan'], 1),
+    gridColumnSpan: firstNumber(raw, ['gridColumnSpan'], 1),
     layoutSizingHorizontal: firstString(raw, ['layoutSizingHorizontal']),
     layoutSizingVertical: firstString(raw, ['layoutSizingVertical']),
     layoutGrow: firstNumber(raw, ['layoutGrow', 'stackGrow']),

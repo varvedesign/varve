@@ -73,6 +73,9 @@ function resolveAxis(
       const newPos = ratio * Math.max(1, newSize - origSize);
       return { pos: newPos, size: origSize };
     }
+    case 'centerOffset':
+      // Keep the child's center offset relative to the parent center constant.
+      return { pos: origPos + (newSize - oldSize) / 2, size: origSize };
     case 'stretch': {
       // Stretch: both edges pinned, size computed from distance between them
       const marginLeft = origPos;
