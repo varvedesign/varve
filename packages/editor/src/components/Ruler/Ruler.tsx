@@ -7,6 +7,7 @@ import {
   topRulerScreenToWorld,
   visibleWorldSpanOnRulerEdge,
 } from '../../canvas/rulerGeometry';
+import { type GuideSnapResolver, isGuideSnapBypass } from '../GuideOverlay/guideSnapResolver';
 import './Ruler.css';
 
 interface RulerProps {
@@ -19,6 +20,12 @@ interface RulerProps {
   pageRulerOrigin?: { x: number; y: number };
   onAddGuide: (axis: 'horizontal' | 'vertical', position: number) => string | undefined;
   onMoveGuide?: (id: string, position: number) => void;
+  /**
+   * Build the snap resolver for a guide drag started on this ruler, or `null`
+   * when snapping is off. Called once per gesture so the scene walk and the
+   * settings read stay off the pointer-move path.
+   */
+  beginGuideSnap?: (axis: 'vertical' | 'horizontal') => GuideSnapResolver | null;
   canvasWidth?: number;
   canvasHeight?: number;
   /** Bumps when theme changes so the canvas-based ruler re-paints. */
@@ -62,6 +69,7 @@ export function Ruler({
   pageRulerOrigin,
   onAddGuide,
   onMoveGuide,
+  beginGuideSnap,
   canvasWidth = 800,
   canvasHeight = 600,
   themeRevision,
@@ -260,7 +268,12 @@ export function Ruler({
         ? topRulerScreenToWorld(pos, camState, viewport)
         : leftRulerScreenToWorld(pos, camState, viewport);
     const world = guideAxis === 'vertical' ? worldPoint[0] : worldPoint[1];
-    const createdId = onAddGuide(guideAxis, Math.round(world));
+    // Creating a guide by dragging it out of the ruler is the primary route, so
+    // it snaps through the same resolver as re-dragging an existing guide.
+    const snap = beginGuideSnap?.(guideAxis) ?? null;
+    const place = (position: number, bypass: boolean) =>
+      snap ? snap(position, { bypass }).position : Math.round(position);
+    const createdId = onAddGuide(guideAxis, place(world, isGuideSnapBypass(e)));
     activeGuideDrag.current = { guideId: typeof createdId === 'string' ? createdId : null };
 
     const handleMove = (ev: MouseEvent) => {
@@ -272,7 +285,7 @@ export function Ruler({
       const w = guideAxis === 'vertical' ? moved[0] : moved[1];
       const active = activeGuideDrag.current;
       if (active?.guideId) {
-        onMoveGuide?.(active.guideId, Math.round(w));
+        onMoveGuide?.(active.guideId, place(w, isGuideSnapBypass(ev)));
       }
     };
 

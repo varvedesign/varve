@@ -532,6 +532,7 @@ The following dated files were moved from `docs/architecture/` to
 | `licensing/decision-research-2026-08-18.md` | Dated licensing decision research record |
 | `security/security-hardening.md` | Security hardening contract and policy (CSP, workflow policy, secret scanning) |
 | `security/trust-boundaries.md` | Source-sharing vs trust-sharing boundaries; client env allowlist (machine-enforced) |
+| `security/incident-runbook.md` | Vulnerability intake, severity, solo-maintainer hotfix path, advisory templates |
 
 ## Quality
 

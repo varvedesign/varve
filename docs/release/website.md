@@ -328,7 +328,7 @@ shasum -a 256 -c SHA256SUMS.txt        # macOS
 Get-FileHash .\Varve-*.exe -Algorithm SHA256   # Windows
 
 # 2. Build provenance: the file must be attested by the release workflow
-gh attestation verify ./Varve-0.1.0-windows-x86_64.exe -R K-Arthur/varve
+gh attestation verify ./Varve-0.1.0-windows-x86_64.exe --repo varvedesign/varve
 
 # 3. Platform signatures (post-signing releases):
 #    Windows: right-click -> Properties -> Digital Signatures (status "Valid"),
