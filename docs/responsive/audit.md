@@ -64,14 +64,19 @@ validated compact tiers below that. The app's own e2e matrix already covers
 480x640 and 640x400, i.e. the layout supports far smaller windows than the
 desktop shell allows.
 
-### D2 — Safe-area insets are inert — MEDIUM, blocked (task 01)
+### D2 — Safe-area insets are inert — MEDIUM, FIXED in 95f2b82a0 (task 01a)
 
 10 env(safe-area-inset-*) declarations on 7 lines in 4 files (editor portrait
 sheets, toasts, tablet offsets, site mobile nav) but neither
 apps/desktop/index.html:5 nor apps/website/src/layouts/Layout.astro:210 sets
-viewport-fit=cover, so iOS resolves every inset to 0. Fix needs both a meta
-change and inset padding on the top-level chrome, plus a validation method for
-env() values that this Linux/Chromium host cannot produce (see task 01).
+viewport-fit=cover, so iOS resolves every inset to 0. Resolved: both metas now
+set viewport-fit=cover; .editor-shell carries one inset padding for all grid
+areas; the viewport-relative fixed overlays (drawers, launchers, toasts, exit
+control, contextual help, safe-mode indicator, skip links) add the insets
+individually; the site header/footer/container/nav/consent card do the same.
+Validation: CDP Emulation.setSafeAreaInsetsOverride on Chromium 151 gives real
+env() values, covered by 124 automated checks; real iDevice evidence remains
+docs/responsive/device-checklist.md.
 
 ### D3 — Function carried by hover only — MEDIUM (task 03)
 
@@ -81,12 +86,32 @@ favourite (IconBrowser.css:403); GraphEditor keyframe values are hover-only
 JS (GraphEditor.tsx:407); 353 title= tooltips (20 in chrome) never surface
 on touch. Touch-only users can lose these affordances.
 
-### D4 — Fixed dialog floor wider than a phone — MEDIUM (task 04)
+Reproduced subset for dense data (2026-10-29, task 03): timeline label column is
+computed 120px because TimelinePanel.css wins document order, but the dead
+editor.css 140px rule still contributes align-items/font-size and mixes the
+cascade, leaving the label 37.9-38.2px tall inside the 28px row (~10px overflow
+onto the next row, 7px horizontal clip). Timeline mute/solo boxes are 16px and
+their ::before hit extension measures only 18px asymmetric; the 0%-keyframe dot
+covers the solo centre at 1024/1180/1366 fine and 1024 coarse. At a docked 320px
+timeline the panel content (368-370px) clips horizontally with no scroller.
+Layers: disclosure 24x24 hittable; eye/lock are hover-collapsed on fine pointer
+but coarse-visible; at container width <=260px solo and details are
+display:none for both pointer types (touch loses solo at the 1180 docked
+presentation). These are the task 03a/03b reproduced defects.
 
-Colorize dialog body min-width: 420px (ColorizeSection.css:322) exceeds a
-375px viewport; other dense forms use 2–6 column grids with no collapse rule
-(audit-raw J). Not yet exercised in a screenshot; owner should reproduce
-before editing.
+### D4 — Fixed dialog floor wider than a phone — DEAD CSS, NOT REPRODUCIBLE (task 04a, measured 2026-10-29)
+
+Colorize dialog body min-width: 420px (ColorizeSection.css:330; the audit-raw
+citation :322 drifted) exceeds a 375px viewport, but the whole 9-rule
+.colorize-dialog__* block has ZERO consumers: `rg colorize-dialog|ColorizeDialog`
+over packages/apps/tests matches only that CSS block (no TS/TSX, no rendered
+element at 1180x820 / 375x812 / 320x640; dialog[open]=0). The real Colorize
+surface is the inspector disclosure .insp-disclosure[data-section-id="colorize"]:
+document scrollWidth == innerWidth at 375/320, both actions inside the viewport
+and elementFromPoint-hittable after scrolling .insp-panel. Task 04a therefore
+closes as no-defect; the only action is deleting the dead rules (cleanup), not
+adding a capped min-width. Other dialog 2-column grids remain unreproduced
+(task 04b).
 
 ### D7 — 13–14in band missing from automated coverage — MEDIUM, COVERED in 7d81006e6 (task 06/08)
 

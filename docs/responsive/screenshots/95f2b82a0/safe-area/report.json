@@ -1,0 +1,1168 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-10-29T23:39:12.346Z",
+  "commit": "95f2b82a0",
+  "emulatedInsets": {
+    "portrait": {
+      "top": 47,
+      "bottom": 34,
+      "left": 0,
+      "right": 0
+    },
+    "landscape": {
+      "top": 0,
+      "bottom": 21,
+      "left": 47,
+      "right": 47
+    }
+  },
+  "tolerancePx": 1.5,
+  "passed": 124,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "editor 390x844 portrait: viewport meta has viewport-fit=cover",
+      "ok": true,
+      "detail": "width=device-width, initial-scale=1, viewport-fit=cover"
+    },
+    {
+      "name": "editor 390x844 portrait: shell carries all four safe-area insets",
+      "ok": true,
+      "detail": {
+        "paddingTop": "47px",
+        "paddingRight": "0px",
+        "paddingBottom": "34px",
+        "paddingLeft": "0px"
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: menubar starts below the top inset",
+      "ok": true,
+      "detail": {
+        "left": 0,
+        "top": 47,
+        "right": 390,
+        "bottom": 205.984375,
+        "width": 390,
+        "height": 158.984375
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: tab strip starts after the left inset",
+      "ok": true,
+      "detail": {
+        "left": 0,
+        "top": 205.984375,
+        "right": 390,
+        "bottom": 237.984375,
+        "width": 390,
+        "height": 32
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: status bar sits above the bottom inset",
+      "ok": true,
+      "detail": {
+        "left": 0,
+        "top": 784,
+        "right": 390,
+        "bottom": 810,
+        "width": 390,
+        "height": 26
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: no page horizontal overflow",
+      "ok": true,
+      "detail": {
+        "scrollWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: layers drawer is notch-safe",
+      "ok": true,
+      "detail": {
+        "position": "fixed",
+        "left": "0px",
+        "top": "185.915px",
+        "bottom": "34px",
+        "box": {
+          "left": -224,
+          "top": 185.90625,
+          "right": 0,
+          "bottom": 810
+        }
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: inspector bottom sheet pads the bottom inset",
+      "ok": true,
+      "detail": {
+        "position": "fixed",
+        "right": "0px",
+        "bottom": "0px",
+        "paddingBottom": "34px"
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: layers launcher is rendered",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "display": "flex",
+        "box": {
+          "left": 8.09375,
+          "top": 671.03125,
+          "right": 52.09375,
+          "bottom": 715.03125
+        },
+        "left": "8.105px",
+        "right": "337.906px"
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: layers launcher clears the left inset",
+      "ok": true,
+      "detail": {
+        "left": 8.09375,
+        "top": 671.03125,
+        "right": 52.09375,
+        "bottom": 715.03125
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: layers launcher clears the bottom inset",
+      "ok": true,
+      "detail": {
+        "left": 8.09375,
+        "top": 671.03125,
+        "right": 52.09375,
+        "bottom": 715.03125
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: inspector launcher clears the right inset",
+      "ok": true,
+      "detail": {
+        "left": 337.90625,
+        "top": 671.03125,
+        "right": 381.90625,
+        "bottom": 715.03125
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: toast container is rendered",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "bottom": "74.105px",
+        "right": "11.34px"
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: toast clears the bottom inset",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "bottom": "74.105px",
+        "right": "11.34px"
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: toast clears the right inset",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "bottom": "74.105px",
+        "right": "11.34px"
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: top inset reaches the tab strip",
+      "ok": true,
+      "detail": {
+        "withValue": 237.984375,
+        "withoutValue": 190.984375,
+        "change": 47,
+        "expected": 47
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: top inset reaches the fixed drawer anchor",
+      "ok": true,
+      "detail": {
+        "withValue": 185.90625,
+        "withoutValue": 138.90625,
+        "change": 47,
+        "expected": 47
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: top inset reaches the menubar",
+      "ok": true,
+      "detail": {
+        "withValue": 47,
+        "withoutValue": 0,
+        "change": 47,
+        "expected": 47
+      }
+    },
+    {
+      "name": "editor 390x844 portrait: bottom inset lifts the status bar",
+      "ok": true,
+      "detail": {
+        "withValue": 844,
+        "withoutValue": 810,
+        "change": 34,
+        "expected": 34
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: viewport meta has viewport-fit=cover",
+      "ok": true,
+      "detail": "width=device-width, initial-scale=1, viewport-fit=cover"
+    },
+    {
+      "name": "editor 320x640 portrait: shell carries all four safe-area insets",
+      "ok": true,
+      "detail": {
+        "paddingTop": "47px",
+        "paddingRight": "0px",
+        "paddingBottom": "34px",
+        "paddingLeft": "0px"
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: menubar starts below the top inset",
+      "ok": true,
+      "detail": {
+        "left": 0,
+        "top": 47,
+        "right": 320,
+        "bottom": 205.765625,
+        "width": 320,
+        "height": 158.765625
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: tab strip starts after the left inset",
+      "ok": true,
+      "detail": {
+        "left": 0,
+        "top": 205.765625,
+        "right": 320,
+        "bottom": 237.765625,
+        "width": 320,
+        "height": 32
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: status bar sits above the bottom inset",
+      "ok": true,
+      "detail": {
+        "left": 0,
+        "top": 580,
+        "right": 320,
+        "bottom": 606,
+        "width": 320,
+        "height": 26
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: no page horizontal overflow",
+      "ok": true,
+      "detail": {
+        "scrollWidth": 320,
+        "innerWidth": 320
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: layers drawer is notch-safe",
+      "ok": true,
+      "detail": {
+        "position": "fixed",
+        "left": "0px",
+        "top": "185.6px",
+        "bottom": "34px",
+        "box": {
+          "left": -224,
+          "top": 185.59375,
+          "right": 0,
+          "bottom": 606
+        }
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: inspector bottom sheet pads the bottom inset",
+      "ok": true,
+      "detail": {
+        "position": "fixed",
+        "right": "0px",
+        "bottom": "0px",
+        "paddingBottom": "34px"
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: layers launcher is rendered",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "display": "flex",
+        "box": {
+          "left": 8,
+          "top": 467.203125,
+          "right": 52,
+          "bottom": 511.203125
+        },
+        "left": "8px",
+        "right": "268px"
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: layers launcher clears the left inset",
+      "ok": true,
+      "detail": {
+        "left": 8,
+        "top": 467.203125,
+        "right": 52,
+        "bottom": 511.203125
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: layers launcher clears the bottom inset",
+      "ok": true,
+      "detail": {
+        "left": 8,
+        "top": 467.203125,
+        "right": 52,
+        "bottom": 511.203125
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: inspector launcher clears the right inset",
+      "ok": true,
+      "detail": {
+        "left": 268,
+        "top": 467.203125,
+        "right": 312,
+        "bottom": 511.203125
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: toast container is rendered",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "bottom": "74px",
+        "right": "11.2px"
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: toast clears the bottom inset",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "bottom": "74px",
+        "right": "11.2px"
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: toast clears the right inset",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "bottom": "74px",
+        "right": "11.2px"
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: top inset reaches the tab strip",
+      "ok": true,
+      "detail": {
+        "withValue": 237.765625,
+        "withoutValue": 190.765625,
+        "change": 47,
+        "expected": 47
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: top inset reaches the fixed drawer anchor",
+      "ok": true,
+      "detail": {
+        "withValue": 185.59375,
+        "withoutValue": 138.59375,
+        "change": 47,
+        "expected": 47
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: top inset reaches the menubar",
+      "ok": true,
+      "detail": {
+        "withValue": 47,
+        "withoutValue": 0,
+        "change": 47,
+        "expected": 47
+      }
+    },
+    {
+      "name": "editor 320x640 portrait: bottom inset lifts the status bar",
+      "ok": true,
+      "detail": {
+        "withValue": 640,
+        "withoutValue": 606,
+        "change": 34,
+        "expected": 34
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: viewport meta has viewport-fit=cover",
+      "ok": true,
+      "detail": "width=device-width, initial-scale=1, viewport-fit=cover"
+    },
+    {
+      "name": "editor 844x390 landscape: shell carries all four safe-area insets",
+      "ok": true,
+      "detail": {
+        "paddingTop": "0px",
+        "paddingRight": "47px",
+        "paddingBottom": "21px",
+        "paddingLeft": "47px"
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: menubar starts below the top inset",
+      "ok": true,
+      "detail": {
+        "left": 47,
+        "top": 0,
+        "right": 797,
+        "bottom": 108.625,
+        "width": 750,
+        "height": 108.625
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: tab strip starts after the left inset",
+      "ok": true,
+      "detail": {
+        "left": 47,
+        "top": 108.625,
+        "right": 797,
+        "bottom": 140.625,
+        "width": 750,
+        "height": 32
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: status bar sits above the bottom inset",
+      "ok": true,
+      "detail": {
+        "left": 47,
+        "top": 343,
+        "right": 797,
+        "bottom": 369,
+        "width": 750,
+        "height": 26
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: no page horizontal overflow",
+      "ok": true,
+      "detail": {
+        "scrollWidth": 844,
+        "innerWidth": 844
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: layers drawer is notch-safe",
+      "ok": true,
+      "detail": {
+        "position": "fixed",
+        "left": "47px",
+        "top": "140.958px",
+        "bottom": "21px",
+        "box": {
+          "left": -212.515625,
+          "top": 140.953125,
+          "right": 47,
+          "bottom": 369
+        }
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: inspector side drawer is notch-safe",
+      "ok": true,
+      "detail": {
+        "position": "fixed",
+        "right": "47px",
+        "bottom": "21px",
+        "paddingBottom": "0px"
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: layers launcher is rendered",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "display": "flex",
+        "box": {
+          "left": 55.78125,
+          "top": 227.890625,
+          "right": 99.78125,
+          "bottom": 271.890625
+        },
+        "left": "8.786px",
+        "right": "697.219px"
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: layers launcher clears the left inset",
+      "ok": true,
+      "detail": {
+        "left": 55.78125,
+        "top": 227.890625,
+        "right": 99.78125,
+        "bottom": 271.890625
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: layers launcher clears the bottom inset",
+      "ok": true,
+      "detail": {
+        "left": 55.78125,
+        "top": 227.890625,
+        "right": 99.78125,
+        "bottom": 271.890625
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: inspector launcher clears the right inset",
+      "ok": true,
+      "detail": {
+        "left": 744.21875,
+        "top": 227.890625,
+        "right": 788.21875,
+        "bottom": 271.890625
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: toast container is rendered",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "bottom": "61.786px",
+        "right": "334.768px"
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: toast clears the bottom inset",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "bottom": "61.786px",
+        "right": "334.768px"
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: toast clears the right inset",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "bottom": "61.786px",
+        "right": "334.768px"
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: top inset reaches the tab strip",
+      "ok": true,
+      "detail": {
+        "withValue": 140.625,
+        "withoutValue": 140.625,
+        "change": 0,
+        "expected": 0
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: top inset reaches the fixed drawer anchor",
+      "ok": true,
+      "detail": {
+        "withValue": 140.953125,
+        "withoutValue": 140.953125,
+        "change": 0,
+        "expected": 0
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: top inset reaches the menubar",
+      "ok": true,
+      "detail": {
+        "withValue": 0,
+        "withoutValue": 0,
+        "change": 0,
+        "expected": 0
+      }
+    },
+    {
+      "name": "editor 844x390 landscape: bottom inset lifts the status bar",
+      "ok": true,
+      "detail": {
+        "withValue": 390,
+        "withoutValue": 369,
+        "change": 21,
+        "expected": 21
+      }
+    },
+    {
+      "name": "editor distraction-free mode toggles via its shortcut",
+      "ok": true,
+      "detail": {
+        "requestedOn": true,
+        "isOn": true
+      }
+    },
+    {
+      "name": "editor exit-focus landscape: distraction-free exit control is rendered",
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "box": {
+          "left": 686,
+          "top": 8.78125,
+          "right": 788.21875,
+          "bottom": 32.34375
+        }
+      }
+    },
+    {
+      "name": "editor exit-focus landscape: exit control clears the top inset",
+      "ok": true,
+      "detail": {
+        "left": 686,
+        "top": 8.78125,
+        "right": 788.21875,
+        "bottom": 32.34375
+      }
+    },
+    {
+      "name": "editor exit-focus landscape: exit control clears the right inset",
+      "ok": true,
+      "detail": {
+        "left": 686,
+        "top": 8.78125,
+        "right": 788.21875,
+        "bottom": 32.34375
+      }
+    },
+    {
+      "name": "editor returns from distraction-free mode",
+      "ok": true,
+      "detail": {
+        "back": {
+          "requestedOn": false,
+          "isOn": false
+        },
+        "restored": true
+      }
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait standard: tablet layout mode is active",
+      "ok": true,
+      "detail": "tablet"
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait standard: layers launcher exists",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait standard: library launcher exists",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait standard: layers launcher clears the left inset",
+      "ok": true,
+      "detail": {
+        "left": "9.056px"
+      }
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait standard: library launcher keeps the inspector offset and right inset",
+      "ok": true,
+      "detail": {
+        "right": "298.976px"
+      }
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait mirrored: tablet layout mode is active",
+      "ok": true,
+      "detail": "tablet"
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait mirrored: layers launcher exists",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait mirrored: library launcher exists",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait mirrored: mirrored layers launcher keeps the inspector offset and right inset",
+      "ok": true,
+      "detail": {
+        "right": "298.976px"
+      }
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait mirrored: mirrored library launcher clears the left inset",
+      "ok": true,
+      "detail": {
+        "left": "9.056px"
+      }
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait: top inset reaches the tab strip",
+      "ok": true,
+      "detail": {
+        "withValue": 188,
+        "withoutValue": 141,
+        "change": 47,
+        "expected": 47
+      }
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait: fixed drawer anchor applies to this presentation",
+      "ok": true,
+      "detail": {
+        "skipped": true,
+        "reason": "drawer is an in-flow docked panel here, not a viewport-fixed drawer",
+        "position": "absolute"
+      }
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait: top inset reaches the menubar",
+      "ok": true,
+      "detail": {
+        "withValue": 47,
+        "withoutValue": 0,
+        "change": 47,
+        "expected": 47
+      }
+    },
+    {
+      "name": "editor tablet 1024x1366 portrait: bottom inset lifts the status bar",
+      "ok": true,
+      "detail": {
+        "withValue": 1366,
+        "withoutValue": 1332,
+        "change": 34,
+        "expected": 34
+      }
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape standard: tablet layout mode is active",
+      "ok": true,
+      "detail": "tablet"
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape standard: layers launcher exists",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape standard: library launcher exists",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape standard: layers launcher clears the left inset",
+      "ok": true,
+      "detail": {
+        "left": "56.569px"
+      }
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape standard: library launcher keeps the inspector offset and right inset",
+      "ok": true,
+      "detail": {
+        "right": "373.849px"
+      }
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape mirrored: tablet layout mode is active",
+      "ok": true,
+      "detail": "tablet"
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape mirrored: layers launcher exists",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape mirrored: library launcher exists",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape mirrored: mirrored layers launcher keeps the inspector offset and right inset",
+      "ok": true,
+      "detail": {
+        "right": "373.849px"
+      }
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape mirrored: mirrored library launcher clears the left inset",
+      "ok": true,
+      "detail": {
+        "left": "56.569px"
+      }
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape: top inset reaches the tab strip",
+      "ok": true,
+      "detail": {
+        "withValue": 141.6875,
+        "withoutValue": 141.6875,
+        "change": 0,
+        "expected": 0
+      }
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape: fixed drawer anchor applies to this presentation",
+      "ok": true,
+      "detail": {
+        "skipped": true,
+        "reason": "drawer is an in-flow docked panel here, not a viewport-fixed drawer",
+        "position": "absolute"
+      }
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape: top inset reaches the menubar",
+      "ok": true,
+      "detail": {
+        "withValue": 0,
+        "withoutValue": 0,
+        "change": 0,
+        "expected": 0
+      }
+    },
+    {
+      "name": "editor tablet 1366x1024 landscape: bottom inset lifts the status bar",
+      "ok": true,
+      "detail": {
+        "withValue": 1024,
+        "withoutValue": 1003,
+        "change": 21,
+        "expected": 21
+      }
+    },
+    {
+      "name": "editor desktop 1440x900 env=0: viewport meta has viewport-fit=cover",
+      "ok": true,
+      "detail": "width=device-width, initial-scale=1, viewport-fit=cover"
+    },
+    {
+      "name": "editor desktop 1440x900 env=0: shell padding is zero without insets",
+      "ok": true,
+      "detail": {
+        "paddingTop": "0px",
+        "paddingRight": "0px",
+        "paddingBottom": "0px",
+        "paddingLeft": "0px"
+      }
+    },
+    {
+      "name": "editor desktop 1440x900 env=0: menubar is flush to the viewport top",
+      "ok": true,
+      "detail": {
+        "left": 0,
+        "top": 0,
+        "right": 1440,
+        "bottom": 90.71875,
+        "width": 1440,
+        "height": 90.71875
+      }
+    },
+    {
+      "name": "editor desktop 1440x900 env=0: tab strip is flush to the viewport left",
+      "ok": true,
+      "detail": {
+        "left": 0,
+        "top": 90.71875,
+        "right": 1440,
+        "bottom": 122.71875,
+        "width": 1440,
+        "height": 32
+      }
+    },
+    {
+      "name": "editor desktop 1440x900 env=0: status bar reaches the viewport bottom",
+      "ok": true,
+      "detail": {
+        "left": 0,
+        "top": 873.203125,
+        "right": 1440,
+        "bottom": 900,
+        "width": 1440,
+        "height": 26.796875
+      }
+    },
+    {
+      "name": "editor desktop 1440x900 env=0: desktop launchers stay hidden",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "name": "editor desktop 1440x900 env=0: no page horizontal overflow",
+      "ok": true,
+      "detail": {
+        "scrollWidth": 1440,
+        "innerWidth": 1440
+      }
+    },
+    {
+      "name": "site home 375x800: viewport meta has viewport-fit=cover",
+      "ok": true,
+      "detail": "width=device-width, initial-scale=1.0, viewport-fit=cover"
+    },
+    {
+      "name": "site home 375x800: header content starts below the top inset",
+      "ok": true,
+      "detail": "47px"
+    },
+    {
+      "name": "site home 375x800: site nav inline padding adds the safe gutters",
+      "ok": true,
+      "detail": {
+        "navBasePx": 4.855,
+        "navPaddingLeft": "4.855px",
+        "navPaddingRight": "4.855px"
+      }
+    },
+    {
+      "name": "site home 375x800: mobile nav sheet carries all four insets",
+      "ok": true,
+      "detail": {
+        "top": "47px",
+        "right": "0px",
+        "bottom": "34px",
+        "left": "0px"
+      }
+    },
+    {
+      "name": "site home 375x800: skip link focus clears the top inset",
+      "ok": true,
+      "detail": 51.855
+    },
+    {
+      "name": "site home 375x800: footer content sits above the home indicator",
+      "ok": true,
+      "detail": "34px"
+    },
+    {
+      "name": "site home 375x800: shared container adds the safe gutters",
+      "ok": true,
+      "detail": {
+        "pageInlinePx": 16,
+        "containerPaddingLeft": "16px"
+      }
+    },
+    {
+      "name": "site home 375x800: analytics consent card is edge-safe",
+      "ok": true,
+      "detail": {
+        "pageInlinePx": 16,
+        "consent": {
+          "bottom": "50px",
+          "right": "16px"
+        }
+      }
+    },
+    {
+      "name": "site home 375x800: no page horizontal overflow",
+      "ok": true,
+      "detail": {
+        "scrollWidth": 375,
+        "innerWidth": 375
+      }
+    },
+    {
+      "name": "site home 768x900: viewport meta has viewport-fit=cover",
+      "ok": true,
+      "detail": "width=device-width, initial-scale=1.0, viewport-fit=cover"
+    },
+    {
+      "name": "site home 768x900: header content starts below the top inset",
+      "ok": true,
+      "detail": "47px"
+    },
+    {
+      "name": "site home 768x900: site nav inline padding adds the safe gutters",
+      "ok": true,
+      "detail": {
+        "navBasePx": 19.2,
+        "navPaddingLeft": "19.2px",
+        "navPaddingRight": "19.2px"
+      }
+    },
+    {
+      "name": "site home 768x900: mobile nav sheet carries all four insets",
+      "ok": true,
+      "detail": {
+        "top": "47px",
+        "right": "0px",
+        "bottom": "34px",
+        "left": "0px"
+      }
+    },
+    {
+      "name": "site home 768x900: skip link focus clears the top inset",
+      "ok": true,
+      "detail": 52.248
+    },
+    {
+      "name": "site home 768x900: footer content sits above the home indicator",
+      "ok": true,
+      "detail": "34px"
+    },
+    {
+      "name": "site home 768x900: shared container adds the safe gutters",
+      "ok": true,
+      "detail": {
+        "pageInlinePx": 19.2,
+        "containerPaddingLeft": "19.2px"
+      }
+    },
+    {
+      "name": "site home 768x900: analytics consent card is edge-safe",
+      "ok": true,
+      "detail": {
+        "pageInlinePx": 19.2,
+        "consent": {
+          "bottom": "53.2px",
+          "right": "19.2px"
+        }
+      }
+    },
+    {
+      "name": "site home 768x900: no page horizontal overflow",
+      "ok": true,
+      "detail": {
+        "scrollWidth": 768,
+        "innerWidth": 768
+      }
+    },
+    {
+      "name": "site home 844x390: viewport meta has viewport-fit=cover",
+      "ok": true,
+      "detail": "width=device-width, initial-scale=1.0, viewport-fit=cover"
+    },
+    {
+      "name": "site home 844x390: header content starts below the top inset",
+      "ok": true,
+      "detail": "0px"
+    },
+    {
+      "name": "site home 844x390: site nav inline padding adds the safe gutters",
+      "ok": true,
+      "detail": {
+        "navBasePx": 21.1,
+        "navPaddingLeft": "68.1px",
+        "navPaddingRight": "68.1px"
+      }
+    },
+    {
+      "name": "site home 844x390: mobile nav sheet carries all four insets",
+      "ok": true,
+      "detail": {
+        "top": "0px",
+        "right": "47px",
+        "bottom": "21px",
+        "left": "47px"
+      }
+    },
+    {
+      "name": "site home 844x390: skip link focus clears the top inset",
+      "ok": true,
+      "detail": 5.324
+    },
+    {
+      "name": "site home 844x390: footer content sits above the home indicator",
+      "ok": true,
+      "detail": "21px"
+    },
+    {
+      "name": "site home 844x390: shared container adds the safe gutters",
+      "ok": true,
+      "detail": {
+        "pageInlinePx": 21.1,
+        "containerPaddingLeft": "68.1px"
+      }
+    },
+    {
+      "name": "site home 844x390: analytics consent card is edge-safe",
+      "ok": true,
+      "detail": {
+        "pageInlinePx": 21.1,
+        "consent": {
+          "bottom": "42.1px",
+          "right": "68.1px"
+        }
+      }
+    },
+    {
+      "name": "site home 844x390: no page horizontal overflow",
+      "ok": true,
+      "detail": {
+        "scrollWidth": 844,
+        "innerWidth": 844
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/editor-390x844-safe-area.png",
+      "viewport": "editor 390x844 portrait"
+    },
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/editor-320x640-safe-area.png",
+      "viewport": "editor 320x640 portrait"
+    },
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/editor-844x390-safe-area.png",
+      "viewport": "editor 844x390 landscape"
+    },
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/editor-844x390-exit-focus-safe-area.png",
+      "viewport": "editor exit-focus landscape"
+    },
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/editor-tablet-1024x1366-safe-area.png",
+      "viewport": "editor tablet 1024x1366 portrait"
+    },
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/editor-tablet-1366x1024-safe-area.png",
+      "viewport": "editor tablet 1366x1024 landscape"
+    },
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/editor-desktop-1440x900-env0.png",
+      "viewport": "editor desktop 1440x900 env=0"
+    },
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/site-home-375x800-safe-area.png",
+      "viewport": "site home 375x800"
+    },
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/site-home-768x900-safe-area.png",
+      "viewport": "site home 768x900"
+    },
+    {
+      "file": "docs/responsive/screenshots/95f2b82a0/safe-area/site-home-844x390-safe-area.png",
+      "viewport": "site home 844x390"
+    }
+  ]
+}

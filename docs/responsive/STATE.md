@@ -1,21 +1,21 @@
 # Responsive Adaptation — State
 
-Last updated: 2026-10-29T16:22:00-07:00 | Last commit: eb09422e5 (code checkpoint for 01a is the next commit on master)
+Last updated: 2026-10-29T17:10:00-07:00 | Last commit: 95f2b82a0 (evidence commit for 95f2b82a0 is the next commit on master)
 
 | # | Task | Status | Commit | Next action / Blocker |
 |---|---|---|---|---|
-| 01a | safe-area foundation (viewport-fit=cover + shell inset + validation harness) | in-progress | — (code commit this session) | Implementation landed: viewport-fit=cover, one shell inset, fixed-overlay geometry, site header/footer/container/nav, `pnpm validate:safe-area` (66/66 smoke pass; 6 screenshots in .tmp-resp-safe-area). Next: full matrix + committed screenshots/<code-sha>/ evidence, then mark done. |
+| 01a | safe-area foundation (viewport-fit=cover + shell inset + validation harness) | done | 95f2b82a0 | — (viewport-fit=cover both documents, shell inset, fixed-overlay geometry, site header/footer/container/nav; `validate:safe-area` 124/124; matrix 152/152; 11 safe-area + 41 matrix screenshots in screenshots/95f2b82a0/; independent review blocker fixed) |
 | 01b | breakpoint constants (JS literals) | not-started | — | No dependency; no user-visible payoff. Run only from a spare session. |
 | 02 | compact header containment | done | 59bd283a9 | — (regression spec 2/2 pass; context bar scrolls, Share on-screen at 320–899) |
-| 03a | timeline dense-data targets + duplicate label column authority | not-started | — | Depends on 01a. Reproduce at 1024x768 / 1180x820 / 1366x1024 with Layers + Timeline open (fine + coarse) before editing. |
-| 03b | layers/inspector targets and dense grids | not-started | — | Depends on 02 (done), serially after 03a (both touch editor panel CSS). Reproduce before editing; close with evidence if no defect. |
-| 04a | Colorize dialog phone fit | not-started | — | Depends on 02. Reproduce at 375x812 and 320x640 through the real UI first. |
+| 03a | timeline dense-data targets + duplicate label column authority | not-started | — | Reproduced by repro-broker: label cascade mix (37.9px label in 28px row, 7px x-clip), mute/solo effective hit 18px asymmetric + solo centre covered by keyframe dot, docked 320px timeline clips 48-50px with no x-scroller. Patch next. |
+| 03b | layers/inspector targets and dense grids | not-started | — | Reproduced subset: at container <=260px (e.g. docked 1180 presentation) layers solo/details are display:none for both pointer types, so touch loses solo; disclosure/eye/lock otherwise 24x24 and coarse-visible. Fix after 03a (same panel CSS family). |
+| 04a | Colorize dialog phone fit | not-started | — | Repro says NO DEFECT: .colorize-dialog__* is dead CSS (zero consumers) and the real Colorize inspector disclosure is overflow-free and hittable at 375/320. Close no-defect and delete the 9 dead rules as cleanup. |
 | 04b | remaining dialog grid collapse | not-started | — | Depends on 04a; split per dialog family at start. Defer with a recorded reason if the session window is consumed by 04a. |
 | 05 | grids and landing reflow | deferred | — | Deferred: no defect reproduced in the bounded audit; re-open only with a screenshot. |
 | 06 | 13–14in shell/window geometry | done | 738c9a943 | — (Tauri default 1180x720 + center + min 480x400; harness PASS at 1180x720 and 1093x614, 7d81006e6) |
 | 07 | marketing site dense tables | done | 26e8dc5a6 | — (license/perf tables in .scroll-x regions; 20/20 route-viewport checks pass) |
 | 08 | documentation + committed validation harness | done | 7d81006e6 | — (pnpm validate:responsive; 41 screenshots + report in docs/responsive/screenshots/7d81006e6/; carried finding R1) |
-| 09 | final validation and review gate | not-started | — | Blocked by 01a, 03a, 03b, 04a. Do not start as an implementation task. |
+| 09 | final validation and review gate | not-started | — | 01a done; blocked by 03a, 03b, 04a. Runs after those close or are explicitly deferred. |
 
 ## Task split history (2026-10-29)
 

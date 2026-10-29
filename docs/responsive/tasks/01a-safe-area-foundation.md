@@ -1,6 +1,6 @@
 # Task 01a — Safe-area foundation (viewport-fit=cover + inset chrome)
 
-Status: in-progress — implementation landed 2026-10-29, validation evidence pending | Depends on: none | Rollback: revert the 01a code commit (additive CSS/meta + new script only)
+Status: done | Depends on: none | Rollback: revert 95f2b82a0 then 0957d2db6 (additive CSS/meta + new script only; no data or schema migration)
 Split from: tasks/01-global-viewport-foundation.md on 2026-10-29T15:59:01-07:00
 
 ## Decision (this unblocks original task 01)
@@ -51,20 +51,35 @@ toasts) consumes insets at all today.
    once the meta is present.
 No new layout and no breakpoint-value changes.
 
-## Validation
-- NEW `pnpm validate:safe-area`: CDP insets 47/34/11/12 at 390x844; asserts the
-  meta string, .editor-shell padding, header/tab/status offsets, fixed drawer
-  top/bottom/left/right, FAB and exit-focus geometry, toast math, and no
-  document horizontal overflow. Site: served build asserts header/footer/
-  container insets and the meta. Screenshots: editor 320x640 + 390x844, site
-  home 375x800 + 768x900 under docs/responsive/screenshots/<sha>/safe-area/.
-- `pnpm validate:responsive --app all --reuse-website-dist` PASS, fresh <sha>
-  screenshot set committed.
-- Desktop equivalence at 1440x900: layout geometry identical (env() = 0).
-- Audits: audit:filesize (new script <=400 lines), audit:emoji, biome on
-  changed JS, audit:docs after the new device checklist is linked.
-- Real device: docs/responsive/device-checklist.md stays unchecked until an iOS
-  run; recorded as a known limitation, not a blocker.
+## Validation (performed 2026-10-29, commits 0957d2db6 + 95f2b82a0)
+- NEW `pnpm validate:safe-area` — PASS 124/124 checks, 11 screenshots in
+  docs/responsive/screenshots/95f2b82a0/safe-area/. Coverage: portrait phone
+  390x844 + 320x640 (top notch 47, home indicator 34) and landscape phone
+  844x390 (sensor housings 47/47, bottom 21); forced tablet mode >=900 in
+  standard and mirrored launcher presentations (computed offsets keep the
+  280px inspector floor); distraction-free exit control measured through the
+  real Ctrl+Shift+'>' shortcut; env()=0 desktop 1440x900 baseline (zero
+  padding, flush chrome, hidden launchers); served website build (header,
+  footer, shared container, mobile-nav sheet, consent card, skip link, 24rem
+  override); plus with-insets-vs-CDP-cleared differential checks so a
+  forgotten inset fails even where an absolute anchor was already estimated.
+- `pnpm validate:responsive --app all --reuse-website-dist` on 95f2b82a0 —
+  PASS 152/152 checks, 41 fresh screenshots (18,017,089 bytes) in
+  docs/responsive/screenshots/95f2b82a0/.
+- Desktop equivalence vs the previous campaign baseline (7d81006e6): all 16
+  editor viewports pass; measured DOM geometry differs by at most 1px on the
+  shell edge (uniform +1px vertical registration offset that is identical
+  between 0957d2db6 and 95f2b82a0, i.e. not caused by the 01a review fix;
+  consistent with the harness's documented capture offset). 18/20 website
+  screenshots are byte-identical; the two full-page home/product captures
+  differ only in animated/reveal regions (AE 0.19% / 0.59%).
+- Audits: audit:filesize (modules 32-319 lines, cap 400), audit:emoji,
+  audit:docs, biome clean on changed JS; agent map regenerated.
+- Real device: docs/responsive/device-checklist.md remains unchecked until an
+  iOS run; recorded as a known limitation, not a blocker.
+- Independent review: cdp-scout round 1 found the tablet >=900 cascade blocker
+  (fixed in 95f2b82a0) and missing exit-focus/drawer-top/tablet coverage (added);
+  see docs/responsive/review-2026-10-29.md.
 
 ## Rollback
 Revert the task 01a commit; every change is additive CSS/meta and the new

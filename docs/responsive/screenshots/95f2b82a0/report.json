@@ -1,0 +1,3461 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-29T23:39:18.336Z",
+  "command": "node scripts/validate-responsive.mjs --app all --reuse-website-dist",
+  "gitSha": "95f2b82a0",
+  "options": {
+    "app": "all",
+    "screenshots": true,
+    "updateManifest": false,
+    "reuseWebsiteDist": true,
+    "outDir": "docs/responsive/screenshots/95f2b82a0"
+  },
+  "editor": {
+    "rows": [
+      {
+        "label": "phone-320x640",
+        "screenshot": "editor/phone-320x640-default.png",
+        "viewport": {
+          "width": 320,
+          "height": 640
+        },
+        "doc": {
+          "scrollWidth": 320,
+          "scrollHeight": 641
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 320,
+          "bottom": 640
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 104.2,
+          "right": 320,
+          "bottom": 146.8
+        },
+        "share": {
+          "rect": {
+            "left": 265.4,
+            "top": 111.5,
+            "right": 312,
+            "bottom": 139.5
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 104.2,
+            "right": 260.6,
+            "bottom": 146.8
+          },
+          "inside": true,
+          "scrollWidth": 433,
+          "clientWidth": 261,
+          "scrollable": true,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 339,
+            "clientWidth": 320,
+            "scrollable": true,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 342,
+            "clientWidth": 262,
+            "scrollable": true,
+            "overflowX": "auto"
+          }
+        },
+        "layersScreenshot": "editor/phone-320x640-layers.png"
+      },
+      {
+        "label": "phone-375x667",
+        "screenshot": "editor/phone-375x667-default.png",
+        "viewport": {
+          "width": 375,
+          "height": 667
+        },
+        "doc": {
+          "scrollWidth": 375,
+          "scrollHeight": 668
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 375,
+          "bottom": 667
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 104.3,
+          "right": 375,
+          "bottom": 147
+        },
+        "share": {
+          "rect": {
+            "left": 320.2,
+            "top": 111.6,
+            "right": 366.9,
+            "bottom": 139.6
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 104.3,
+            "right": 315.4,
+            "bottom": 147
+          },
+          "inside": true,
+          "scrollWidth": 434,
+          "clientWidth": 315,
+          "scrollable": true,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 375,
+            "clientWidth": 375,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 343,
+            "clientWidth": 316,
+            "scrollable": true,
+            "overflowX": "auto"
+          }
+        },
+        "layersScreenshot": "editor/phone-375x667-layers.png"
+      },
+      {
+        "label": "phone-390x844",
+        "screenshot": "editor/phone-390x844-default.png",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "doc": {
+          "scrollWidth": 390,
+          "scrollHeight": 845
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 390,
+          "bottom": 844
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 104.3,
+          "right": 390,
+          "bottom": 147
+        },
+        "share": {
+          "rect": {
+            "left": 335.2,
+            "top": 111.6,
+            "right": 381.9,
+            "bottom": 139.6
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 104.3,
+            "right": 330.3,
+            "bottom": 147
+          },
+          "inside": true,
+          "scrollWidth": 434,
+          "clientWidth": 330,
+          "scrollable": true,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 390,
+            "clientWidth": 390,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 344,
+            "clientWidth": 331,
+            "scrollable": true,
+            "overflowX": "auto"
+          }
+        },
+        "layersScreenshot": "editor/phone-390x844-layers.png"
+      },
+      {
+        "label": "tablet-768x1024",
+        "screenshot": "editor/tablet-768x1024-default.png",
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "doc": {
+          "scrollWidth": 768,
+          "scrollHeight": 1025
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 768,
+          "bottom": 1024
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 104.8,
+          "right": 768,
+          "bottom": 148.3
+        },
+        "share": {
+          "rect": {
+            "left": 711.9,
+            "top": 112.6,
+            "right": 759.3,
+            "bottom": 140.6
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 104.8,
+            "right": 706.6,
+            "bottom": 148.3
+          },
+          "inside": true,
+          "scrollWidth": 707,
+          "clientWidth": 707,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 768,
+            "clientWidth": 768,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 351,
+            "clientWidth": 351,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        },
+        "layersScreenshot": "editor/tablet-768x1024-layers.png"
+      },
+      {
+        "label": "tablet-820x1180",
+        "screenshot": "editor/tablet-820x1180-default.png",
+        "viewport": {
+          "width": 820,
+          "height": 1180
+        },
+        "doc": {
+          "scrollWidth": 820,
+          "scrollHeight": 1181
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 820,
+          "bottom": 1180
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 104.9,
+          "right": 820,
+          "bottom": 148.5
+        },
+        "share": {
+          "rect": {
+            "left": 763.7,
+            "top": 112.7,
+            "right": 811.3,
+            "bottom": 140.7
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 104.9,
+            "right": 758.4,
+            "bottom": 148.5
+          },
+          "inside": true,
+          "scrollWidth": 758,
+          "clientWidth": 758,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 820,
+            "clientWidth": 820,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 352,
+            "clientWidth": 352,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        },
+        "layersScreenshot": "editor/tablet-820x1180-layers.png"
+      },
+      {
+        "label": "tablet-1024x768",
+        "screenshot": "editor/tablet-1024x768-default.png",
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "doc": {
+          "scrollWidth": 1024,
+          "scrollHeight": 769
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1024,
+          "bottom": 768
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 45.5,
+          "right": 1024,
+          "bottom": 89.5
+        },
+        "share": {
+          "rect": {
+            "left": 967,
+            "top": 53.5,
+            "right": 1015,
+            "bottom": 81.5
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 45.5,
+            "right": 432.7,
+            "bottom": 89.5
+          },
+          "inside": true,
+          "scrollWidth": 433,
+          "clientWidth": 433,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1024,
+            "clientWidth": 1024,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 356,
+            "clientWidth": 356,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "tablet-1024x1366",
+        "screenshot": "editor/tablet-1024x1366-default.png",
+        "viewport": {
+          "width": 1024,
+          "height": 1366
+        },
+        "doc": {
+          "scrollWidth": 1024,
+          "scrollHeight": 1367
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1024,
+          "bottom": 1366
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 45.5,
+          "right": 1024,
+          "bottom": 89.5
+        },
+        "share": {
+          "rect": {
+            "left": 967,
+            "top": 53.5,
+            "right": 1015,
+            "bottom": 81.5
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 45.5,
+            "right": 432.7,
+            "bottom": 89.5
+          },
+          "inside": true,
+          "scrollWidth": 433,
+          "clientWidth": 433,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1024,
+            "clientWidth": 1024,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 356,
+            "clientWidth": 356,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "13in-125pct-scaling-1093x614",
+        "screenshot": "editor/13in-125pct-scaling-1093x614-default.png",
+        "viewport": {
+          "width": 1093,
+          "height": 614
+        },
+        "doc": {
+          "scrollWidth": 1093,
+          "scrollHeight": 615
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1093,
+          "bottom": 614
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 45.6,
+          "right": 1093,
+          "bottom": 89.7
+        },
+        "share": {
+          "rect": {
+            "left": 1035.7,
+            "top": 53.6,
+            "right": 1083.8,
+            "bottom": 81.6
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 45.6,
+            "right": 433.8,
+            "bottom": 89.7
+          },
+          "inside": true,
+          "scrollWidth": 434,
+          "clientWidth": 434,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1093,
+            "clientWidth": 1093,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 357,
+            "clientWidth": 357,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "13in-window-default-1180x720",
+        "screenshot": "editor/13in-window-default-1180x720-default.png",
+        "viewport": {
+          "width": 1180,
+          "height": 720
+        },
+        "doc": {
+          "scrollWidth": 1180,
+          "scrollHeight": 721
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1180,
+          "bottom": 720
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 45.7,
+          "right": 1180,
+          "bottom": 90
+        },
+        "share": {
+          "rect": {
+            "left": 1122.4,
+            "top": 53.8,
+            "right": 1170.7,
+            "bottom": 81.8
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 45.7,
+            "right": 435.4,
+            "bottom": 90
+          },
+          "inside": true,
+          "scrollWidth": 435,
+          "clientWidth": 435,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1180,
+            "clientWidth": 1180,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 359,
+            "clientWidth": 359,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "tablet-1180x820",
+        "screenshot": "editor/tablet-1180x820-default.png",
+        "viewport": {
+          "width": 1180,
+          "height": 820
+        },
+        "doc": {
+          "scrollWidth": 1180,
+          "scrollHeight": 821
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1180,
+          "bottom": 820
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 45.7,
+          "right": 1180,
+          "bottom": 90
+        },
+        "share": {
+          "rect": {
+            "left": 1122.4,
+            "top": 53.8,
+            "right": 1170.7,
+            "bottom": 81.8
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 45.7,
+            "right": 435.4,
+            "bottom": 90
+          },
+          "inside": true,
+          "scrollWidth": 435,
+          "clientWidth": 435,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1180,
+            "clientWidth": 1180,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 359,
+            "clientWidth": 359,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "tablet-1366x1024",
+        "screenshot": "editor/tablet-1366x1024-default.png",
+        "viewport": {
+          "width": 1366,
+          "height": 1024
+        },
+        "doc": {
+          "scrollWidth": 1366,
+          "scrollHeight": 1025
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1366,
+          "bottom": 1024
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 45.8,
+          "right": 1366,
+          "bottom": 90.5
+        },
+        "share": {
+          "rect": {
+            "left": 1307.8,
+            "top": 54.2,
+            "right": 1356.4,
+            "bottom": 82.2
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 45.8,
+            "right": 438.7,
+            "bottom": 90.5
+          },
+          "inside": true,
+          "scrollWidth": 439,
+          "clientWidth": 439,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1366,
+            "clientWidth": 1366,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 363,
+            "clientWidth": 363,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "laptop-1280x800",
+        "screenshot": "editor/laptop-1280x800-default.png",
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "doc": {
+          "scrollWidth": 1280,
+          "scrollHeight": 801
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1280,
+          "bottom": 800
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 45.8,
+          "right": 1280,
+          "bottom": 90.3
+        },
+        "share": {
+          "rect": {
+            "left": 1222.1,
+            "top": 54,
+            "right": 1270.6,
+            "bottom": 82
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 45.8,
+            "right": 437.1,
+            "bottom": 90.3
+          },
+          "inside": true,
+          "scrollWidth": 437,
+          "clientWidth": 437,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1280,
+            "clientWidth": 1280,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 361,
+            "clientWidth": 361,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "laptop-1366x768",
+        "screenshot": "editor/laptop-1366x768-default.png",
+        "viewport": {
+          "width": 1366,
+          "height": 768
+        },
+        "doc": {
+          "scrollWidth": 1366,
+          "scrollHeight": 769
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1366,
+          "bottom": 768
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 45.8,
+          "right": 1366,
+          "bottom": 90.5
+        },
+        "share": {
+          "rect": {
+            "left": 1307.8,
+            "top": 54.2,
+            "right": 1356.4,
+            "bottom": 82.2
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 45.8,
+            "right": 438.7,
+            "bottom": 90.5
+          },
+          "inside": true,
+          "scrollWidth": 439,
+          "clientWidth": 439,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1366,
+            "clientWidth": 1366,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 363,
+            "clientWidth": 363,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "laptop-1440x900",
+        "screenshot": "editor/laptop-1440x900-default.png",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "doc": {
+          "scrollWidth": 1440,
+          "scrollHeight": 901
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1440,
+          "bottom": 900
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 45.9,
+          "right": 1440,
+          "bottom": 90.7
+        },
+        "share": {
+          "rect": {
+            "left": 1381.5,
+            "top": 54.3,
+            "right": 1430.3,
+            "bottom": 82.3
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 45.9,
+            "right": 439.8,
+            "bottom": 90.7
+          },
+          "inside": true,
+          "scrollWidth": 440,
+          "clientWidth": 440,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1440,
+            "clientWidth": 1440,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 364,
+            "clientWidth": 364,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "laptop-1512x982",
+        "screenshot": "editor/laptop-1512x982-default.png",
+        "viewport": {
+          "width": 1512,
+          "height": 982
+        },
+        "doc": {
+          "scrollWidth": 1512,
+          "scrollHeight": 983
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1512,
+          "bottom": 982
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 46,
+          "right": 1512,
+          "bottom": 91
+        },
+        "share": {
+          "rect": {
+            "left": 1453.3,
+            "top": 54.5,
+            "right": 1502.2,
+            "bottom": 82.5
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 46,
+            "right": 441,
+            "bottom": 91
+          },
+          "inside": true,
+          "scrollWidth": 441,
+          "clientWidth": 441,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1512,
+            "clientWidth": 1512,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 366,
+            "clientWidth": 366,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      },
+      {
+        "label": "desktop-1536x864",
+        "screenshot": "editor/desktop-1536x864-default.png",
+        "viewport": {
+          "width": 1536,
+          "height": 864
+        },
+        "doc": {
+          "scrollWidth": 1536,
+          "scrollHeight": 865
+        },
+        "shell": {
+          "left": 0,
+          "top": 0,
+          "right": 1536,
+          "bottom": 864
+        },
+        "headerRow": {
+          "left": 0,
+          "top": 46,
+          "right": 1536,
+          "bottom": 91
+        },
+        "share": {
+          "rect": {
+            "left": 1477.2,
+            "top": 54.5,
+            "right": 1526.2,
+            "bottom": 82.5
+          },
+          "inside": true,
+          "hit": true
+        },
+        "contextBar": {
+          "rect": {
+            "left": 0,
+            "top": 46,
+            "right": 441.6,
+            "bottom": 91
+          },
+          "inside": true,
+          "scrollWidth": 442,
+          "clientWidth": 442,
+          "scrollable": false,
+          "overflowX": "auto"
+        },
+        "pills": {
+          "count": 4,
+          "reachable": 4,
+          "unreachable": []
+        },
+        "internalScroll": {
+          "status": {
+            "scrollWidth": 1536,
+            "clientWidth": 1536,
+            "scrollable": false,
+            "overflowX": "auto"
+          },
+          "menubarLeft": {
+            "scrollWidth": 366,
+            "clientWidth": 366,
+            "scrollable": false,
+            "overflowX": "auto"
+          }
+        }
+      }
+    ],
+    "checks": [
+      {
+        "app": "editor",
+        "viewport": "phone-320x640",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 320,
+          "innerWidth": 320
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-320x640",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 320,
+            "bottom": 640
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-320x640",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 104.2,
+            "right": 320,
+            "bottom": 146.8
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-320x640",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 265.4,
+            "top": 111.5,
+            "right": 312,
+            "bottom": 139.5
+          },
+          "innerWidth": 320
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-320x640",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 265.4,
+            "top": 111.5,
+            "right": 312,
+            "bottom": 139.5
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-320x640",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-320x640",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 2,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-375x667",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 375,
+          "innerWidth": 375
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-375x667",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 375,
+            "bottom": 667
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-375x667",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 104.3,
+            "right": 375,
+            "bottom": 147
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-375x667",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 320.2,
+            "top": 111.6,
+            "right": 366.9,
+            "bottom": 139.6
+          },
+          "innerWidth": 375
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-375x667",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 320.2,
+            "top": 111.6,
+            "right": 366.9,
+            "bottom": 139.6
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-375x667",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-375x667",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 1,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-390x844",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 390,
+          "innerWidth": 390
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-390x844",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 390,
+            "bottom": 844
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-390x844",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 104.3,
+            "right": 390,
+            "bottom": 147
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-390x844",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 335.2,
+            "top": 111.6,
+            "right": 381.9,
+            "bottom": 139.6
+          },
+          "innerWidth": 390
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-390x844",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 335.2,
+            "top": 111.6,
+            "right": 381.9,
+            "bottom": 139.6
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-390x844",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "phone-390x844",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 1,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-768x1024",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 768,
+          "innerWidth": 768
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-768x1024",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 768,
+            "bottom": 1024
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-768x1024",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 104.8,
+            "right": 768,
+            "bottom": 148.3
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-768x1024",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 711.9,
+            "top": 112.6,
+            "right": 759.3,
+            "bottom": 140.6
+          },
+          "innerWidth": 768
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-768x1024",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 711.9,
+            "top": 112.6,
+            "right": 759.3,
+            "bottom": 140.6
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-768x1024",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-768x1024",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-820x1180",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 820,
+          "innerWidth": 820
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-820x1180",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 820,
+            "bottom": 1180
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-820x1180",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 104.9,
+            "right": 820,
+            "bottom": 148.5
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-820x1180",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 763.7,
+            "top": 112.7,
+            "right": 811.3,
+            "bottom": 140.7
+          },
+          "innerWidth": 820
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-820x1180",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 763.7,
+            "top": 112.7,
+            "right": 811.3,
+            "bottom": 140.7
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-820x1180",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-820x1180",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x768",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1024,
+          "innerWidth": 1024
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x768",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1024,
+            "bottom": 768
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x768",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 45.5,
+            "right": 1024,
+            "bottom": 89.5
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x768",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 967,
+            "top": 53.5,
+            "right": 1015,
+            "bottom": 81.5
+          },
+          "innerWidth": 1024
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x768",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 967,
+            "top": 53.5,
+            "right": 1015,
+            "bottom": 81.5
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x768",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x768",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x1366",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1024,
+          "innerWidth": 1024
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x1366",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1024,
+            "bottom": 1366
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x1366",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 45.5,
+            "right": 1024,
+            "bottom": 89.5
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x1366",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 967,
+            "top": 53.5,
+            "right": 1015,
+            "bottom": 81.5
+          },
+          "innerWidth": 1024
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x1366",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 967,
+            "top": 53.5,
+            "right": 1015,
+            "bottom": 81.5
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x1366",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1024x1366",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-125pct-scaling-1093x614",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1093,
+          "innerWidth": 1093
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-125pct-scaling-1093x614",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1093,
+            "bottom": 614
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-125pct-scaling-1093x614",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 45.6,
+            "right": 1093,
+            "bottom": 89.7
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-125pct-scaling-1093x614",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 1035.7,
+            "top": 53.6,
+            "right": 1083.8,
+            "bottom": 81.6
+          },
+          "innerWidth": 1093
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-125pct-scaling-1093x614",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 1035.7,
+            "top": 53.6,
+            "right": 1083.8,
+            "bottom": 81.6
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-125pct-scaling-1093x614",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-125pct-scaling-1093x614",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-window-default-1180x720",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1180,
+          "innerWidth": 1180
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-window-default-1180x720",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1180,
+            "bottom": 720
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-window-default-1180x720",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 45.7,
+            "right": 1180,
+            "bottom": 90
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-window-default-1180x720",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 1122.4,
+            "top": 53.8,
+            "right": 1170.7,
+            "bottom": 81.8
+          },
+          "innerWidth": 1180
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-window-default-1180x720",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 1122.4,
+            "top": 53.8,
+            "right": 1170.7,
+            "bottom": 81.8
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-window-default-1180x720",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "13in-window-default-1180x720",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1180x820",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1180,
+          "innerWidth": 1180
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1180x820",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1180,
+            "bottom": 820
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1180x820",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 45.7,
+            "right": 1180,
+            "bottom": 90
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1180x820",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 1122.4,
+            "top": 53.8,
+            "right": 1170.7,
+            "bottom": 81.8
+          },
+          "innerWidth": 1180
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1180x820",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 1122.4,
+            "top": 53.8,
+            "right": 1170.7,
+            "bottom": 81.8
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1180x820",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1180x820",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1366x1024",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1366,
+          "innerWidth": 1366
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1366x1024",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1366,
+            "bottom": 1024
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1366x1024",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 45.8,
+            "right": 1366,
+            "bottom": 90.5
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1366x1024",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 1307.8,
+            "top": 54.2,
+            "right": 1356.4,
+            "bottom": 82.2
+          },
+          "innerWidth": 1366
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1366x1024",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 1307.8,
+            "top": 54.2,
+            "right": 1356.4,
+            "bottom": 82.2
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1366x1024",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "tablet-1366x1024",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1280x800",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1280,
+          "innerWidth": 1280
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1280x800",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1280,
+            "bottom": 800
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1280x800",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 45.8,
+            "right": 1280,
+            "bottom": 90.3
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1280x800",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 1222.1,
+            "top": 54,
+            "right": 1270.6,
+            "bottom": 82
+          },
+          "innerWidth": 1280
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1280x800",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 1222.1,
+            "top": 54,
+            "right": 1270.6,
+            "bottom": 82
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1280x800",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1280x800",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1366x768",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1366,
+          "innerWidth": 1366
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1366x768",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1366,
+            "bottom": 768
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1366x768",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 45.8,
+            "right": 1366,
+            "bottom": 90.5
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1366x768",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 1307.8,
+            "top": 54.2,
+            "right": 1356.4,
+            "bottom": 82.2
+          },
+          "innerWidth": 1366
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1366x768",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 1307.8,
+            "top": 54.2,
+            "right": 1356.4,
+            "bottom": 82.2
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1366x768",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1366x768",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1440x900",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1440,
+          "innerWidth": 1440
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1440x900",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1440,
+            "bottom": 900
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1440x900",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 45.9,
+            "right": 1440,
+            "bottom": 90.7
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1440x900",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 1381.5,
+            "top": 54.3,
+            "right": 1430.3,
+            "bottom": 82.3
+          },
+          "innerWidth": 1440
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1440x900",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 1381.5,
+            "top": 54.3,
+            "right": 1430.3,
+            "bottom": 82.3
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1440x900",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1440x900",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1512x982",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1512,
+          "innerWidth": 1512
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1512x982",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1512,
+            "bottom": 982
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1512x982",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 46,
+            "right": 1512,
+            "bottom": 91
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1512x982",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 1453.3,
+            "top": 54.5,
+            "right": 1502.2,
+            "bottom": 82.5
+          },
+          "innerWidth": 1512
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1512x982",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 1453.3,
+            "top": 54.5,
+            "right": 1502.2,
+            "bottom": 82.5
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1512x982",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "laptop-1512x982",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "desktop-1536x864",
+        "id": "editor.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1536,
+          "innerWidth": 1536
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "desktop-1536x864",
+        "id": "editor.shell-bounds",
+        "pass": true,
+        "expected": "editor-shell bounding box inside the viewport",
+        "measured": {
+          "shell": {
+            "left": 0,
+            "top": 0,
+            "right": 1536,
+            "bottom": 864
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "desktop-1536x864",
+        "id": "editor.header-row-right",
+        "pass": true,
+        "expected": "editor-shell__header-row right edge <= innerWidth + 1",
+        "measured": {
+          "headerRow": {
+            "left": 0,
+            "top": 46,
+            "right": 1536,
+            "bottom": 91
+          }
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "desktop-1536x864",
+        "id": "editor.share-bounds",
+        "pass": true,
+        "expected": "collab-header-control right edge <= innerWidth + 1",
+        "measured": {
+          "share": {
+            "left": 1477.2,
+            "top": 54.5,
+            "right": 1526.2,
+            "bottom": 82.5
+          },
+          "innerWidth": 1536
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "desktop-1536x864",
+        "id": "editor.share-hit",
+        "pass": true,
+        "expected": "elementFromPoint at collab-header-control centre hits it or a descendant",
+        "measured": {
+          "share": {
+            "left": 1477.2,
+            "top": 54.5,
+            "right": 1526.2,
+            "bottom": 82.5
+          },
+          "hit": true
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "desktop-1536x864",
+        "id": "editor.context-pills-present",
+        "pass": true,
+        "expected": "at least one context-control-bar tool pill rendered",
+        "measured": {
+          "count": 4
+        }
+      },
+      {
+        "app": "editor",
+        "viewport": "desktop-1536x864",
+        "id": "editor.context-pills-reachable",
+        "pass": true,
+        "expected": "every ccb__tool-pill reachable in the viewport",
+        "measured": {
+          "total": 4,
+          "reachable": 4,
+          "scrolledIntoSight": 0,
+          "unreachable": []
+        }
+      }
+    ],
+    "screenshots": [
+      "editor/phone-320x640-default.png",
+      "editor/phone-320x640-layers.png",
+      "editor/phone-375x667-default.png",
+      "editor/phone-375x667-layers.png",
+      "editor/phone-390x844-default.png",
+      "editor/phone-390x844-layers.png",
+      "editor/tablet-768x1024-default.png",
+      "editor/tablet-768x1024-layers.png",
+      "editor/tablet-820x1180-default.png",
+      "editor/tablet-820x1180-layers.png",
+      "editor/tablet-1024x768-default.png",
+      "editor/tablet-1024x1366-default.png",
+      "editor/13in-125pct-scaling-1093x614-default.png",
+      "editor/13in-window-default-1180x720-default.png",
+      "editor/tablet-1180x820-default.png",
+      "editor/tablet-1366x1024-default.png",
+      "editor/laptop-1280x800-default.png",
+      "editor/laptop-1366x768-default.png",
+      "editor/laptop-1440x900-default.png",
+      "editor/laptop-1512x982-default.png",
+      "editor/desktop-1536x864-default.png"
+    ],
+    "url": "http://localhost:1420",
+    "started": false
+  },
+  "website": {
+    "rows": [
+      {
+        "label": "phone-320x800",
+        "route": "/",
+        "slug": "home",
+        "status": 200,
+        "screenshot": "website/home-320x800.png",
+        "doc": {
+          "scrollWidth": 320,
+          "scrollHeight": 11801
+        },
+        "viewport": {
+          "width": 320,
+          "height": 800
+        }
+      },
+      {
+        "label": "phone-375x800",
+        "route": "/",
+        "slug": "home",
+        "status": 200,
+        "screenshot": "website/home-375x800.png",
+        "doc": {
+          "scrollWidth": 375,
+          "scrollHeight": 11391
+        },
+        "viewport": {
+          "width": 375,
+          "height": 800
+        }
+      },
+      {
+        "label": "tablet-768x900",
+        "route": "/",
+        "slug": "home",
+        "status": 200,
+        "screenshot": "website/home-768x900.png",
+        "doc": {
+          "scrollWidth": 768,
+          "scrollHeight": 8763
+        },
+        "viewport": {
+          "width": 768,
+          "height": 900
+        }
+      },
+      {
+        "label": "laptop-1366x900",
+        "route": "/",
+        "slug": "home",
+        "status": 200,
+        "screenshot": "website/home-1366x900.png",
+        "doc": {
+          "scrollWidth": 1366,
+          "scrollHeight": 6787
+        },
+        "viewport": {
+          "width": 1366,
+          "height": 900
+        }
+      },
+      {
+        "label": "phone-320x800",
+        "route": "/product",
+        "slug": "product",
+        "status": 200,
+        "screenshot": "website/product-320x800.png",
+        "doc": {
+          "scrollWidth": 320,
+          "scrollHeight": 15100
+        },
+        "viewport": {
+          "width": 320,
+          "height": 800
+        }
+      },
+      {
+        "label": "phone-375x800",
+        "route": "/product",
+        "slug": "product",
+        "status": 200,
+        "screenshot": "website/product-375x800.png",
+        "doc": {
+          "scrollWidth": 375,
+          "scrollHeight": 13471
+        },
+        "viewport": {
+          "width": 375,
+          "height": 800
+        }
+      },
+      {
+        "label": "tablet-768x900",
+        "route": "/product",
+        "slug": "product",
+        "status": 200,
+        "screenshot": "website/product-768x900.png",
+        "doc": {
+          "scrollWidth": 768,
+          "scrollHeight": 8405
+        },
+        "viewport": {
+          "width": 768,
+          "height": 900
+        }
+      },
+      {
+        "label": "laptop-1366x900",
+        "route": "/product",
+        "slug": "product",
+        "status": 200,
+        "screenshot": "website/product-1366x900.png",
+        "doc": {
+          "scrollWidth": 1366,
+          "scrollHeight": 7304
+        },
+        "viewport": {
+          "width": 1366,
+          "height": 900
+        }
+      },
+      {
+        "label": "phone-320x800",
+        "route": "/download",
+        "slug": "download",
+        "status": 200,
+        "screenshot": "website/download-320x800.png",
+        "doc": {
+          "scrollWidth": 320,
+          "scrollHeight": 20597
+        },
+        "viewport": {
+          "width": 320,
+          "height": 800
+        }
+      },
+      {
+        "label": "phone-375x800",
+        "route": "/download",
+        "slug": "download",
+        "status": 200,
+        "screenshot": "website/download-375x800.png",
+        "doc": {
+          "scrollWidth": 375,
+          "scrollHeight": 18069
+        },
+        "viewport": {
+          "width": 375,
+          "height": 800
+        }
+      },
+      {
+        "label": "tablet-768x900",
+        "route": "/download",
+        "slug": "download",
+        "status": 200,
+        "screenshot": "website/download-768x900.png",
+        "doc": {
+          "scrollWidth": 768,
+          "scrollHeight": 11143
+        },
+        "viewport": {
+          "width": 768,
+          "height": 900
+        }
+      },
+      {
+        "label": "laptop-1366x900",
+        "route": "/download",
+        "slug": "download",
+        "status": 200,
+        "screenshot": "website/download-1366x900.png",
+        "doc": {
+          "scrollWidth": 1366,
+          "scrollHeight": 10005
+        },
+        "viewport": {
+          "width": 1366,
+          "height": 900
+        }
+      },
+      {
+        "label": "phone-320x800",
+        "route": "/about/license",
+        "slug": "about-license",
+        "status": 200,
+        "screenshot": "website/about-license-320x800.png",
+        "doc": {
+          "scrollWidth": 320,
+          "scrollHeight": 7574
+        },
+        "viewport": {
+          "width": 320,
+          "height": 800
+        }
+      },
+      {
+        "label": "phone-375x800",
+        "route": "/about/license",
+        "slug": "about-license",
+        "status": 200,
+        "screenshot": "website/about-license-375x800.png",
+        "doc": {
+          "scrollWidth": 375,
+          "scrollHeight": 6789
+        },
+        "viewport": {
+          "width": 375,
+          "height": 800
+        }
+      },
+      {
+        "label": "tablet-768x900",
+        "route": "/about/license",
+        "slug": "about-license",
+        "status": 200,
+        "screenshot": "website/about-license-768x900.png",
+        "doc": {
+          "scrollWidth": 768,
+          "scrollHeight": 4744
+        },
+        "viewport": {
+          "width": 768,
+          "height": 900
+        }
+      },
+      {
+        "label": "laptop-1366x900",
+        "route": "/about/license",
+        "slug": "about-license",
+        "status": 200,
+        "screenshot": "website/about-license-1366x900.png",
+        "doc": {
+          "scrollWidth": 1366,
+          "scrollHeight": 4207
+        },
+        "viewport": {
+          "width": 1366,
+          "height": 900
+        }
+      },
+      {
+        "label": "phone-320x800",
+        "route": "/docs/performance",
+        "slug": "docs-performance",
+        "status": 200,
+        "screenshot": "website/docs-performance-320x800.png",
+        "doc": {
+          "scrollWidth": 320,
+          "scrollHeight": 15169
+        },
+        "viewport": {
+          "width": 320,
+          "height": 800
+        }
+      },
+      {
+        "label": "phone-375x800",
+        "route": "/docs/performance",
+        "slug": "docs-performance",
+        "status": 200,
+        "screenshot": "website/docs-performance-375x800.png",
+        "doc": {
+          "scrollWidth": 375,
+          "scrollHeight": 12987
+        },
+        "viewport": {
+          "width": 375,
+          "height": 800
+        }
+      },
+      {
+        "label": "tablet-768x900",
+        "route": "/docs/performance",
+        "slug": "docs-performance",
+        "status": 200,
+        "screenshot": "website/docs-performance-768x900.png",
+        "doc": {
+          "scrollWidth": 768,
+          "scrollHeight": 7370
+        },
+        "viewport": {
+          "width": 768,
+          "height": 900
+        }
+      },
+      {
+        "label": "laptop-1366x900",
+        "route": "/docs/performance",
+        "slug": "docs-performance",
+        "status": 200,
+        "screenshot": "website/docs-performance-1366x900.png",
+        "doc": {
+          "scrollWidth": 1366,
+          "scrollHeight": 6087
+        },
+        "viewport": {
+          "width": 1366,
+          "height": 900
+        }
+      }
+    ],
+    "checks": [
+      {
+        "app": "website",
+        "route": "/",
+        "viewport": "phone-320x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/",
+        "viewport": "phone-320x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 320,
+          "innerWidth": 320,
+          "scrollHeight": 11801
+        }
+      },
+      {
+        "app": "website",
+        "route": "/",
+        "viewport": "phone-375x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/",
+        "viewport": "phone-375x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 375,
+          "innerWidth": 375,
+          "scrollHeight": 11391
+        }
+      },
+      {
+        "app": "website",
+        "route": "/",
+        "viewport": "tablet-768x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/",
+        "viewport": "tablet-768x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 768,
+          "innerWidth": 768,
+          "scrollHeight": 8763
+        }
+      },
+      {
+        "app": "website",
+        "route": "/",
+        "viewport": "laptop-1366x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/",
+        "viewport": "laptop-1366x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1366,
+          "innerWidth": 1366,
+          "scrollHeight": 6787
+        }
+      },
+      {
+        "app": "website",
+        "route": "/product",
+        "viewport": "phone-320x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/product",
+        "viewport": "phone-320x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 320,
+          "innerWidth": 320,
+          "scrollHeight": 15100
+        }
+      },
+      {
+        "app": "website",
+        "route": "/product",
+        "viewport": "phone-375x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/product",
+        "viewport": "phone-375x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 375,
+          "innerWidth": 375,
+          "scrollHeight": 13471
+        }
+      },
+      {
+        "app": "website",
+        "route": "/product",
+        "viewport": "tablet-768x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/product",
+        "viewport": "tablet-768x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 768,
+          "innerWidth": 768,
+          "scrollHeight": 8405
+        }
+      },
+      {
+        "app": "website",
+        "route": "/product",
+        "viewport": "laptop-1366x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/product",
+        "viewport": "laptop-1366x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1366,
+          "innerWidth": 1366,
+          "scrollHeight": 7304
+        }
+      },
+      {
+        "app": "website",
+        "route": "/download",
+        "viewport": "phone-320x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/download",
+        "viewport": "phone-320x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 320,
+          "innerWidth": 320,
+          "scrollHeight": 20597
+        }
+      },
+      {
+        "app": "website",
+        "route": "/download",
+        "viewport": "phone-375x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/download",
+        "viewport": "phone-375x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 375,
+          "innerWidth": 375,
+          "scrollHeight": 18069
+        }
+      },
+      {
+        "app": "website",
+        "route": "/download",
+        "viewport": "tablet-768x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/download",
+        "viewport": "tablet-768x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 768,
+          "innerWidth": 768,
+          "scrollHeight": 11143
+        }
+      },
+      {
+        "app": "website",
+        "route": "/download",
+        "viewport": "laptop-1366x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/download",
+        "viewport": "laptop-1366x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1366,
+          "innerWidth": 1366,
+          "scrollHeight": 10005
+        }
+      },
+      {
+        "app": "website",
+        "route": "/about/license",
+        "viewport": "phone-320x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/about/license",
+        "viewport": "phone-320x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 320,
+          "innerWidth": 320,
+          "scrollHeight": 7574
+        }
+      },
+      {
+        "app": "website",
+        "route": "/about/license",
+        "viewport": "phone-375x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/about/license",
+        "viewport": "phone-375x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 375,
+          "innerWidth": 375,
+          "scrollHeight": 6789
+        }
+      },
+      {
+        "app": "website",
+        "route": "/about/license",
+        "viewport": "tablet-768x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/about/license",
+        "viewport": "tablet-768x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 768,
+          "innerWidth": 768,
+          "scrollHeight": 4744
+        }
+      },
+      {
+        "app": "website",
+        "route": "/about/license",
+        "viewport": "laptop-1366x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/about/license",
+        "viewport": "laptop-1366x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1366,
+          "innerWidth": 1366,
+          "scrollHeight": 4207
+        }
+      },
+      {
+        "app": "website",
+        "route": "/docs/performance",
+        "viewport": "phone-320x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/docs/performance",
+        "viewport": "phone-320x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 320,
+          "innerWidth": 320,
+          "scrollHeight": 15169
+        }
+      },
+      {
+        "app": "website",
+        "route": "/docs/performance",
+        "viewport": "phone-375x800",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/docs/performance",
+        "viewport": "phone-375x800",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 375,
+          "innerWidth": 375,
+          "scrollHeight": 12987
+        }
+      },
+      {
+        "app": "website",
+        "route": "/docs/performance",
+        "viewport": "tablet-768x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/docs/performance",
+        "viewport": "tablet-768x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 768,
+          "innerWidth": 768,
+          "scrollHeight": 7370
+        }
+      },
+      {
+        "app": "website",
+        "route": "/docs/performance",
+        "viewport": "laptop-1366x900",
+        "id": "website.route-status",
+        "pass": true,
+        "expected": "HTTP 200",
+        "measured": {
+          "status": 200
+        }
+      },
+      {
+        "app": "website",
+        "route": "/docs/performance",
+        "viewport": "laptop-1366x900",
+        "id": "website.page-overflow",
+        "pass": true,
+        "expected": "documentElement.scrollWidth <= innerWidth + 1",
+        "measured": {
+          "scrollWidth": 1366,
+          "innerWidth": 1366,
+          "scrollHeight": 6087
+        }
+      }
+    ],
+    "screenshots": [
+      "website/home-320x800.png",
+      "website/home-375x800.png",
+      "website/home-768x900.png",
+      "website/home-1366x900.png",
+      "website/product-320x800.png",
+      "website/product-375x800.png",
+      "website/product-768x900.png",
+      "website/product-1366x900.png",
+      "website/download-320x800.png",
+      "website/download-375x800.png",
+      "website/download-768x900.png",
+      "website/download-1366x900.png",
+      "website/about-license-320x800.png",
+      "website/about-license-375x800.png",
+      "website/about-license-768x900.png",
+      "website/about-license-1366x900.png",
+      "website/docs-performance-320x800.png",
+      "website/docs-performance-375x800.png",
+      "website/docs-performance-768x900.png",
+      "website/docs-performance-1366x900.png"
+    ],
+    "url": "http://127.0.0.1:4391",
+    "started": true
+  },
+  "summary": {
+    "total": 152,
+    "passed": 152,
+    "failed": 0,
+    "result": "PASS",
+    "screenshotCount": 41,
+    "screenshotBytes": 18017089
+  },
+  "failures": [],
+  "fatalError": null
+}
