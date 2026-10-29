@@ -1,9 +1,13 @@
 .contextual-help-panel {
   position: fixed;
   top: var(--menubar-total-height, 36px);
-  right: 0;
+  /* The top anchor already includes the safe-area inset through
+   * --menubar-total-height; the side and bottom edges are patched here so the
+   * panel content clears a landscape notch and the home indicator. */
+  right: env(safe-area-inset-right, 0px);
   width: 320px;
   height: calc(100vh - var(--menubar-total-height, 36px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--elevation-surface-default);
   border-left: var(--border-micro);
   /* A floating panel over the workspace, so it belongs to the overlay band:

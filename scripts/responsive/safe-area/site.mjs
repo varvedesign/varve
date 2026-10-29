@@ -93,6 +93,10 @@ function siteProbe() {
     pageInlinePx: resolvedPx('--space-page-inline'),
     spaceSmallPx: resolvedPx('--space-2'),
     narrowNav: window.matchMedia('(max-width: 24rem)').matches,
+    headerExists: Boolean(document.querySelector('.site-header')),
+    footerExists: Boolean(document.querySelector('.site-footer')),
+    mobileNavExists: Boolean(document.querySelector('.mobile-nav-dialog')),
+    consentExists: Boolean(document.querySelector('.website-analytics-consent')),
     headerPaddingTop: style('.site-header', 'paddingTop'),
     navPaddingLeft: style('.site-nav', 'paddingLeft'),
     navPaddingRight: style('.site-nav', 'paddingRight'),
@@ -114,15 +118,20 @@ function siteProbe() {
   };
 }
 
-function buildSiteChecks(metrics, label, insets) {
+function makeChecks(label) {
   const checks = [];
-  const check = (name, ok, detail) => {
+  const check = (suffix, ok, detail) => {
     checks.push({
-      name: `${label}: ${name}`,
+      name: `${label}: ${suffix}`,
       ok: Boolean(ok),
       detail: detail === undefined ? null : detail,
     });
   };
+  return { checks, check };
+}
+
+function buildHeaderChecks(metrics, label, insets) {
+  const { checks, check } = makeChecks(label);
   const pageInline = numberFromCss(metrics.pageInlinePx);
   const navBase = numberFromCss(metrics.narrowNav ? metrics.spaceSmallPx : metrics.pageInlinePx);
   check(
@@ -133,7 +142,8 @@ function buildSiteChecks(metrics, label, insets) {
   );
   check(
     'header content starts below the top inset',
-    Math.abs(numberFromCss(metrics.headerPaddingTop) - insets.top) <= TOLERANCE,
+    metrics.headerExists === true &&
+      Math.abs(numberFromCss(metrics.headerPaddingTop) - insets.top) <= TOLERANCE,
     metrics.headerPaddingTop,
   );
   check(
@@ -148,8 +158,32 @@ function buildSiteChecks(metrics, label, insets) {
     },
   );
   check(
+    'mobile nav sheet carries all four insets',
+    metrics.mobileNavExists === true &&
+      Math.abs(numberFromCss(metrics.mobileNav.top) - insets.top) <= TOLERANCE &&
+      Math.abs(numberFromCss(metrics.mobileNav.right) - insets.right) <= TOLERANCE &&
+      Math.abs(numberFromCss(metrics.mobileNav.bottom) - insets.bottom) <= TOLERANCE &&
+      Math.abs(numberFromCss(metrics.mobileNav.left) - insets.left) <= TOLERANCE,
+    metrics.mobileNav,
+  );
+  check(
+    'skip link focus clears the top inset',
+    metrics.skipTop !== null && metrics.skipTop >= insets.top - TOLERANCE,
+    metrics.skipTop,
+  );
+  if (pageInline === null) {
+    check('page-inline token resolved to px for the gutter math', false, metrics.pageInlinePx);
+  }
+  return checks;
+}
+
+function buildFooterChecks(metrics, label, insets) {
+  const { checks, check } = makeChecks(label);
+  const pageInline = numberFromCss(metrics.pageInlinePx);
+  check(
     'footer content sits above the home indicator',
-    Math.abs(numberFromCss(metrics.footerPaddingBottom) - insets.bottom) <= TOLERANCE,
+    metrics.footerExists === true &&
+      Math.abs(numberFromCss(metrics.footerPaddingBottom) - insets.bottom) <= TOLERANCE,
     metrics.footerPaddingBottom,
   );
   check(
@@ -160,24 +194,12 @@ function buildSiteChecks(metrics, label, insets) {
     { pageInlinePx: pageInline, containerPaddingLeft: metrics.containerPaddingLeft },
   );
   check(
-    'mobile nav sheet carries all four insets',
-    Math.abs(numberFromCss(metrics.mobileNav.top) - insets.top) <= TOLERANCE &&
-      Math.abs(numberFromCss(metrics.mobileNav.right) - insets.right) <= TOLERANCE &&
-      Math.abs(numberFromCss(metrics.mobileNav.bottom) - insets.bottom) <= TOLERANCE &&
-      Math.abs(numberFromCss(metrics.mobileNav.left) - insets.left) <= TOLERANCE,
-    metrics.mobileNav,
-  );
-  check(
     'analytics consent card is edge-safe',
-    pageInline !== null &&
+    metrics.consentExists === true &&
+      pageInline !== null &&
       Math.abs(numberFromCss(metrics.consent.bottom) - (pageInline + insets.bottom)) <= TOLERANCE &&
       Math.abs(numberFromCss(metrics.consent.right) - (pageInline + insets.right)) <= TOLERANCE,
     { pageInlinePx: pageInline, consent: metrics.consent },
-  );
-  check(
-    'skip link focus clears the top inset',
-    metrics.skipTop !== null && metrics.skipTop >= insets.top - TOLERANCE,
-    metrics.skipTop,
   );
   check('no page horizontal overflow', metrics.scrollWidth <= metrics.innerWidth + 1, {
     scrollWidth: metrics.scrollWidth,
@@ -186,7 +208,6 @@ function buildSiteChecks(metrics, label, insets) {
   return checks;
 }
 
-/** Emulate one inset profile; the page resolves the real env() expressions. */
 async function installInsets(context, page, insets) {
   const cdp = await context.newCDPSession(page);
   await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets });
@@ -215,14 +236,14 @@ export async function captureSite(browser, options) {
         waitUntil: 'domcontentloaded',
         timeout: READY_TIMEOUT_MS,
       });
-      const requested = await page.request.get(`http://127.0.0.1:${port}/index.html`);
-      if (requested.status() !== 200) throw new Error('site dist did not serve index.html');
       for (const size of SITE_SIZES) {
         await page.setViewportSize({ width: size.width, height: size.height });
         await installInsets(context, page, size.insets);
         await page.waitForTimeout(400);
         const label = `site home ${size.width}x${size.height}`;
-        options.checks.push(...buildSiteChecks(await page.evaluate(siteProbe), label, size.insets));
+        const metrics = await page.evaluate(siteProbe);
+        options.checks.push(...buildHeaderChecks(metrics, label, size.insets));
+        options.checks.push(...buildFooterChecks(metrics, label, size.insets));
         if (options.screenshots) {
           mkdirSync(options.out, { recursive: true });
           const file = path.join(

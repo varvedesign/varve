@@ -80,17 +80,25 @@
     display: none;
   }
 
+  /* Launchers keep their existing inspector-aware offsets and add only the
+   * safe-area inset. Editing these rules in place (instead of adding a later
+   * override block) keeps the reserved inspector column in the math at
+   * env()=0, where the FAB positions must be unchanged. */
+  :root[data-layout-mode="tablet"] .editor__fab--layers {
+    left: calc(var(--space-3) + env(safe-area-inset-left, 0px));
+  }
+
   :root[data-layout-mode="tablet"] .editor__fab--library {
-    right: calc(var(--inspector-width) + var(--space-3));
+    right: calc(var(--inspector-width) + var(--space-3) + env(safe-area-inset-right, 0px));
   }
 
   :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--layers {
     left: auto;
-    right: calc(var(--inspector-width) + var(--space-3));
+    right: calc(var(--inspector-width) + var(--space-3) + env(safe-area-inset-right, 0px));
   }
 
   :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--library {
-    left: var(--space-3);
+    left: calc(var(--space-3) + env(safe-area-inset-left, 0px));
     right: auto;
   }
 
@@ -123,39 +131,6 @@
     .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
     .editor__layers-panel:not([data-collapsed]) {
     width: min(320px, calc(100vw - var(--space-3) - var(--space-3)));
-  }
-}
-
-/* Fixed tablet-mode FABs (>=900px) need the notch insets; the <=899px mirrored
- * rules stay absolute inside the padded canvas grid area. Placed after the
- * base/mirrored rules so the inset wins the cascade. */
-@media (min-width: 900px) {
-  :root[data-layout-mode="tablet"] .editor__fab--layers {
-    left: calc(var(--space-3) + env(safe-area-inset-left, 0px));
-  }
-  :root[data-layout-mode="tablet"] .editor__fab--inspector {
-    right: calc(var(--space-3) + env(safe-area-inset-right, 0px));
-  }
-  :root[data-layout-mode="tablet"] .editor__fab--library {
-    right: calc(
-      var(--space-3) +
-      var(--editor-panel-launcher-size) +
-      var(--space-2) +
-      env(safe-area-inset-right, 0px)
-    );
-  }
-  :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--layers {
-    left: auto;
-    right: calc(var(--space-3) + env(safe-area-inset-right, 0px));
-  }
-  :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--library {
-    left: calc(
-      var(--space-3) +
-      var(--editor-panel-launcher-size) +
-      var(--space-2) +
-      env(safe-area-inset-left, 0px)
-    );
-    right: auto;
   }
 }
 

@@ -8,8 +8,9 @@
  * over CDP (Emulation.setSafeAreaInsetsOverride, Chromium 151 / Playwright
  * 1.62): the page sees real env() values, not a test-only CSS override.
  *
- * The editor half is scripts/responsive/safe-area/editor.mjs; the site half
- * (served built dist) is scripts/responsive/safe-area/site.mjs.
+ * Editor capture: safe-area/editor.mjs (phones), safe-area/editor-tablet.mjs
+ * (>=900 tablet mode + env()=0 desktop baseline). Site capture:
+ * safe-area/site.mjs (served built dist).
  *
  * Usage: pnpm validate:safe-area (heavy-lease wrapped)
  *        node scripts/responsive/safe-area.mjs [--out DIR] [--no-screenshots]
@@ -20,6 +21,7 @@ import path from 'node:path';
 import { launchBrowser } from './capture.mjs';
 import { EDITOR_URL, READY_TIMEOUT_MS, ROOT, SHOT_ROOT, shortSha } from './safe-area/config.mjs';
 import { captureEditor } from './safe-area/editor.mjs';
+import { captureDesktopBaseline, captureTablet } from './safe-area/editor-tablet.mjs';
 import { writeReport } from './safe-area/report.mjs';
 import { captureSite } from './safe-area/site.mjs';
 
@@ -97,7 +99,11 @@ async function main() {
   try {
     if (args.editor) editorChild = await ensureEditor();
     browser = await launchBrowser();
-    if (args.editor) await captureEditor(browser, options);
+    if (args.editor) {
+      await captureEditor(browser, options);
+      await captureTablet(browser, options);
+      await captureDesktopBaseline(browser, options);
+    }
     if (args.site) await captureSite(browser, options);
   } finally {
     if (browser) await browser.close().catch(() => {});
