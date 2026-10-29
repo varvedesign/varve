@@ -304,7 +304,6 @@
     "packages/editor/src/context/usePersistence.ts": 733,
     "packages/editor/src/context/usePersistentHistory.ts": 618,
     "packages/editor/src/context/useSam2Segmentation.test.tsx": 929,
-    "packages/editor/src/context/useSam2Segmentation.ts": 2222,
     "packages/editor/src/context/useWorkspaceMode.ts": 474,
     "packages/editor/src/crash/crashController.ts": 656,
     "packages/editor/src/crash/crashDialogs.tsx": 514,
