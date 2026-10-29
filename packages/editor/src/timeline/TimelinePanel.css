@@ -14,6 +14,10 @@
   background: var(--color-surface-default);
   border-top: 1px solid var(--color-border-subtle);
   overflow: hidden;
+  /* overflow: hidden still allows programmatic scrollLeft; lock the axis so a
+   * focus-driven reveal cannot shift the whole panel/label column. The one row
+   * that genuinely overflows (playback controls) owns its own scroller. */
+  overflow-x: clip;
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
@@ -100,10 +104,10 @@
 
 .timeline-panel__tracks {
   flex: 1;
-  /* A docked 320px timeline holds 368-370px of content; overflow-x: hidden
-   * clipped 48-50px with no way to reach it. Expose a real horizontal
-   * scroller instead. */
-  overflow-x: auto;
+  /* Track rows fit the panel at every measured width; the docked 320px
+   * clipping lived in the playback-controls row, not here (re-measured
+   * 2026-10-29). Keep this a vertical scroller. */
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   list-style: none;
@@ -206,6 +210,16 @@
   padding: var(--space-1) var(--space-2);
   background: var(--color-surface-raised);
   border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+  /* A docked 320px timeline holds 368-370px of playback controls; right-side
+   * time readout/buttons were clipped with no way to reach them. This row is
+   * the owner of the horizontal overflow (the track rows fit), so it scrolls
+   * as one unit instead of shrinking its controls. */
+  overflow-x: auto;
+  overscroll-behavior: contain;
+}
+
+.timeline-playback-controls > * {
   flex-shrink: 0;
 }
 
@@ -364,6 +378,10 @@
   padding: 0 var(--space-2);
   overflow: hidden;
   border-right: 1px solid var(--color-border-subtle);
+  /* Pre-fix the legacy editor.css rule contributed 13px here; keep the value
+   * in the single owning rule so removing the duplicate does not silently
+   * enlarge inherited text. */
+  font-size: var(--font-size-xs);
   /* One authority for the label column. position/z-index keep its launchers
    * above the track row's absolutely-positioned keyframe dots: the 0% dot
    * starts at the track's left edge and used to cover the solo button's centre
