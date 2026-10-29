@@ -417,6 +417,34 @@ function nodeSvgBounds(
       worldTransform,
     );
   }
+  if (node.kind === 'path') {
+    if (node.points.length === 0) {
+      return transformedBounds(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+        ],
+        worldTransform,
+      );
+    }
+    const xs = node.points.map((point) => point.x);
+    const ys = node.points.map((point) => point.y);
+    const x = Math.min(...xs);
+    const y = Math.min(...ys);
+    const width = Math.max(Math.max(...xs) - x, 1);
+    const height = Math.max(Math.max(...ys) - y, 1);
+    return transformedBounds(
+      [
+        [x, y],
+        [x + width, y],
+        [x + width, y + height],
+        [x, y + height],
+      ],
+      worldTransform,
+    );
+  }
   if (node.kind !== 'shape') return null;
   // Warped geometry routinely extends past the source box, so bounds must be
   // measured on the baked result or the viewBox would clip the export.
@@ -1333,6 +1361,24 @@ ${shapeInner}`
       }
 
       return `${indent}${warpNotBakedComment(node)}<g${groupAttrs}>\n${children}\n${indent}</g>`;
+    }
+    case 'path': {
+      const pathShape = {
+        kind: 'path' as const,
+        points: node.points,
+        closed: node.closed,
+        tolerance: 1,
+      };
+      const pathTag = `${indent}<path d="${pathToData(pathShape)}" fill="${fillAttr}"${fillOpacityAttr}${strokeAttrsForNode(node, node.id)}${withTransform} />`;
+      return buildMaskedNode(
+        comment
+          ? `${indent}<!-- ${comment} -->
+${pathTag.replace(' />', `${compositingSuffix} />`)}`
+          : pathTag.replace(' />', `${compositingSuffix} />`),
+        node,
+        doc,
+        indent,
+      );
     }
     case 'table': {
       // ADR-0016: native tables export as flattened cells (SVG has no table

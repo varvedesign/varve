@@ -35,6 +35,7 @@ import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import { normalizeLogoProject } from './logo/logoProject';
 import { isVisualMaskTarget } from './maskCapability';
 import {
+  canBeClipMaskSource,
   getOwnRasterMaskAsset,
   validateMaskSource,
   validateRasterMaskAsset,
@@ -713,14 +714,7 @@ function normalizeRasterTiles(
 }
 
 function isSupportedClipSource(node: SceneNode | undefined): boolean {
-  if (!node) return false;
-  if (node.kind === 'frame') return true;
-  if (node.kind !== 'shape') return false;
-  return (
-    node.shape.kind !== 'line' &&
-    node.shape.kind !== 'arrow' &&
-    (node.shape.kind !== 'path' || node.shape.closed)
-  );
+  return node !== undefined && canBeClipMaskSource(node);
 }
 
 /**
@@ -1816,13 +1810,15 @@ export const DocumentCodec = {
     return { ok: true, document: repaired.repaired.doc as Document, warnings };
   },
 
-  encode(doc: Document): string {
+  encode(doc: Document, warningsOut?: DocumentCodecWarning[]): string {
     const patternGraphError = validatePatternDefinitionDependencies(
       doc.patternDefinitions ?? {},
       doc,
     )[0];
     if (patternGraphError) throw new Error(patternGraphError);
-    return serializeVersionedDocument(normalizeDocument(doc).document);
+    const normalized = normalizeDocument(doc);
+    if (warningsOut) warningsOut.push(...normalized.warnings);
+    return serializeVersionedDocument(normalized.document);
   },
 
   normalize: normalizeDocument,

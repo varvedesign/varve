@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { deepCloneSubtree } from './clone';
+import { DocumentCodec } from './documentCodec';
 import {
   addCalloutTail,
   addNode,
+  calloutOuterContourForRender,
   createCallout,
   createDocument,
   detachCalloutRecipe,
@@ -46,6 +48,60 @@ describe('comic callouts', () => {
     expect(tail.points[0]!.y).toBe(97);
     expect(tail.points[2]!.y).toBe(97);
     expect(result.document.nodes[result.textId]?.kind).toBe('text');
+  });
+
+  it('mints a shared stroke id so a pointed tail still unions after save and load', () => {
+    const created = createCallout(createDocument('contour-ids', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hello',
+    });
+    const body = created.document.nodes[created.bodyId];
+    const tail = created.document.nodes[created.tailNodeIds[0]!];
+    expect(body?.kind).toBe('shape');
+    expect(tail?.kind).toBe('path');
+    if (body?.kind !== 'shape' || tail?.kind !== 'path') return;
+    expect(body.strokes[0]?.id).toBeTruthy();
+    expect(body.strokes[0]?.id).toBe(tail.strokes[0]?.id);
+
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    expect(calloutOuterContourForRender(created.document, group)).not.toBeNull();
+
+    const decoded = DocumentCodec.decode(DocumentCodec.encode(created.document));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const reopened = decoded.document.nodes[created.groupId] as GroupNode;
+    expect(calloutOuterContourForRender(decoded.document, reopened)).not.toBeNull();
+  });
+
+  it('still unions a pointed tail when body and tail stroke ids differ', () => {
+    const created = createCallout(createDocument('contour-ignore-ids', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hello',
+    });
+    const tailId = created.tailNodeIds[0]!;
+    const tail = created.document.nodes[tailId];
+    if (tail?.kind !== 'path') throw new Error('missing tail');
+    const mismatched = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [tailId]: {
+          ...tail,
+          strokes: tail.strokes.map((stroke, index) => ({
+            ...stroke,
+            id: `stroke-${tailId}-${index}`,
+          })),
+        },
+      },
+    };
+    const group = mismatched.nodes[created.groupId] as GroupNode;
+    expect(calloutOuterContourForRender(mismatched, group)).not.toBeNull();
   });
 
   it('wraps existing text without duplicating its source node', () => {
@@ -503,6 +559,9 @@ describe('shaped balloons (burst and cloud)', () => {
     expect(body?.kind).toBe('shape');
     if (body?.kind !== 'shape') throw new Error('no body');
     expect(body.strokes).toEqual([]);
+    expect(body.fill.a).toBe(0);
+    expect(outline.fill.a).toBeGreaterThan(0);
+    expect(outline.strokes.length).toBeGreaterThan(0);
     // Tails paint before the outline so their base is hidden by the balloon.
     expect(group.children?.[0]).toBe(result.tailNodeIds[0]);
     expect(group.children?.[1]).toBe(outlineId);

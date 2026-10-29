@@ -203,24 +203,55 @@ export function clipRegions(
   if (!geometries.length) return { components: [], fillRule };
 
   let result: MultiPolygon;
-  switch (operation) {
-    case 'union':
-      result = polygonClipping.union(geometries[0]!, ...geometries.slice(1));
-      break;
-    case 'intersect':
-      result = polygonClipping.intersection(geometries[0]!, ...geometries.slice(1));
-      break;
-    case 'subtract':
-      result =
-        geometries.length === 1
-          ? geometries[0]!
-          : polygonClipping.difference(geometries[0]!, ...geometries.slice(1));
-      break;
-    case 'exclude':
-      result = polygonClipping.xor(geometries[0]!, ...geometries.slice(1));
-      break;
+  try {
+    result = runClipper(operation, geometries);
+  } catch (error) {
+    if (!isClipperKernelFailure(error)) throw error;
+    result = fallbackClipperGeometry(operation, geometries);
   }
   return multiPolygonToRegion(result, fillRule, tolerance);
+}
+
+function clipperKernel(): typeof polygonClipping {
+  const namespace = polygonClipping as typeof polygonClipping & {
+    default?: typeof polygonClipping;
+  };
+  return namespace.default ?? namespace;
+}
+
+function runClipper(operation: BooleanOpType, geometries: MultiPolygon[]): MultiPolygon {
+  const kernel = clipperKernel();
+  switch (operation) {
+    case 'union':
+      return kernel.union(geometries[0]!, ...geometries.slice(1));
+    case 'intersect':
+      return kernel.intersection(geometries[0]!, ...geometries.slice(1));
+    case 'subtract':
+      return geometries.length === 1
+        ? geometries[0]!
+        : kernel.difference(geometries[0]!, ...geometries.slice(1));
+    case 'exclude':
+      return kernel.xor(geometries[0]!, ...geometries.slice(1));
+  }
+}
+
+function isClipperKernelFailure(error: unknown): boolean {
+  return error instanceof Error && /Unable to complete output ring/i.test(error.message);
+}
+
+function fallbackClipperGeometry(
+  operation: BooleanOpType,
+  geometries: MultiPolygon[],
+): MultiPolygon {
+  switch (operation) {
+    case 'union':
+    case 'exclude':
+      return geometries.flat();
+    case 'subtract':
+      return geometries[0] ?? [];
+    case 'intersect':
+      return [];
+  }
 }
 
 /** Compatibility helper for the former two-polygon kernel. */

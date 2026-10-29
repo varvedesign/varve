@@ -2,9 +2,11 @@ import type { Document } from '@varve/scene';
 import {
   addChild,
   addNode,
+  createCallout,
   createDocument,
   createLiveBooleanDoc,
   makeGroupNode,
+  makePathNode,
   makeShapeNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
@@ -140,5 +142,44 @@ describe('SVG path export', () => {
       .map(Number);
     expect(computeDocumentBounds(doc).w).toBeGreaterThanOrEqual(250);
     expect(viewBoxParts[2]).toBeGreaterThanOrEqual(250);
+  });
+
+  it('exports a callout tail as SVG path data', () => {
+    const created = createCallout(createDocument('Balloon export', true), {
+      x: 10,
+      y: 20,
+      w: 180,
+      h: 90,
+      text: 'Hello',
+      tailEndpoint: { x: 90, y: 140 },
+    });
+    const svg = exportNodeToSvg(created.document.nodes[created.groupId]!, created.document, {
+      background: 'transparent',
+    });
+    const tail = created.document.nodes[created.tailNodeIds[0]!];
+    expect(tail?.kind).toBe('path');
+    expect(svg).toContain('<path');
+    expect(svg).toContain('d="M ');
+    expect(svg).toMatch(/L 90 140|C .* 90 140/);
+  });
+
+  it('exports a standalone legacy path node', () => {
+    const node = makePathNode('legacy-tail', {
+      closed: false,
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 40, y: 80, handleIn: null, handleOut: null },
+        { x: 80, y: 0, handleIn: null, handleOut: null },
+      ],
+    });
+    const doc = {
+      ...createDocument('Legacy path export', true),
+      rootChildren: ['legacy-tail'],
+      nodes: { 'legacy-tail': node },
+    };
+    const svg = exportNodeToSvg(node, doc, { background: 'transparent' });
+    expect(svg).toContain('<path');
+    expect(svg).toContain('d="M 0 0 L 40 80 L 80 0"');
   });
 });

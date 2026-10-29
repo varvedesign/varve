@@ -11,12 +11,20 @@
  * outline for SFX, italic light whisper, wide-tracked electronic voice) and
  * uses no third-party assets.
  */
-import { defaultStroke, type Stroke, type TextNode } from '@varve/scene';
+import { createDefaultEffect, defaultStroke, type Stroke, type TextNode } from '@varve/scene';
 
 export type TextEffectPatch = Partial<
   Pick<
     TextNode,
-    'fontWeight' | 'fontStyle' | 'textCase' | 'textAlign' | 'letterSpacing' | 'tracking' | 'strokes'
+    | 'fontWeight'
+    | 'fontStyle'
+    | 'textCase'
+    | 'textAlign'
+    | 'letterSpacing'
+    | 'tracking'
+    | 'strokes'
+    | 'fill'
+    | 'effects'
   >
 >;
 
@@ -35,16 +43,32 @@ function stroke(r: number, g: number, b: number, weight: number): Stroke {
   };
 }
 
+function sfxShadow() {
+  return {
+    ...createDefaultEffect('dropShadow', 'sfx-impact-shadow'),
+    x: 5,
+    y: 7,
+    blur: 0,
+    spread: 0,
+    color: { space: 'rgb' as const, r: 48, g: 16, b: 48, a: 255 },
+    opacity: 1,
+    visible: true,
+  };
+}
+
 export const TEXT_EFFECT_PRESETS: readonly TextEffectPreset[] = [
   {
     id: 'sfx-impact',
     label: 'Sound effect',
-    description: 'Uppercase heavy display type with a thick contrasting outline.',
+    description:
+      'Uppercase heavy display type with a bright fill, thick dark outline, and offset shadow.',
     patch: {
       fontWeight: 900,
       textCase: 'uppercase',
       textAlign: 'center',
-      strokes: [stroke(255, 255, 255, 3)],
+      fill: { space: 'rgb', r: 255, g: 214, b: 10, a: 255 },
+      strokes: [stroke(0, 0, 0, 10)],
+      effects: [sfxShadow()],
     },
   },
   {
@@ -100,7 +124,9 @@ export const TEXT_EFFECT_PRESETS: readonly TextEffectPreset[] = [
       textAlign: 'left',
       letterSpacing: 0,
       tracking: 0,
+      fill: { space: 'rgb', r: 16, g: 21, b: 31, a: 255 },
       strokes: [],
+      effects: [],
     },
   },
 ];

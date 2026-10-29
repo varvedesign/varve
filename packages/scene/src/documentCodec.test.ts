@@ -7,12 +7,13 @@ import {
   createDocument,
   makeFrameNode,
   makeGroupNode,
+  makePathNode,
   makeShapeNode,
   makeTableNode,
   makeTextNode,
   validateDocument,
 } from './document';
-import { DocumentCodec } from './documentCodec';
+import { DocumentCodec, type DocumentCodecWarning } from './documentCodec';
 import { gradientFill, imageFill } from './fills';
 import { addRasterMaskAsset } from './masks';
 import { setCellSceneContent } from './tableOps';
@@ -434,6 +435,65 @@ describe('DocumentCodec', () => {
     if (!decoded.ok) return;
     expect(decoded.document.nodes.clip?.mask).toBeUndefined();
     expect(decoded.document.nodes.content).toBeDefined();
+  });
+
+  it('keeps a closed legacy path clip source through encode and decode', () => {
+    const clipSource = makePathNode('clip-src', {
+      closed: true,
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 80, y: 0, handleIn: null, handleOut: null },
+        { x: 80, y: 60, handleIn: null, handleOut: null },
+        { x: 0, y: 60, handleIn: null, handleOut: null },
+      ],
+    });
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 80, h: 60 });
+    const group = makeGroupNode('panel', { children: ['clip-src', 'content'] });
+    group.mask = { type: 'clip', sourceNodeId: 'clip-src', visible: true };
+    const doc = {
+      ...createDocument('Legacy path clip', true),
+      nodes: { panel: group, 'clip-src': clipSource, content },
+      rootChildren: ['panel'],
+    };
+
+    const warnings: DocumentCodecWarning[] = [];
+    const encoded = DocumentCodec.encode(doc, warnings);
+    const decoded = DocumentCodec.decode(encoded);
+
+    expect(
+      warnings.filter((warning) => warning.code === 'document.invalid-structural-mask'),
+    ).toEqual([]);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.document.nodes.panel?.mask).toMatchObject({
+      type: 'clip',
+      sourceNodeId: 'clip-src',
+    });
+    expect(decoded.document.nodes['clip-src']?.kind).toBe('path');
+  });
+
+  it('reports a warning when encode strips an unusable structural mask', () => {
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+    const group = makeGroupNode('clip', { children: ['content'] });
+    group.mask = { type: 'clip', sourceNodeId: 'missing', visible: true };
+    const doc = {
+      ...createDocument('Broken mask encode', true),
+      nodes: { clip: group, content },
+      rootChildren: ['clip'],
+    };
+
+    const warnings: DocumentCodecWarning[] = [];
+    const encoded = DocumentCodec.encode(doc, warnings);
+    const parsed = JSON.parse(encoded) as { nodes: Record<string, { mask?: unknown }> };
+
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'document.invalid-structural-mask',
+        path: 'clip.mask',
+      }),
+    );
+    expect(parsed.nodes.clip?.mask).toBeUndefined();
+    expect(parsed.nodes.content).toBeDefined();
   });
 
   it('collects the full dependency closure for imported subtrees', () => {

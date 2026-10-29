@@ -54,8 +54,12 @@ describe('text effect presets', () => {
     expect(next.textCase).toBe('uppercase');
     expect(next.fontWeight).toBe(900);
     expect(next.textAlign).toBe('center');
+    expect(next.fill).toMatchObject({ r: 255, g: 214, b: 10, a: 255 });
     expect(next.strokes).toHaveLength(1);
-    expect(next.strokes?.[0]?.weight).toBe(3);
+    expect(next.strokes?.[0]?.weight).toBeGreaterThanOrEqual(8);
+    expect(next.strokes?.[0]?.color).toMatchObject({ r: 0, g: 0, b: 0 });
+    const shadow = next.effects?.find((effect) => effect.type === 'dropShadow');
+    expect(shadow).toMatchObject({ x: 5, y: 7 });
   });
 
   it('the body-text preset removes the outline without changing the font size', () => {

@@ -30,6 +30,7 @@ import type {
   NodeId,
   SceneNode,
   ShapeNode,
+  Stroke,
   TextNode,
 } from './types';
 import { defaultStroke } from './types';
@@ -82,6 +83,7 @@ export interface CalloutResult {
 }
 
 const WHITE = { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 };
+const CLEAR = { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 0 };
 
 /**
  * Round balloons read as a stack that follows the outline (longest line near
@@ -169,9 +171,14 @@ function tailAnchorHeight(
   return body.shape.kind === 'rect' ? body.shape.h : 0;
 }
 
-function bubbleStroke(kind: CalloutKind) {
+function calloutInkId(groupId: NodeId): string {
+  return `stroke-${groupId}-0`;
+}
+
+function bubbleStroke(kind: CalloutKind, id?: string): Stroke {
   return {
     ...defaultStroke(),
+    ...(id ? { id } : {}),
     weight: calloutStyle(kind).strokeWeight,
     dashPattern: calloutStyle(kind).dashPattern,
   };
@@ -304,12 +311,14 @@ export function calloutOuterContourForRender(
   // their paint model. If a user has styled either editable child separately,
   // retain the ordinary two-node rendering rather than silently dropping one
   // node's independent style.
+  const strokesWithoutIds = (strokes: Stroke[] | undefined) =>
+    strokes?.map(({ id: _id, ...rest }) => rest);
   const sharedStyle = (node: ShapeNode | Extract<SceneNode, { kind: 'path' }>) =>
     JSON.stringify([
       node.fill,
       node.fills,
       node.paintRefs,
-      node.strokes,
+      strokesWithoutIds(node.strokes),
       node.effects,
       node.opacity,
       node.blendMode,
@@ -463,7 +472,7 @@ function thoughtBubbleGeometry(
 function bubbleNode(
   id: NodeId,
   bubble: { cx: number; cy: number; r: number },
-  kind: CalloutKind,
+  stroke: Stroke,
 ): SceneNode {
   return makeShapeNode(
     id,
@@ -471,32 +480,40 @@ function bubbleNode(
     {
       name: 'Thought bubble',
       fill: WHITE,
-      strokes: [bubbleStroke(kind)],
+      strokes: [stroke],
     },
   );
 }
 
-function bodyNode(id: NodeId, w: number, h: number, kind: CalloutKind): ShapeNode {
+function bodyNode(id: NodeId, w: number, h: number, kind: CalloutKind, stroke: Stroke): ShapeNode {
   const shaped = isShapedCalloutKind(kind);
   return makeShapeNode(
     id,
     { kind: 'rect', x: 0, y: 0, w, h },
     {
       name: `${kind[0]!.toUpperCase()}${kind.slice(1)} balloon`,
-      fill: WHITE,
+      // Shaped balloons fill only the silhouette. A painted rect body shows
+      // through the burst/cloud spikes.
+      fill: shaped ? CLEAR : WHITE,
       // Shaped balloons draw their stroke on the outline; a rect stroke would
       // show through the star's interior.
-      strokes: shaped ? [] : [bubbleStroke(kind)],
+      strokes: shaped ? [] : [stroke],
       cornerRadius: shaped ? 0 : calloutStyle(kind).cornerRadius,
     },
   );
 }
 
-function outlineNode(id: NodeId, w: number, h: number, kind: CalloutKind): ShapeNode {
+function outlineNode(
+  id: NodeId,
+  w: number,
+  h: number,
+  kind: CalloutKind,
+  stroke: Stroke,
+): ShapeNode {
   return makeShapeNode(id, outlineStarShape(kind, w, h), {
     name: `${kind[0]!.toUpperCase()}${kind.slice(1)} outline`,
     fill: WHITE,
-    strokes: [bubbleStroke(kind)],
+    strokes: [stroke],
   });
 }
 
@@ -539,6 +556,7 @@ function buildTailNodes(
   h: number,
   endpoint: { x: number; y: number },
   options: { curve?: number; baseWidth?: number; bubbleCount?: number } = {},
+  stroke: Stroke = bubbleStroke(kind),
 ): { doc: Document; nodes: SceneNode[]; tail: CalloutTail } {
   let next = doc;
   if (style === 'thought') {
@@ -547,7 +565,7 @@ function buildTailNodes(
     for (const bubble of geometry) {
       const idResult = nextNodeId(next);
       next = idResult.doc;
-      nodes.push(bubbleNode(idResult.id, bubble, kind));
+      nodes.push(bubbleNode(idResult.id, bubble, stroke));
     }
     return {
       doc: next,
@@ -572,7 +590,7 @@ function buildTailNodes(
     // the body cleanly while only its two outside edges are outlined.
     closed: false,
     fill: WHITE,
-    strokes: [bubbleStroke(kind)],
+    strokes: [stroke],
   });
   return {
     doc: next,
@@ -612,8 +630,9 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
     transform: [1, 0, 0, 1, options.x, options.y] as Affine,
     children: [],
   });
-  const body = bodyNode(bodyId, w, h, kind);
-  const outline = outlineId ? outlineNode(outlineId, w, h, kind) : undefined;
+  const ink = bubbleStroke(kind, calloutInkId(groupId));
+  const body = bodyNode(bodyId, w, h, kind, ink);
+  const outline = outlineId ? outlineNode(outlineId, w, h, kind, ink) : undefined;
   const tailH = outline
     ? outlineBottom(outline.shape as Extract<ShapeNode['shape'], { kind: 'star' }>)
     : h;
@@ -621,10 +640,19 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
     x: w / 2,
     y: tailH + Math.max(32, h * 0.35),
   };
-  const built = buildTailNodes(next, kind, tailStyleForKind(kind), w, tailH, endpoint, {
-    baseWidth: options.tailBaseWidth,
-    curve: options.tailCurve,
-  });
+  const built = buildTailNodes(
+    next,
+    kind,
+    tailStyleForKind(kind),
+    w,
+    tailH,
+    endpoint,
+    {
+      baseWidth: options.tailBaseWidth,
+      curve: options.tailCurve,
+    },
+    ink,
+  );
   next = built.doc;
   const text = makeTextNode(textId, options.text ?? '', {
     name: 'Balloon text',
@@ -1035,6 +1063,7 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
   const tails = calloutTails(group);
   const nextStyle = tailStyleForKind(kind);
   const shaped = isShapedCalloutKind(kind);
+  const ink = bubbleStroke(kind, calloutInkId(groupId));
   let nextId = doc.nextId;
   let nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
 
@@ -1047,14 +1076,15 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
     nodes[outlineId] = {
       ...(existingOutline as ShapeNode),
       shape: outlineStarShape(kind, body.shape.w, body.shape.h),
-      strokes: [bubbleStroke(kind)],
+      fill: WHITE,
+      strokes: [ink],
     };
   } else if (shaped) {
     if (outlineId) delete nodes[outlineId];
     const minted = nextNodeId({ ...doc, nextId });
     outlineId = minted.id;
     nextId = minted.doc.nextId;
-    nodes[outlineId] = outlineNode(outlineId, body.shape.w, body.shape.h, kind);
+    nodes[outlineId] = outlineNode(outlineId, body.shape.w, body.shape.h, kind, ink);
   } else if (outlineId) {
     delete nodes[outlineId];
     outlineId = undefined;
@@ -1062,8 +1092,9 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
 
   nodes[body.id] = {
     ...body,
+    fill: shaped ? CLEAR : WHITE,
     cornerRadius: shaped ? 0 : calloutStyle(kind).cornerRadius,
-    strokes: shaped ? [] : [bubbleStroke(kind)],
+    strokes: shaped ? [] : [ink],
   };
 
   const outline = outlineId ? nodes[outlineId] : undefined;
@@ -1079,7 +1110,7 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
       for (const nodeId of tail.nodeIds) {
         const node = nodes[nodeId];
         if (node?.kind === 'path' || node?.kind === 'shape') {
-          nodes[nodeId] = { ...node, strokes: [bubbleStroke(kind)] };
+          nodes[nodeId] = { ...node, strokes: [ink] };
         }
       }
       nextTails.push(tail);
@@ -1099,6 +1130,7 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
         baseWidth: tail.baseWidth,
         bubbleCount: tail.bubbleCount,
       },
+      ink,
     );
     let builtDoc = rebuilt.doc;
     for (const node of rebuilt.nodes) builtDoc = addChild(builtDoc, groupId, node);
@@ -1224,6 +1256,7 @@ export function addCalloutTail(
       baseWidth: tails[0]?.baseWidth,
       bubbleCount: tails[0]?.bubbleCount,
     },
+    bubbleStroke(group.callout.kind, calloutInkId(groupId)),
   );
   let next = built.doc;
   for (const node of built.nodes) next = addChild(next, groupId, node);
