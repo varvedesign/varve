@@ -13,14 +13,17 @@ import {
 export function writeReport(out, checks, screenshots) {
   mkdirSync(out, { recursive: true });
   const failed = checks.filter((check) => !check.ok);
+  const skipped = checks.filter((check) => check.skipped === true);
+  const passed = checks.filter((check) => check.ok && check.skipped !== true);
   const report = {
     schema: 1,
     generatedAt: new Date().toISOString(),
     commit: shortSha(),
     emulatedInsets: { portrait: PORTRAIT_INSETS, landscape: LANDSCAPE_INSETS },
     tolerancePx: TOLERANCE,
-    passed: checks.length - failed.length,
+    passed: passed.length,
     failed: failed.length,
+    skipped: skipped.length,
     checks,
     screenshots,
   };
@@ -46,19 +49,21 @@ export function writeReport(out, checks, screenshots) {
       LANDSCAPE_INSETS.left +
       ', right ' +
       LANDSCAPE_INSETS.right,
-    `- result: ${report.passed} passed, ${report.failed} failed`,
+    `- result: ${report.passed} passed, ${report.failed} failed, ${report.skipped} skipped`,
     `- screenshots: ${screenshots.length}`,
     '',
     '| Check | Result |',
     '|---|---|',
   ];
   for (const check of checks) {
-    md.push(`| ${check.name} | ${check.ok ? 'PASS' : 'FAIL'} |`);
+    const result = check.skipped === true ? 'SKIP' : check.ok ? 'PASS' : 'FAIL';
+    md.push(`| ${check.name} | ${result} |`);
   }
   writeFileSync(path.join(out, 'report.md'), md.join(NEWLINE) + NEWLINE);
   return {
     passed: report.passed,
     failed,
+    skipped: skipped.length,
     reportPath: relativeToRoot(path.join(out, 'report.json')),
   };
 }

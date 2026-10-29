@@ -6139,7 +6139,13 @@ dialog.varve-dialog--settings[open] {
   align-items: center;
   gap: var(--space-3);
   width: max-content;
-  max-width: calc(100vw - 2 * var(--space-3));
+  max-width: calc(
+    100vw -
+    2 *
+    var(--space-3) -
+    env(safe-area-inset-left, 0px) -
+    env(safe-area-inset-right, 0px)
+  );
   padding: var(--space-2) var(--space-3);
   border: var(--border-micro);
   border-radius: var(--radius-control);

@@ -64,8 +64,8 @@ export function buildShellChecks(shell, label, insets) {
   return checks;
 }
 
-/** Fixed drawers, launchers and toasts; presence is asserted, not assumed. */
-export function buildOverlayChecks(shell, overlays, label, insets, inspectorMode) {
+/** Fixed drawer geometry; presence is asserted, not assumed. */
+export function buildDrawerChecks(overlays, label, insets, inspectorMode) {
   const { checks, check } = makeChecks();
   const name = (suffix) => `${label}: ${suffix}`;
   const drawer = overlays.layersDrawer;
@@ -92,6 +92,13 @@ export function buildOverlayChecks(shell, overlays, label, insets, inspectorMode
       inspector,
     );
   }
+  return checks;
+}
+
+/** Phone launchers and toasts; presence is asserted, not assumed. */
+export function buildLauncherChecks(shell, overlays, label, insets) {
+  const { checks, check } = makeChecks();
+  const name = (suffix) => `${label}: ${suffix}`;
   const fabLayers = overlays.fabLayers;
   check(
     name('layers launcher is rendered'),
@@ -141,6 +148,7 @@ export function buildOverlayChecks(shell, overlays, label, insets, inspectorMode
  * display:none when a persisted dock projection owns the lower-left hit
  * region; a display:none element still resolves its specified offset.
  */
+/** Tablet-mode presence and inspector-floor checks. */
 export function buildTabletChecks(shell, overlays, label, insets, mirrored) {
   const { checks, check } = makeChecks();
   const name = (suffix) => `${label}: ${suffix}`;
@@ -150,31 +158,77 @@ export function buildTabletChecks(shell, overlays, label, insets, mirrored) {
   check(name('tablet layout mode is active'), shell.layoutMode === 'tablet', shell.layoutMode);
   check(name('layers launcher exists'), layers.exists === true, layers.exists);
   check(name('library launcher exists'), library.exists === true, library.exists);
-  const layersLeft = numberFromCss(layers.left);
-  const layersRight = numberFromCss(layers.right);
-  const libraryLeft = numberFromCss(library.left);
-  const libraryRight = numberFromCss(library.right);
   if (mirrored) {
+    const right = numberFromCss(layers.right);
     check(
-      name('mirrored layers launcher keeps the inspector offset and right inset'),
-      layersRight !== null && layersRight >= inspectorFloor + insets.right - TOLERANCE,
+      name('mirrored layers launcher keeps the inspector offset'),
+      right !== null && right >= inspectorFloor + insets.right - TOLERANCE,
       { right: layers.right },
     );
+  } else {
+    const right = numberFromCss(library.right);
     check(
-      name('mirrored library launcher clears the left inset'),
-      libraryLeft !== null && libraryLeft >= insets.left - TOLERANCE,
-      { left: library.left },
+      name('library launcher keeps the inspector offset'),
+      right !== null && right >= inspectorFloor + insets.right - TOLERANCE,
+      { right: library.right },
+    );
+  }
+  return checks;
+}
+
+/**
+ * Tablet-mode exact inset deltas. A floor check alone cannot prove the right
+ * term: dropping env(safe-area-inset-right) still leaves the right above the
+ * inspector floor. Measure with the override cleared in the same presentation
+ * and require the delta to equal the emulated inset exactly.
+ */
+export function buildTabletDeltaChecks(overlays, baseline, label, insets, mirrored) {
+  const { checks, check } = makeChecks();
+  const name = (suffix) => `${label}: ${suffix}`;
+  const layers = overlays.fabLayers;
+  const library = overlays.fabLibrary;
+  const baseLayers = baseline.fabLayers;
+  const baseLibrary = baseline.fabLibrary;
+  const exactDelta = (withValue, baseValue, expected, suffix) => {
+    const usable =
+      typeof withValue === 'number' &&
+      typeof baseValue === 'number' &&
+      Number.isFinite(withValue + baseValue);
+    if (!usable) {
+      check(name(suffix), false, { withValue, baseValue });
+      return;
+    }
+    check(name(suffix), Math.abs(Math.abs(withValue - baseValue) - expected) <= TOLERANCE, {
+      withValue,
+      baseValue,
+      expected,
+    });
+  };
+  if (mirrored) {
+    exactDelta(
+      numberFromCss(layers.right),
+      numberFromCss(baseLayers.right),
+      insets.right,
+      'mirrored layers launcher adds exactly the right inset',
+    );
+    exactDelta(
+      numberFromCss(library.left),
+      numberFromCss(baseLibrary.left),
+      insets.left,
+      'mirrored library launcher adds exactly the left inset',
     );
   } else {
-    check(
-      name('layers launcher clears the left inset'),
-      layersLeft !== null && layersLeft >= insets.left - TOLERANCE,
-      { left: layers.left },
+    exactDelta(
+      numberFromCss(layers.left),
+      numberFromCss(baseLayers.left),
+      insets.left,
+      'layers launcher adds exactly the left inset',
     );
-    check(
-      name('library launcher keeps the inspector offset and right inset'),
-      libraryRight !== null && libraryRight >= inspectorFloor + insets.right - TOLERANCE,
-      { right: library.right },
+    exactDelta(
+      numberFromCss(library.right),
+      numberFromCss(baseLibrary.right),
+      insets.right,
+      'library launcher adds exactly the right inset',
     );
   }
   return checks;
@@ -185,7 +239,7 @@ export function buildTabletChecks(shell, overlays, label, insets, mirrored) {
  * viewport-anchored offset forgets the inset, the delta between the two
  * measurements is short by exactly the emulated value and this fails.
  */
-export function buildInsetPropagationChecks(insetState, baselineState, label, insets) {
+export function buildTopPropagationChecks(insetState, baselineState, label, insets) {
   const { checks, check } = makeChecks();
   const name = (suffix) => `${label}: ${suffix}`;
   const delta = (withValue, withoutValue, expected, suffix) => {
@@ -209,8 +263,6 @@ export function buildInsetPropagationChecks(insetState, baselineState, label, in
   const baseTabs = baselineState.shell.tabs;
   const withMenubar = insetState.shell.menubar;
   const baseMenubar = baselineState.shell.menubar;
-  const withStatus = insetState.shell.status;
-  const baseStatus = baselineState.shell.status;
   const withDrawer = insetState.overlays.layersDrawer.box;
   const baseDrawer = baselineState.overlays.layersDrawer.box;
   delta(
@@ -239,11 +291,25 @@ export function buildInsetPropagationChecks(insetState, baselineState, label, in
     insets.top,
     'top inset reaches the menubar',
   );
-  delta(
-    baseStatus ? baseStatus.bottom : null,
-    withStatus ? withStatus.bottom : null,
-    insets.bottom,
-    'bottom inset lifts the status bar',
+  return checks;
+}
+
+/** Status-bar bottom delta, split from the top-edge assertions. */
+export function buildBottomPropagationChecks(insetState, baselineState, label, insets) {
+  const { checks, check } = makeChecks();
+  const name = (suffix) => `${label}: ${suffix}`;
+  const withStatus = insetState.shell.status;
+  const baseStatus = baselineState.shell.status;
+  const withBottom = baseStatus ? baseStatus.bottom : null;
+  const baseBottom = withStatus ? withStatus.bottom : null;
+  if (typeof withBottom !== 'number' || typeof baseBottom !== 'number') {
+    check(name('bottom inset lifts the status bar'), false, { withBottom, baseBottom });
+    return checks;
+  }
+  check(
+    name('bottom inset lifts the status bar'),
+    Math.abs(Math.abs(baseBottom - withBottom) - insets.bottom) <= TOLERANCE,
+    { withBottom, baseBottom, expected: insets.bottom },
   );
   return checks;
 }

@@ -4,8 +4,11 @@
  * The tablet pass forces documentElement[data-layout-mode="tablet"] (the mode
  * the app sets for coarse-pointer tablets) because headless Chromium reports
  * any-pointer:fine. Without it the inspector-aware launcher offsets and the
- * --menubar-total-height drawer anchor are never exercised. The desktop pass
- * runs with no inset profile: every new offset must resolve to 0 there.
+ * --menubar-total-height drawer anchor are never exercised. Each launcher is
+ * measured with the inset override cleared in the SAME presentation, so the
+ * inset terms are proven by exact delta (a floor check alone would accept a
+ * dropped env() term). The desktop pass runs with no inset profile: every new
+ * offset must resolve to 0 there.
  */
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -13,10 +16,16 @@ import { installInsets, openEditorDocument } from './bootstrap.mjs';
 import { LANDSCAPE_INSETS, PORTRAIT_INSETS, relativeToRoot } from './config.mjs';
 import { overlayProbe, shellProbe } from './page-probes.mjs';
 import {
+  buildBottomPropagationChecks,
   buildDesktopBaselineChecks,
-  buildInsetPropagationChecks,
   buildTabletChecks,
+  buildTabletDeltaChecks,
+  buildTopPropagationChecks,
 } from './probes.mjs';
+
+function passLabel(pass) {
+  return `editor tablet ${pass.width}x${pass.height} ${pass.orientation}`;
+}
 
 async function setTabletMode(page, mirrored) {
   await page.evaluate((mirror) => {
@@ -26,41 +35,42 @@ async function setTabletMode(page, mirrored) {
   await page.waitForTimeout(400);
 }
 
+async function measure(page) {
+  return {
+    shell: await page.evaluate(shellProbe),
+    overlays: await page.evaluate(overlayProbe),
+  };
+}
+
+async function capturePair(page, cdp, pass, mirrored, label, options) {
+  await setTabletMode(page, mirrored);
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: pass.insets });
+  await page.waitForTimeout(300);
+  const insetState = await measure(page);
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: {} });
+  await page.waitForTimeout(300);
+  const baseline = await measure(page);
+  options.checks.push(
+    ...buildTabletChecks(insetState.shell, insetState.overlays, label, pass.insets, mirrored),
+  );
+  options.checks.push(
+    ...buildTabletDeltaChecks(insetState.overlays, baseline.overlays, label, pass.insets, mirrored),
+  );
+  if (!mirrored) {
+    options.checks.push(...buildTopPropagationChecks(insetState, baseline, label, pass.insets));
+    options.checks.push(...buildBottomPropagationChecks(insetState, baseline, label, pass.insets));
+  }
+}
+
 async function captureTabletPass(context, page, pass, options) {
   await page.setViewportSize({ width: pass.width, height: pass.height });
   const cdp = await installInsets(context, page, pass.insets);
-  await page.waitForTimeout(400);
-  await setTabletMode(page, false);
-  const shell = await page.evaluate(shellProbe);
-  const overlays = await page.evaluate(overlayProbe);
-  const label = `editor tablet ${pass.width}x${pass.height} ${pass.orientation}`;
-  options.checks.push(
-    ...buildTabletChecks(shell, overlays, `${label} standard`, pass.insets, false),
-  );
-  await setTabletMode(page, true);
-  options.checks.push(
-    ...buildTabletChecks(
-      await page.evaluate(shellProbe),
-      await page.evaluate(overlayProbe),
-      `${label} mirrored`,
-      pass.insets,
-      true,
-    ),
-  );
-  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: {} });
-  await page.waitForTimeout(350);
-  const baselineShell = await page.evaluate(shellProbe);
-  const baselineOverlays = await page.evaluate(overlayProbe);
-  options.checks.push(
-    ...buildInsetPropagationChecks(
-      { shell, overlays },
-      { shell: baselineShell, overlays: baselineOverlays },
-      label,
-      pass.insets,
-    ),
-  );
+  await page.waitForTimeout(300);
+  const label = passLabel(pass);
+  await capturePair(page, cdp, pass, false, `${label} standard`, options);
+  await capturePair(page, cdp, pass, true, `${label} mirrored`, options);
   await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: pass.insets });
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(200);
   if (options.screenshots) {
     mkdirSync(options.out, { recursive: true });
     const file = path.join(options.out, `editor-tablet-${pass.width}x${pass.height}-safe-area.png`);
@@ -100,10 +110,9 @@ export async function captureDesktopBaseline(browser, options) {
     viewport: { width: 1440, height: 900 },
   });
   try {
-    const shell = await page.evaluate(shellProbe);
-    const overlays = await page.evaluate(overlayProbe);
+    const state = await measure(page);
     options.checks.push(
-      ...buildDesktopBaselineChecks(shell, overlays, 'editor desktop 1440x900 env=0'),
+      ...buildDesktopBaselineChecks(state.shell, state.overlays, 'editor desktop 1440x900 env=0'),
     );
     if (options.screenshots) {
       mkdirSync(options.out, { recursive: true });
