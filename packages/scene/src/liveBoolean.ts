@@ -6,7 +6,13 @@
 // the visible result and history can restore the original structure exactly.
 
 import { type Affine, identity, multiplyAffine, tryInvertAffine } from '@varve/shared';
-import { booleanAnchorForNode, booleanOp, placeBooleanResult } from './boolean/integration';
+import {
+  booleanAnchorForNode,
+  booleanOp,
+  isDegradedBooleanShape,
+  markDegradedBooleanShape,
+  placeBooleanResult,
+} from './boolean/integration';
 import { nodeWorldTransform } from './coordinateService';
 import type { Document } from './document';
 import { addNode, removeNode, reparentNode } from './document-nodes';
@@ -27,14 +33,23 @@ const MAX_LIVE_BOOLEAN_DEPTH = 32;
  * edit, transform, reorder, or operation change produces a new Document and
  * therefore a fresh cache entry.
  */
-const resolvedGeometryCache = new WeakMap<Document, Map<NodeId, ShapeNode | null>>();
+type ResolvedLiveBoolean = { shape: ShapeNode; degraded: boolean };
 
-function resolvedGeometryFor(document: Document): Map<NodeId, ShapeNode | null> {
+const resolvedGeometryCache = new WeakMap<Document, Map<NodeId, ResolvedLiveBoolean | null>>();
+
+function resolvedGeometryFor(document: Document): Map<NodeId, ResolvedLiveBoolean | null> {
   const existing = resolvedGeometryCache.get(document);
   if (existing) return existing;
-  const cache = new Map<NodeId, ShapeNode | null>();
+  const cache = new Map<NodeId, ResolvedLiveBoolean | null>();
   resolvedGeometryCache.set(document, cache);
   return cache;
+}
+
+function isEmptyBooleanShape(node: ShapeNode): boolean {
+  if (node.shape.kind !== 'path') return false;
+  const points = node.shape.points ?? [];
+  const contours = node.shape.contours ?? [];
+  return points.length === 0 && contours.every((contour) => contour.length === 0);
 }
 
 function isSupportedOperation(operation: string): operation is LiveBooleanOperation {
@@ -82,9 +97,10 @@ export function resolveLiveBooleanShape(
   if (ancestors.includes(nodeId) || ancestors.length >= MAX_LIVE_BOOLEAN_DEPTH) return null;
 
   const cache = resolvedGeometryFor(document);
-  if (cache.has(nodeId)) return cache.get(nodeId) ?? null;
+  if (cache.has(nodeId)) return cache.get(nodeId)?.shape ?? null;
 
   const operands: ShapeNode[] = [];
+  let nestedDegraded = false;
   for (const childId of node.children) {
     const child = document.nodes[childId];
     if (!child || child.visible === false || child.locked) {
@@ -105,6 +121,8 @@ export function resolveLiveBooleanShape(
         cache.set(nodeId, null);
         return null;
       }
+      const childEntry = resolvedGeometryFor(document).get(childId);
+      if (childEntry?.degraded) nestedDegraded = true;
       operands.push(resolvedChild);
       continue;
     }
@@ -126,7 +144,9 @@ export function resolveLiveBooleanShape(
     visible: node.visible,
     locked: node.locked,
   };
-  cache.set(nodeId, shape);
+  const degraded = isDegradedBooleanShape(resolved) || nestedDegraded;
+  if (degraded) markDegradedBooleanShape(shape);
+  cache.set(nodeId, { shape, degraded });
   return shape;
 }
 
@@ -169,16 +189,33 @@ export function createLiveBooleanDoc(
   return { doc, nodeId: id };
 }
 
+export type ExpandLiveBooleanResult =
+  | { ok: true; doc: Document; nodeId: NodeId }
+  | { ok: false; reason: string };
+
 /** Expand a live Boolean atomically into its resolved editable compound path. */
 export function expandLiveBooleanDoc(
   document: Document,
   nodeId: NodeId,
-): { doc: Document; nodeId: NodeId } | null {
+): ExpandLiveBooleanResult | null {
+  const node = document.nodes[nodeId];
+  if (!node || !isLiveBooleanNode(node)) return null;
   const resolved = resolveLiveBooleanShape(document, nodeId);
   if (!resolved) return null;
+  const cached = resolvedGeometryFor(document).get(nodeId);
+  const degraded = cached?.degraded === true || isDegradedBooleanShape(resolved);
+  if (degraded || isEmptyBooleanShape(resolved)) {
+    return {
+      ok: false,
+      reason: degraded
+        ? 'Boolean geometry could not be completed; the original shapes were kept.'
+        : 'Boolean result is empty; the original shapes were kept.',
+    };
+  }
   const anchor = booleanAnchorForNode(document, nodeId);
   const withoutLiveGroup = removeNode(document, nodeId);
-  return placeBooleanResult(withoutLiveGroup, resolved, anchor);
+  const placed = placeBooleanResult(withoutLiveGroup, resolved, anchor);
+  return { ok: true, doc: placed.doc, nodeId: placed.nodeId };
 }
 
 /** Change operation without altering source operands or their transforms. */

@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { booleanTwoPolygons } from './engine';
-import { type ClipperRegion, clipRegions } from './polygon-clipper';
+import { type ClipperRegion, clipRegions, regionToFlat } from './polygon-clipper';
+import { pointInCompoundPath, regionToPathData } from './region';
 
-const clipperHarness = vi.hoisted(() => ({ failDifference: false }));
+const clipperHarness = vi.hoisted(() => ({ failDifference: false, failUnion: false }));
 
 vi.mock('polygon-clipping', async (importOriginal) => {
   const actual = await importOriginal<typeof import('polygon-clipping')>();
@@ -20,8 +21,16 @@ vi.mock('polygon-clipping', async (importOriginal) => {
     }
     return kernel.difference(...args);
   };
+  const union = (...args: never[]) => {
+    if (clipperHarness.failUnion) {
+      throw new Error(
+        'Unable to complete output ring starting at [0, 0]. Last matching segment found ends at [1, 1].',
+      );
+    }
+    return kernel.union(...args);
+  };
   const wrapped = {
-    union: kernel.union,
+    union,
     intersection: kernel.intersection,
     xor: kernel.xor,
     difference,
@@ -79,5 +88,28 @@ describe('clipRegions', () => {
     expect(() =>
       clipRegions([rectRegion(0, 0, 100, 100), rectRegion(100, 0, 100, 100)], 'subtract', 1e-9),
     ).not.toThrow();
+  });
+
+  it('union fallback keeps overlapping islands filled under nonzero', () => {
+    clipperHarness.failUnion = true;
+    try {
+      const result = clipRegions(
+        [rectRegion(0, 0, 10, 10), rectRegion(5, 0, 10, 10)],
+        'union',
+        1e-9,
+      );
+      expect(result.degraded).toBe(true);
+      expect(result.fillRule).toBe('nonzero');
+      expect(result.components.length).toBe(2);
+      const flat = regionToFlat(result);
+      const asEvenodd = regionToPathData({ ...flat, fillRule: 'evenodd' });
+      const overlap = { x: 7, y: 5 };
+      expect(pointInCompoundPath(overlap, asEvenodd.points, asEvenodd.holes, 'evenodd')).toBe(
+        false,
+      );
+      expect(pointInCompoundPath(overlap, asEvenodd.points, asEvenodd.holes, 'nonzero')).toBe(true);
+    } finally {
+      clipperHarness.failUnion = false;
+    }
   });
 });

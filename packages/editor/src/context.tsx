@@ -3348,6 +3348,7 @@ export function EditorProvider({
     openInNewSession,
     recoveryRef,
     computeFitAllCamera,
+    (message) => toastHandler?.({ message, type: 'warning' }),
   );
 
   // Remote-session sync (auxiliary windows, ADR-0204): mutation + selection
@@ -7485,23 +7486,31 @@ export function EditorProvider({
         const id = sel[0];
         if (!id) return;
         runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          let booleanExpandFailure: string | undefined;
           setState((s) => {
             const node = s.document.nodes[id];
             if (node?.kind !== 'group') return s;
             if (isLiveBooleanNode(node)) {
               const expanded = expandLiveBooleanDoc(s.document, id);
-              return expanded
-                ? markDocumentDirty({
-                    ...s,
-                    document: expanded.doc,
-                    selection: [expanded.nodeId],
-                  })
-                : s;
+              if (!expanded) return s;
+              if (!expanded.ok) {
+                booleanExpandFailure = expanded.reason;
+                return s;
+              }
+              return markDocumentDirty({
+                ...s,
+                document: expanded.doc,
+                selection: [expanded.nodeId],
+              });
             }
             const childIds = [...node.children];
             const newDoc = ungroupNodeDoc(s.document, id);
             return markDocumentDirty({ ...s, document: newDoc, selection: childIds });
           });
+          if (booleanExpandFailure) {
+            toastHandler?.({ message: booleanExpandFailure, type: 'warning' });
+            announcerRef.current?.announce(booleanExpandFailure);
+          }
         });
       },
 

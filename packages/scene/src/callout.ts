@@ -122,6 +122,30 @@ export function isShapedCalloutKind(kind: CalloutKind): boolean {
   return kind === 'burst' || kind === 'cloud';
 }
 
+/**
+ * Older shaped balloons filled both the rect body and the silhouette. Move a
+ * default white body fill onto the outline and clear the body so only the
+ * star paints. Custom body colours are left for the kind-switch path.
+ */
+export function migrateShapedCalloutFills(doc: Document): Document {
+  let changed = false;
+  const nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
+  for (const node of Object.values(doc.nodes)) {
+    if (node.kind !== 'group' || !node.callout || !isShapedCalloutKind(node.callout.kind)) continue;
+    const body = nodes[node.callout.bodyNodeId];
+    const outlineId = node.callout.outlineNodeId;
+    const outline = outlineId ? nodes[outlineId] : undefined;
+    if (body?.kind !== 'shape' || outline?.kind !== 'shape') continue;
+    if (!isDefaultWhiteFill(body.fill)) continue;
+    nodes[body.id] = { ...body, fill: CLEAR, strokes: [] };
+    if (isClearFill(outline.fill)) {
+      nodes[outline.id] = { ...outline, fill: WHITE };
+    }
+    changed = true;
+  }
+  return changed ? { ...doc, nodes } : doc;
+}
+
 const BURST_INNER_RATIO = 0.62;
 const CLOUD_INNER_RATIO = 0.9;
 
@@ -171,17 +195,25 @@ function tailAnchorHeight(
   return body.shape.kind === 'rect' ? body.shape.h : 0;
 }
 
-function calloutInkId(groupId: NodeId): string {
-  return `stroke-${groupId}-0`;
-}
-
-function bubbleStroke(kind: CalloutKind, id?: string): Stroke {
+function bubbleStroke(kind: CalloutKind): Stroke {
   return {
     ...defaultStroke(),
-    ...(id ? { id } : {}),
     weight: calloutStyle(kind).strokeWeight,
     dashPattern: calloutStyle(kind).dashPattern,
   };
+}
+
+function isClearFill(fill: ShapeNode['fill']): boolean {
+  return fill.a === 0;
+}
+
+function isDefaultWhiteFill(fill: ShapeNode['fill']): boolean {
+  return 'r' in fill && fill.r === 255 && fill.g === 255 && fill.b === 255 && fill.a === 255;
+}
+
+function opaqueCalloutFill(fill: ShapeNode['fill'] | undefined): ShapeNode['fill'] {
+  if (!fill || isClearFill(fill)) return WHITE;
+  return fill;
 }
 
 function point(x: number, y: number): PathPoint {
@@ -630,9 +662,8 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
     transform: [1, 0, 0, 1, options.x, options.y] as Affine,
     children: [],
   });
-  const ink = bubbleStroke(kind, calloutInkId(groupId));
-  const body = bodyNode(bodyId, w, h, kind, ink);
-  const outline = outlineId ? outlineNode(outlineId, w, h, kind, ink) : undefined;
+  const body = bodyNode(bodyId, w, h, kind, bubbleStroke(kind));
+  const outline = outlineId ? outlineNode(outlineId, w, h, kind, bubbleStroke(kind)) : undefined;
   const tailH = outline
     ? outlineBottom(outline.shape as Extract<ShapeNode['shape'], { kind: 'star' }>)
     : h;
@@ -651,7 +682,7 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
       baseWidth: options.tailBaseWidth,
       curve: options.tailCurve,
     },
-    ink,
+    bubbleStroke(kind),
   );
   next = built.doc;
   const text = makeTextNode(textId, options.text ?? '', {
@@ -1063,20 +1094,37 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
   const tails = calloutTails(group);
   const nextStyle = tailStyleForKind(kind);
   const shaped = isShapedCalloutKind(kind);
-  const ink = bubbleStroke(kind, calloutInkId(groupId));
+  const wasShaped = isShapedCalloutKind(group.callout.kind);
+  const ink = bubbleStroke(kind);
   let nextId = doc.nextId;
   let nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
 
   // Outline lifecycle: shaped kinds carry a star outline behind the body;
-  // rect-bodied kinds must not keep one.
+  // rect-bodied kinds must not keep one. Authored fill moves with the
+  // silhouette so a recolor is not wiped by a kind switch.
   let outlineId = group.callout.outlineNodeId;
   const existingOutline = outlineId ? nodes[outlineId] : undefined;
   const hasStarOutline = existingOutline?.kind === 'shape' && existingOutline.shape.kind === 'star';
+  const existingOutlineFill = existingOutline?.kind === 'shape' ? existingOutline.fill : undefined;
+  let outlineFill: ShapeNode['fill'] = WHITE;
+  let bodyFill: ShapeNode['fill'] = body.fill;
+  if (shaped && wasShaped) {
+    outlineFill = opaqueCalloutFill(hasStarOutline ? existingOutlineFill : body.fill);
+    bodyFill = CLEAR;
+  } else if (shaped) {
+    outlineFill = opaqueCalloutFill(body.fill);
+    bodyFill = CLEAR;
+  } else if (wasShaped) {
+    bodyFill = opaqueCalloutFill(hasStarOutline ? existingOutlineFill : body.fill);
+  } else {
+    bodyFill = opaqueCalloutFill(body.fill);
+  }
+
   if (shaped && outlineId && hasStarOutline) {
     nodes[outlineId] = {
       ...(existingOutline as ShapeNode),
       shape: outlineStarShape(kind, body.shape.w, body.shape.h),
-      fill: WHITE,
+      fill: outlineFill,
       strokes: [ink],
     };
   } else if (shaped) {
@@ -1084,7 +1132,10 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
     const minted = nextNodeId({ ...doc, nextId });
     outlineId = minted.id;
     nextId = minted.doc.nextId;
-    nodes[outlineId] = outlineNode(outlineId, body.shape.w, body.shape.h, kind, ink);
+    nodes[outlineId] = {
+      ...outlineNode(outlineId, body.shape.w, body.shape.h, kind, ink),
+      fill: outlineFill,
+    };
   } else if (outlineId) {
     delete nodes[outlineId];
     outlineId = undefined;
@@ -1092,7 +1143,7 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
 
   nodes[body.id] = {
     ...body,
-    fill: shaped ? CLEAR : WHITE,
+    fill: bodyFill,
     cornerRadius: shaped ? 0 : calloutStyle(kind).cornerRadius,
     strokes: shaped ? [] : [ink],
   };
@@ -1256,7 +1307,7 @@ export function addCalloutTail(
       baseWidth: tails[0]?.baseWidth,
       bubbleCount: tails[0]?.bubbleCount,
     },
-    bubbleStroke(group.callout.kind, calloutInkId(groupId)),
+    bubbleStroke(group.callout.kind),
   );
   let next = built.doc;
   for (const node of built.nodes) next = addChild(next, groupId, node);

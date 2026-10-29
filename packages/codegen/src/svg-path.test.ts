@@ -3,8 +3,10 @@ import {
   addChild,
   addNode,
   createCallout,
+  createClippingMask,
   createDocument,
   createLiveBooleanDoc,
+  defaultStroke,
   makeGroupNode,
   makePathNode,
   makeShapeNode,
@@ -181,5 +183,55 @@ describe('SVG path export', () => {
     const svg = exportNodeToSvg(node, doc, { background: 'transparent' });
     expect(svg).toContain('<path');
     expect(svg).toContain('d="M 0 0 L 40 80 L 80 0"');
+  });
+
+  it('includes bezier handles and half stroke width in path bounds', () => {
+    const node = makePathNode('curve', {
+      closed: false,
+      strokes: [{ ...defaultStroke(), weight: 20 }],
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: [80, 0] },
+        { x: 10, y: 0, handleIn: [80, 0], handleOut: null },
+      ],
+    });
+    const doc = {
+      ...createDocument('Curved path bounds', true),
+      rootChildren: ['curve'],
+      nodes: { curve: node },
+    };
+    const svg = exportNodeToSvg(node, doc, { background: 'transparent' });
+    const viewBox = svg
+      .match(/viewBox="([^"]+)"/)?.[1]
+      ?.split(' ')
+      .map(Number);
+    expect(viewBox).toBeDefined();
+    if (!viewBox) return;
+    expect(viewBox[0]).toBeLessThanOrEqual(-10);
+    expect(viewBox[2]).toBeGreaterThanOrEqual(100);
+  });
+
+  it('exports a closed legacy path clip source as clip-path geometry', () => {
+    let doc = createDocument('Path clip export', true);
+    doc = addNode(doc, makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 80, h: 60 }));
+    doc = addNode(
+      doc,
+      makePathNode('clip-src', {
+        closed: true,
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 80, y: 0, handleIn: null, handleOut: null },
+          { x: 80, y: 60, handleIn: null, handleOut: null },
+          { x: 0, y: 60, handleIn: null, handleOut: null },
+        ],
+      }),
+    );
+    const clipped = createClippingMask(doc, 'clip-src', ['content']);
+    const svg = exportNodeToSvg(clipped.doc.nodes[clipped.groupId]!, clipped.doc, {
+      background: 'transparent',
+    });
+    expect(svg).toContain(`<clipPath id="mask-${clipped.groupId}"`);
+    expect(svg).toContain(`clip-path="url(#mask-${clipped.groupId})"`);
+    expect(svg).toContain('<path d="M 0 0 L 80 0 L 80 60 L 0 60 Z"');
+    expect(svg.includes(`clip-path="url(#mask-missing)"`)).toBe(false);
   });
 });

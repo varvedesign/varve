@@ -54,6 +54,7 @@ import {
 
 export { svgPatternFillForNode } from './svg-patterns';
 
+import { legacyPathToPathShape, pathNodeBoundCorners, pathNodeClipElement } from './svgLegacyPath';
 import {
   collectGradientDefs,
   strokeAttrs,
@@ -418,32 +419,7 @@ function nodeSvgBounds(
     );
   }
   if (node.kind === 'path') {
-    if (node.points.length === 0) {
-      return transformedBounds(
-        [
-          [0, 0],
-          [1, 0],
-          [1, 1],
-          [0, 1],
-        ],
-        worldTransform,
-      );
-    }
-    const xs = node.points.map((point) => point.x);
-    const ys = node.points.map((point) => point.y);
-    const x = Math.min(...xs);
-    const y = Math.min(...ys);
-    const width = Math.max(Math.max(...xs) - x, 1);
-    const height = Math.max(Math.max(...ys) - y, 1);
-    return transformedBounds(
-      [
-        [x, y],
-        [x + width, y],
-        [x + width, y + height],
-        [x, y + height],
-      ],
-      worldTransform,
-    );
+    return transformedBounds(pathNodeBoundCorners(node), worldTransform);
   }
   if (node.kind !== 'shape') return null;
   // Warped geometry routinely extends past the source box, so bounds must be
@@ -606,10 +582,22 @@ function collectClipElements(doc: SceneDocument, node: SceneNode): string[] {
     const el = shapeClipPath(node);
     return el ? [el] : [];
   }
+  if (node.kind === 'path') {
+    const el = pathNodeClipElement(node);
+    return el ? [el] : [];
+  }
   if (node.kind === 'frame' || node.kind === 'group') {
     return getChildren(doc, node).flatMap((child) => collectClipElements(doc, child));
   }
   return [];
+}
+
+function maskReferenceAttributes(doc: SceneDocument, node: SceneNode): string {
+  const mask = resolveMask(node, doc);
+  if (!mask) return '';
+  if (!buildMaskDef(doc, node.id, mask)) return '';
+  const url = `url(#mask-${node.id})`;
+  return mask.type === 'clip' && !mask.inverted ? ` clip-path="${url}"` : ` mask="${url}"`;
 }
 
 /**
@@ -680,6 +668,11 @@ function renderSourceNodeAsMaskContent(
         )
         .join('\n');
       return `${indent}<g${withTransform}>\n${children}\n${indent}</g>`;
+    }
+    case 'path': {
+      const data = pathToData(legacyPathToPathShape(node));
+      if (!data) return '';
+      return `${indent}<path d="${data}" fill="${fillColor}"${withTransform} />`;
     }
     default:
       return '';
@@ -960,11 +953,9 @@ function buildMaskedNode(
   doc: SceneDocument,
   indent: string,
 ): string {
-  const mask = resolveMask(node, doc);
-  if (!mask) return inner;
-  const maskId = `url(#mask-${node.id})`;
-  const attr = mask.type === 'clip' && !mask.inverted ? `clip-path` : `mask`;
-  return `${indent}<g ${attr}="${maskId}">\n${inner}\n${indent}</g>`;
+  const maskAttr = maskReferenceAttributes(doc, node).trim();
+  if (!maskAttr) return inner;
+  return `${indent}<g ${maskAttr}>\n${inner}\n${indent}</g>`;
 }
 
 /**
@@ -1123,12 +1114,7 @@ function nodeToSvgTag(
           ? `${indent}  <clipPath id="${cropClipId}" clipPathUnits="userSpaceOnUse"><rect ${svgRect(placement.sampleDrawRect)} /></clipPath>\n`
           : '';
         const cropAttr = img.crop ? ` clip-path="url(#${cropClipId})"` : '';
-        const nodeMask = resolveMask(node, doc);
-        const maskAttr = nodeMask
-          ? nodeMask.type === 'clip' && !nodeMask.inverted
-            ? ` clip-path="url(#mask-${node.id})"`
-            : ` mask="url(#mask-${node.id})"`
-          : '';
+        const maskAttr = maskReferenceAttributes(doc, node);
         const imageTag = `${indent}    <image href="${href}" ${svgRect(placement.drawRect)} preserveAspectRatio="none" />`;
         const shapeInner = [
           `${indent}<g${withTransform}${maskAttr}${compositingSuffix}>`,
@@ -1340,14 +1326,8 @@ ${shapeInner}`
         .join('\n');
       let groupAttrs = withTransform;
       groupAttrs += compositingSuffix;
-      if (mask) {
-        const maskId = `url(#mask-${node.id})`;
-        if (mask.type === 'clip' && !mask.inverted) {
-          groupAttrs = ` clip-path="${maskId}"${groupAttrs}`;
-        } else {
-          groupAttrs = ` mask="${maskId}"${groupAttrs}`;
-        }
-      }
+      const maskAttr = maskReferenceAttributes(doc, node);
+      if (maskAttr) groupAttrs = `${maskAttr}${groupAttrs}`;
 
       if (node.kind === 'frame') {
         return frameContainerSvg({

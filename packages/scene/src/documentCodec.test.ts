@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmbeddedAsset } from './assets';
+import { createCallout } from './callout';
 import type { Document } from './document';
 import {
   addNode,
@@ -494,6 +495,42 @@ describe('DocumentCodec', () => {
     );
     expect(parsed.nodes.clip?.mask).toBeUndefined();
     expect(parsed.nodes.content).toBeDefined();
+  });
+
+  it('moves a default white fill off a shaped balloon body on decode', () => {
+    const created = createCallout(createDocument('Legacy burst', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 200,
+      h: 100,
+      text: 'BOOM',
+    });
+    const group = created.document.nodes[created.groupId];
+    const outlineId = group?.kind === 'group' ? group.callout?.outlineNodeId : undefined;
+    const body = created.document.nodes[created.bodyId];
+    expect(body?.kind).toBe('shape');
+    if (body?.kind !== 'shape' || !outlineId) return;
+    const legacy = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.bodyId]: {
+          ...body,
+          fill: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+        },
+      },
+    };
+    const decoded = DocumentCodec.decode(JSON.stringify(legacy));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const nextBody = decoded.document.nodes[created.bodyId];
+    const nextOutline = decoded.document.nodes[outlineId];
+    expect(nextBody?.kind).toBe('shape');
+    expect(nextOutline?.kind).toBe('shape');
+    if (nextBody?.kind !== 'shape' || nextOutline?.kind !== 'shape') return;
+    expect(nextBody.fill.a).toBe(0);
+    expect(nextOutline.fill.a).toBeGreaterThan(0);
   });
 
   it('collects the full dependency closure for imported subtrees', () => {

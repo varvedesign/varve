@@ -19,6 +19,7 @@ import {
   validateDocumentAsset,
   validateIccProfileEntry,
 } from './assets';
+import { migrateShapedCalloutFills } from './callout';
 import { validateDepthMaskRecipe } from './depthMaskRecipe';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
@@ -989,6 +990,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = normalizeImageFillGeometry(document);
   document = normalizeInlineImageFills(document, warnings);
   document = sanitizeStructuralMaskState(document, warnings);
+  document = migrateShapedCalloutFills(document);
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
   document = validatePhotoSourceState(document, warnings);
@@ -1819,6 +1821,11 @@ export const DocumentCodec = {
     const normalized = normalizeDocument(doc);
     if (warningsOut) warningsOut.push(...normalized.warnings);
     return serializeVersionedDocument(normalized.document);
+  },
+
+  encodeWithWarnings(doc: Document): { json: string; warnings: DocumentCodecWarning[] } {
+    const warnings: DocumentCodecWarning[] = [];
+    return { json: DocumentCodec.encode(doc, warnings), warnings };
   },
 
   normalize: normalizeDocument,

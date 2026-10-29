@@ -26,8 +26,10 @@ export interface BooleanResult {
   outerContours: Point2D[][];
   /** Hole contours for compatibility with existing consumers. */
   holes: Point2D[][];
-  /** Results use even-odd so all contour nesting is faithfully representable. */
+  /** Kernel results use even-odd; degraded union fallbacks may use nonzero. */
   fillRule: FillRule;
+  /** True when the clipper returned a conservative fallback instead of a kernel result. */
+  degraded?: boolean;
 }
 
 function resultFromRegion(region: ClipperRegion): BooleanResult {
@@ -37,6 +39,7 @@ function resultFromRegion(region: ClipperRegion): BooleanResult {
     outerContours: flat.contours,
     holes: flat.holes,
     fillRule: flat.fillRule,
+    ...(region.degraded ? { degraded: true } : {}),
   };
 }
 
@@ -144,6 +147,7 @@ function translateResult(result: BooleanResult, offset: Point2D): BooleanResult 
     outerContours: components.map((component) => component.outer),
     holes: components.flatMap((component) => component.holes),
     fillRule: result.fillRule,
+    ...(result.degraded ? { degraded: true } : {}),
   };
 }
 

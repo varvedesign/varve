@@ -19,6 +19,24 @@ import { type BooleanOpType, type BooleanResult, booleanNormalizedRegions } from
 import type { Point2D, Region2D } from './region';
 import { signedArea } from './region';
 
+const degradedBooleanShapes = new WeakSet<ShapeNode>();
+
+export function markDegradedBooleanShape(node: ShapeNode): ShapeNode {
+  degradedBooleanShapes.add(node);
+  return node;
+}
+
+/** True when `booleanOp` returned a clipper fallback rather than a kernel result. */
+export function isDegradedBooleanShape(node: ShapeNode): boolean {
+  return degradedBooleanShapes.has(node);
+}
+
+function orientRing(points: Point2D[], ccw: boolean): Point2D[] {
+  const area = signedArea(points);
+  if ((ccw && area < 0) || (!ccw && area > 0)) return [...points].reverse();
+  return points;
+}
+
 // ── Shape → Polygon conversion ──────────────────────────────────────────────
 
 function pointToChordDistanceSq(point: Point2D, start: Point2D, end: Point2D): number {
@@ -540,11 +558,13 @@ function preservePathResult(source: ShapeNode, style: ShapeNode, id: string): Sh
  */
 function makeResultNode(result: BooleanResult, first: ShapeNode, id: string): ShapeNode {
   const { outerContours, holes } = result;
+  const fillRule = result.fillRule;
+  const nonzero = fillRule === 'nonzero';
 
   if (outerContours.length === 0) {
     // Emptiness is explicit. A one-point closed path would be invalid vector
     // geometry and would make an empty live result impossible to recover.
-    return {
+    const empty: ShapeNode = {
       id,
       name: 'Boolean Result',
       kind: 'shape',
@@ -579,23 +599,22 @@ function makeResultNode(result: BooleanResult, first: ShapeNode, id: string): Sh
       strokes: [...(first.strokes ?? [])],
       effects: [...(first.effects ?? [])],
     };
+    return result.degraded ? markDegradedBooleanShape(empty) : empty;
   }
 
   // Use the first (largest) outer contour as the primary path
   const primaryOuter = outerContours[0]!;
   const extraOuters = outerContours.slice(1);
 
-  // `holes` is the legacy field name for additional subpaths. Use even-odd
-  // for every Boolean result: it represents disconnected islands, holes, and
-  // arbitrary nested parity without losing component topology.
-  const normalizedExtraOuters = extraOuters.map((outer) =>
-    signedArea(outer) < 0 ? [...outer].reverse() : outer,
-  );
-  const normalizedHoles = holes.map((hole) => (signedArea(hole) < 0 ? [...hole].reverse() : hole));
+  // Kernel results stay even-odd so disconnected islands serialize as extra
+  // subpaths. Degraded union fallbacks keep nonzero with CCW outers / CW holes
+  // so overlapping islands do not punch holes.
+  const normalizedExtraOuters = extraOuters.map((outer) => orientRing(outer, true));
+  const normalizedHoles = holes.map((hole) => orientRing(hole, !nonzero));
 
   const allRings = [...normalizedExtraOuters, ...normalizedHoles];
 
-  return {
+  const node: ShapeNode = {
     id,
     name: 'Boolean Result',
     kind: 'shape',
@@ -615,7 +634,7 @@ function makeResultNode(result: BooleanResult, first: ShapeNode, id: string): Sh
       ...(allRings.length > 0
         ? {
             holes: allRings.map((r) => polygonToPathPoints(r)),
-            fillRule: 'evenodd',
+            fillRule,
           }
         : {}),
     },
@@ -636,6 +655,7 @@ function makeResultNode(result: BooleanResult, first: ShapeNode, id: string): Sh
     strokes: [...(first.strokes ?? [])],
     effects: [...(first.effects ?? [])],
   };
+  return result.degraded ? markDegradedBooleanShape(node) : node;
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
