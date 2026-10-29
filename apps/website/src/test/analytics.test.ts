@@ -43,7 +43,9 @@ describe('website analytics consent boundary', () => {
     initWebsiteAnalytics({ domain: 'varve-test.goatcounter.com', enabled: true });
     document.querySelector<HTMLElement>('[data-analytics-choice="granted"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(document.querySelector('script[data-varve-plausible]')).toBeNull();
+    expect(
+      document.querySelectorAll('script[src*="goatcounter"], script[src*="zgo.at"]').length,
+    ).toBe(0);
     expect(fetch).toHaveBeenCalledTimes(1);
     const [request, options] = vi.mocked(fetch).mock.calls[0]!;
     const url = new URL(String(request));

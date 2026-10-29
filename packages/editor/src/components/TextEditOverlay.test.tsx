@@ -4,6 +4,12 @@ import { addNode, createDocument, makeTextNode } from '@varve/scene';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
+import {
+  flushPendingEdits,
+  hasPendingEdits,
+  pendingEditSourceIds,
+  resetPendingEditSources,
+} from '../context/pendingEdits';
 import { type EditorContextValue, EditorCtx } from '../context/types';
 import { TextEditOverlay, type TextEditOverlayHandle } from './TextEditOverlay';
 import { applyTypographyChanges, replaceTextNodeContent } from './Typography/typographyCommand';
@@ -657,5 +663,174 @@ describe('TextEditOverlay', () => {
       cleanup();
       vi.useRealTimers();
     }
+  });
+});
+
+/**
+ * Buffered input must not be invisible to anything that persists or observes
+ * the document. Evidence: storytold/pdfcraft #811 ("save and close ignore
+ * typing in an open paragraph") and #166 (save omits text while the field
+ * keeps focus) — the same failure the registry in `context/pendingEdits.ts`
+ * exists to prevent here.
+ */
+describe('TextEditOverlay — buffered input is published to the model on drain', () => {
+  afterEach(() => {
+    resetPendingEditSources();
+  });
+
+  it('publishes the held-back characters when a save or termination drains the buffer', () => {
+    vi.useFakeTimers();
+    const events: string[] = [];
+    try {
+      render(
+        <EditorCtx.Provider
+          value={
+            {
+              beginTransaction: () => events.push('begin'),
+              commitTransaction: () => events.push('commit'),
+              setSelectionRange: vi.fn(),
+            } as unknown as EditorContextValue
+          }
+        >
+          <TextEditOverlay
+            node={makeNode('')}
+            zoom={1}
+            pan={{ x: 0, y: 0 }}
+            canvasElement={document.createElement('canvas')}
+            onCommit={() => events.push('finish')}
+            onUpdateText={(text) => events.push(`text:${text}`)}
+          />
+        </EditorCtx.Provider>,
+      );
+      const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+      fireEvent.input(ta, { target: { value: 'Saved mid-typing' } });
+      // The coalescing window is open: the textarea has the text, the document
+      // does not, and nothing has told the model otherwise.
+      expect(events).toEqual([]);
+      expect(pendingEditSourceIds()).toContain('text-edit-overlay');
+      expect(hasPendingEdits()).toBe(true);
+
+      act(() => {
+        flushPendingEdits();
+      });
+
+      // The drain publishes the full draft and settles the burst, and the
+      // session stays open — a save must not end the user's edit session.
+      expect(events).toEqual(['begin', 'text:Saved mid-typing', 'commit']);
+      expect(hasPendingEdits()).toBe(false);
+      expect(pendingEditSourceIds()).toContain('text-edit-overlay');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('snapshots visible IME composition text without ending composition', () => {
+    vi.useFakeTimers();
+    const events: string[] = [];
+    try {
+      render(
+        <EditorCtx.Provider
+          value={
+            {
+              beginTransaction: () => events.push('begin'),
+              commitTransaction: () => events.push('commit'),
+              setSelectionRange: vi.fn(),
+            } as unknown as EditorContextValue
+          }
+        >
+          <TextEditOverlay
+            node={makeNode('')}
+            zoom={1}
+            pan={{ x: 0, y: 0 }}
+            canvasElement={document.createElement('canvas')}
+            onCommit={() => events.push('finish')}
+            onUpdateText={(text) => events.push(`text:${text}`)}
+          />
+        </EditorCtx.Provider>,
+      );
+      const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+      fireEvent.compositionStart(ta);
+      fireEvent.input(ta, { target: { value: 'かな' } });
+
+      expect(events).toEqual([]);
+      expect(hasPendingEdits()).toBe(true);
+      act(() => {
+        flushPendingEdits();
+      });
+
+      // The composition is still active, so the burst stays open. Its
+      // candidate text is nevertheless part of the saved document snapshot.
+      expect(events).toEqual(['begin', 'text:かな']);
+      expect(hasPendingEdits()).toBe(false);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      expect(events).toEqual(['begin', 'text:かな']);
+      fireEvent.compositionEnd(ta);
+      expect(events).toEqual(['begin', 'text:かな', 'commit']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops claiming pending work once the session commits', () => {
+    vi.useFakeTimers();
+    const handle = createRef<TextEditOverlayHandle>();
+    try {
+      render(
+        <EditorCtx.Provider
+          value={
+            {
+              beginTransaction: vi.fn(),
+              commitTransaction: vi.fn(),
+              setSelectionRange: vi.fn(),
+            } as unknown as EditorContextValue
+          }
+        >
+          <TextEditOverlay
+            node={makeNode('')}
+            zoom={1}
+            pan={{ x: 0, y: 0 }}
+            canvasElement={document.createElement('canvas')}
+            commitRef={handle}
+            onCommit={vi.fn()}
+            onUpdateText={vi.fn()}
+          />
+        </EditorCtx.Provider>,
+      );
+      fireEvent.input(screen.getByRole('textbox'), { target: { value: 'Done' } });
+      expect(hasPendingEdits()).toBe(true);
+      act(() => handle.current?.commit());
+      expect(hasPendingEdits()).toBe(false);
+      expect(flushPendingEdits()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('drops its registration when the editing session unmounts', () => {
+    const view = render(
+      <EditorCtx.Provider
+        value={
+          {
+            beginTransaction: vi.fn(),
+            commitTransaction: vi.fn(),
+            setSelectionRange: vi.fn(),
+          } as unknown as EditorContextValue
+        }
+      >
+        <TextEditOverlay
+          node={makeNode('Hello')}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={document.createElement('canvas')}
+          onCommit={vi.fn()}
+          onUpdateText={vi.fn()}
+        />
+      </EditorCtx.Provider>,
+    );
+    expect(pendingEditSourceIds()).toContain('text-edit-overlay');
+    view.unmount();
+    expect(pendingEditSourceIds()).not.toContain('text-edit-overlay');
   });
 });

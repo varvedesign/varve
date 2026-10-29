@@ -379,6 +379,10 @@ export function IconPackManager({
 
         <section className="icon-pack-manager__section">
           <h4 className="icon-pack-manager__section-title">Curated packs</h4>
+          <p className="icon-pack-manager__section-desc">
+            Download and update checks fetch pack data from Iconify. The starter pack above is
+            bundled and does not use the network.
+          </p>
           {packsLoading ? (
             <p className="icon-pack-manager__loading">Loading pack metadata…</p>
           ) : (
@@ -428,7 +432,7 @@ export function IconPackManager({
                             size="sm"
                             onClick={() => void checkUpdate(pack.prefix)}
                           >
-                            Check update
+                            Check Iconify for updates
                           </Button>
                           <Button
                             variant="ghost"
@@ -444,7 +448,7 @@ export function IconPackManager({
                           size="sm"
                           onClick={() => void startDownload(pack.prefix)}
                         >
-                          <Icon name="Download" size={14} /> Download
+                          <Icon name="Download" size={14} /> Download from Iconify
                         </Button>
                       )}
                     </div>

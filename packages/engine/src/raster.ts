@@ -53,9 +53,17 @@ export function supportsFormat(format: RasterFormat): boolean {
   // PNG and JPEG are universally supported.
   // WebP and AVIF need a feature test via toBlob detection.
   if (format === 'png' || format === 'jpeg') return true;
-  // For WebP/AVIF, skip detection in test/SSR environments
+  // WebP/AVIF require a runtime probe; a Canvas encoder may silently return PNG.
   if (typeof document === 'undefined') return false;
-  return true; // runtime detection at test time
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const mime = mimeForFormat(format);
+    return canvas.toDataURL(mime).startsWith(`data:${mime}`);
+  } catch {
+    return false;
+  }
 }
 
 function mimeForFormat(format: RasterFormat): string {
@@ -72,6 +80,29 @@ function mimeForFormat(format: RasterFormat): string {
 }
 
 /**
+ * Smoothing policy for every raster surface that replays scene content.
+ *
+ * A placed image drawn smaller than its pixel size is minified by the canvas,
+ * and the canvas default (`imageSmoothingQuality: 'low'`) is a cheap filter:
+ * scanned text and fine linework come out raggeder than the same artwork on
+ * screen, where the interactive compositor asks for `'high'`. Export and
+ * screen must not disagree about how an image is sampled, so both set the
+ * same policy here. `antiAlias: false` is an explicit request for
+ * nearest-neighbour output (pixel-art upscaling) and is honoured as such.
+ */
+export function applyRasterSmoothingPolicy(
+  ctx: Pick<CanvasRenderingContext2D, 'imageSmoothingEnabled' | 'imageSmoothingQuality'>,
+  options: { antiAlias?: boolean } = {},
+): void {
+  if (options.antiAlias === false) {
+    ctx.imageSmoothingEnabled = false;
+    return;
+  }
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+}
+
+/**
  * Render a render-IR to a raster blob using OffscreenCanvas or HTMLCanvasElement.
  */
 export async function renderRaster(
@@ -80,13 +111,12 @@ export async function renderRaster(
 ): Promise<RasterResult> {
   const { width, height, format, quality, background, antiAlias } = options;
 
-  const surface = createRasterSurface(width, height, { alpha: background === null });
+  // PNG keeps alpha when the background is omitted; other formats flatten below.
+  const surface = createRasterSurface(width, height, { alpha: format === 'png' });
   const ctx = surface.context;
 
-  // Anti-aliasing control
-  if (antiAlias === false) {
-    ctx.imageSmoothingEnabled = false;
-  }
+  // Anti-aliasing and minification quality
+  applyRasterSmoothingPolicy(ctx, { antiAlias });
 
   // Background fill
   if (background) {
@@ -109,6 +139,11 @@ export async function renderRaster(
   // Produce blob
   const mime = mimeForFormat(format);
   const blob = await encodeRasterSurface(surface, mime, quality ? quality / 100 : undefined);
+  if (blob.type.toLowerCase() !== mime) {
+    throw new Error(
+      `Requested ${mime}, but this runtime encoded ${blob.type || 'an unknown format'}.`,
+    );
+  }
 
   const estimatedBytes = estimateFileSize(width, height, format, quality);
   return { blob, width, height, format, estimatedBytes };

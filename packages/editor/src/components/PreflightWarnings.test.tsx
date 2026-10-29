@@ -39,7 +39,9 @@ describe('PreflightWarnings', () => {
 
     fireEvent.click(badge);
     expect(screen.getByText(/no issues found in the checks below/i)).toBeInTheDocument();
-    expect(screen.getByText('Overset text')).toBeInTheDocument();
+    // `overset-text` is now measured: with no area frames it is verified rather
+    // than permanently unavailable, so it is not listed here.
+    expect(screen.queryByText('Overset text')).not.toBeInTheDocument();
     expect(screen.getByText('Printable-area violations')).toBeInTheDocument();
   });
 
@@ -62,7 +64,7 @@ describe('PreflightWarnings', () => {
     expect(screen.getByText(/no bleed configured/i)).toBeInTheDocument();
   });
 
-  it('navigates to the offending node and closes the panel when Select is clicked', () => {
+  it('navigates to the offending node and closes the panel when Select is clicked', async () => {
     const rgbRect: ShapeNode = {
       id: 'rect1',
       kind: 'shape',
@@ -102,8 +104,16 @@ describe('PreflightWarnings', () => {
       </EditorProvider>,
     );
     fireEvent.click(screen.getByRole('button', { name: /warnings/i }));
-    const selectBtn = screen.getByRole('button', { name: /select node rect1/i });
+    // The panel is portaled and, in jsdom, floating-ui's hide middleware marks
+    // it hidden because the trigger has a zero rect. It is rendered; query it
+    // with hidden:true, as a browser with layout would.
+    const selectBtn = await screen.findByRole('button', {
+      name: /select node rect1/i,
+      hidden: true,
+    });
     fireEvent.click(selectBtn);
-    expect(screen.queryByRole('dialog', { name: /preflight issues/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: /preflight issues/i, hidden: true }),
+    ).not.toBeInTheDocument();
   });
 });

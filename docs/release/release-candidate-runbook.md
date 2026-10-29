@@ -128,6 +128,11 @@ Then request the lightweight final candidate attestation once:
 gh workflow run release-candidate.yml --ref master -f sha="$SHA" -f mode=final
 ```
 
+Keep the workflow job label for publishing this attestation distinct from the
+`Release Candidate / certification` check name created by the workflow. The
+remote verifier binds that check to the exact run and attempt; a duplicate
+Actions job check with the same name can shadow it.
+
 The candidate workflow requires the SHA to be reachable from `master` and the
 dispatched workflow revision to match that SHA. Keep accepted `master` frozen
 before dispatch; a mismatch fails planning before expensive jobs start. A

@@ -19,12 +19,34 @@ function fixture(name: string): string {
   return readFileSync(join(FIXTURES, name), 'utf8');
 }
 
+/** Persist Iconify consent before the first navigation so search tests skip the card. */
+async function seedIconRemoteSearch(
+  page: import('@playwright/test').Page,
+  value: 'granted' | 'denied' | 'unknown',
+) {
+  await page.addInitScript((consent) => {
+    const key = 'varve-editor-settings';
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, unknown>;
+    } catch {
+      parsed = {};
+    }
+    const icons =
+      parsed.icons && typeof parsed.icons === 'object'
+        ? (parsed.icons as Record<string, unknown>)
+        : {};
+    parsed.icons = { ...icons, remoteSearch: consent };
+    localStorage.setItem(key, JSON.stringify(parsed));
+  }, value);
+}
+
 /** Open the Resources panel from any layout (toolbar FAB or shortcut). */
 async function openResourcesPanel(page: import('@playwright/test').Page) {
   const panel = page.locator('.resources-panel');
-  if (await panel.isVisible({ timeout: 3000 }).catch(() => false)) return;
+  if (await panel.isVisible().catch(() => false)) return;
   const toggle = page.getByRole('button', { name: /show resources panel|hide resources panel/i });
-  if (await toggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await toggle.isVisible().catch(() => false)) {
     await toggle.click();
   } else {
     await page.keyboard.press('Control+Alt+L');
@@ -106,7 +128,32 @@ async function mockIconifyApi(page: import('@playwright/test').Page) {
 }
 
 test.describe('icon library', () => {
+  test('makes no Iconify request until Accept', async ({ page }) => {
+    const iconifyUrls: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('api.iconify.design')) iconifyUrls.push(request.url());
+    });
+    await mockIconifyApi(page);
+    await navigateToEditor(page);
+    await openResourcesPanel(page);
+
+    await expect(page.getByText('Search online via Iconify?')).toBeVisible();
+    const search = page.getByLabel('Search icons');
+    await search.fill('home');
+    await expect(page.getByText('No icons match your search.')).toBeVisible({ timeout: 10000 });
+    expect(iconifyUrls).toEqual([]);
+
+    await page.getByRole('button', { name: 'Accept' }).click();
+    await page.waitForFunction(
+      () => document.querySelectorAll('.icon-card').length > 0,
+      undefined,
+      { timeout: 15000 },
+    );
+    expect(iconifyUrls.length).toBeGreaterThan(0);
+  });
+
   test('search → preview → one-action insert → document persistence', async ({ page }) => {
+    await seedIconRemoteSearch(page, 'granted');
     await mockIconifyApi(page);
     await navigateToEditor(page);
 
@@ -165,6 +212,7 @@ test.describe('icon library', () => {
   });
 
   test('offline reuse: cached icons stay searchable and insertable', async ({ page }) => {
+    await seedIconRemoteSearch(page, 'granted');
     await mockIconifyApi(page);
     await navigateToEditor(page);
     await openResourcesPanel(page);
@@ -238,6 +286,7 @@ test.describe('icon library', () => {
   });
 
   test('empty-registry and network failures are actionable, not silent', async ({ page }) => {
+    await seedIconRemoteSearch(page, 'granted');
     await navigateToEditor(page);
     await openResourcesPanel(page);
     const search = page.getByLabel('Search icons');
@@ -257,6 +306,7 @@ test.describe('icon library', () => {
   });
 
   test('inserted icon renders visible children on canvas', async ({ page }) => {
+    await seedIconRemoteSearch(page, 'granted');
     await mockIconifyApi(page);
     await navigateToEditor(page);
     await openResourcesPanel(page);

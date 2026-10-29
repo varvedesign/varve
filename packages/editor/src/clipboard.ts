@@ -45,8 +45,14 @@ import {
   validatePatternDefinitionDependencies,
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
+import { buildClipboardSvg } from './clipboardSvg';
 
 export { clipboardRichTextWarning, parseClipboardRichText } from './clipboardRichText';
+export {
+  buildClipboardSvg,
+  CLIPBOARD_SVG_MAX_BYTES,
+  CLIPBOARD_SVG_MAX_NODES,
+} from './clipboardSvg';
 
 export const VARVE_MIME = 'application/vnd.varve+json';
 export const LEGACY_MIME = 'application/vnd.strata+json';
@@ -78,8 +84,8 @@ const NATIVE_CLIPBOARD_READ_TYPES = [
   'text/plain',
 ];
 const VARVE_CLIPBOARD_FORMAT = 'varve-clipboard';
-/** Versions 1–3 remain readable; v4 adds reusable pattern definitions. */
-const VARVE_CLIPBOARD_VERSION = 4 as const;
+/** Versions 1–4 remain readable; v4 adds patterns and v5 adds page provenance. */
+const VARVE_CLIPBOARD_VERSION = 5 as const;
 const LEGACY_CLIPBOARD_VERSION = 1 as const;
 const MAX_CLIPBOARD_JSON_BYTES = 64 * 1024 * 1024;
 const MAX_CLIPBOARD_NODES = 100_000;
@@ -100,9 +106,11 @@ function isVarvePayloadType(type: string): boolean {
 export interface ClipboardData {
   /** Versioned fragment envelope. Absent only on legacy pre-envelope copies. */
   format?: typeof VARVE_CLIPBOARD_FORMAT;
-  version?: 1 | 2 | 3 | typeof VARVE_CLIPBOARD_VERSION;
+  version?: 1 | 2 | 3 | 4 | typeof VARVE_CLIPBOARD_VERSION;
   /** Source document identity, used to distinguish in-document paste from a foreign paste. */
   sourceDocumentId?: string;
+  /** Active source page, so same-document paste can avoid reusing pose across pages. */
+  sourcePageId?: string;
   nodes: SceneNode[];
   /** Original selected roots, in user selection order. */
   rootIds?: string[];
@@ -143,12 +151,54 @@ export interface ClipboardData {
    * so a child copied from inside artboard A lands at the same WORLD pose
    * after pasting into artboard B (or at the document top level) instead of
    * being reinterpreted in the destination's local frame. The source document
-   * identity determines whether this is an in-document pose or a foreign
-   * fragment that must be centered for the destination.
+   * document and source page identity determine whether this pose belongs to
+   * the destination page; foreign, cross-page, and legacy page payloads use
+   * destination placement instead of reusing an unrelated page coordinate.
    */
   worldAnchor?: Record<string, Affine>;
   /** v3: only owners present in the copied fragment are included. */
   frameGuideLayouts?: Record<string, LayoutGrid[]>;
+}
+
+/**
+ * Reuse the placed-world pose only for a same-document, same-page paste. A
+ * missing page id from an older payload is intentionally insufficient in a
+ * paged document because its world coordinates may belong to another page.
+ */
+export function canPreserveClipboardWorldPose(input: {
+  sourceDocumentId: string | undefined;
+  targetDocumentId: string;
+  sourcePageId: string | undefined;
+  targetPageId: string | undefined;
+  targetIsPublishingPage: boolean;
+  targetFrameSelected: boolean;
+  items: readonly {
+    rootIds: readonly string[];
+    worldAnchors?: Readonly<Record<string, Affine>>;
+  }[];
+}): boolean {
+  const samePage = input.targetIsPublishingPage
+    ? Boolean(input.sourcePageId && input.targetPageId && input.sourcePageId === input.targetPageId)
+    : input.sourcePageId === undefined;
+  const anchorsValid = input.items.every((item) => {
+    const anchors = item.worldAnchors;
+    return anchors
+      ? item.rootIds.every((id) => {
+          const anchor = anchors[id];
+          return (
+            Array.isArray(anchor) &&
+            anchor.length === 6 &&
+            anchor.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
+          );
+        })
+      : true;
+  });
+  return (
+    input.sourceDocumentId === input.targetDocumentId &&
+    samePage &&
+    !input.targetFrameSelected &&
+    anchorsValid
+  );
 }
 
 export interface ClipboardFontDependency {
@@ -775,6 +825,7 @@ export function parseClipboardData(text: string): ClipboardData | null {
       (raw.version !== LEGACY_CLIPBOARD_VERSION &&
         raw.version !== 2 &&
         raw.version !== 3 &&
+        raw.version !== 4 &&
         raw.version !== VARVE_CLIPBOARD_VERSION))
   ) {
     return null;
@@ -847,14 +898,17 @@ export function parseClipboardData(text: string): ClipboardData | null {
           version:
             raw.version === VARVE_CLIPBOARD_VERSION
               ? VARVE_CLIPBOARD_VERSION
-              : raw.version === 2
-                ? 2
-                : raw.version === 3
-                  ? 3
-                  : LEGACY_CLIPBOARD_VERSION,
+              : raw.version === 4
+                ? 4
+                : raw.version === 2
+                  ? 2
+                  : raw.version === 3
+                    ? 3
+                    : LEGACY_CLIPBOARD_VERSION,
         }
       : {}),
     ...(typeof raw.sourceDocumentId === 'string' ? { sourceDocumentId: raw.sourceDocumentId } : {}),
+    ...(typeof raw.sourcePageId === 'string' ? { sourcePageId: raw.sourcePageId } : {}),
     nodes,
     ...(rootIds ? { rootIds: [...rootIds] } : {}),
     ...(dependencyIds ? { dependencyIds: [...dependencyIds] } : {}),
@@ -934,11 +988,13 @@ function serializeClipboardData(
   fontDependencies?: ClipboardFontDependency[],
   frameGuideLayouts?: Record<string, LayoutGrid[]>,
   patternDefinitions?: Document['patternDefinitions'],
+  sourcePageId?: string,
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
     version: VARVE_CLIPBOARD_VERSION,
     ...(sourceDocumentId ? { sourceDocumentId } : {}),
+    ...(sourcePageId ? { sourcePageId } : {}),
     nodes: nodes.map(serializeClipboardNode),
     ...(rootIds && rootIds.length > 0 ? { rootIds: [...rootIds] } : {}),
     ...(dependencyIds && dependencyIds.length > 0 ? { dependencyIds: [...dependencyIds] } : {}),
@@ -1015,6 +1071,13 @@ export function writeClipboardOutcome(
   fontManifest?: Document['fontManifest'],
   frameGuideLayouts?: Record<string, LayoutGrid[]>,
   patternDefinitions?: Document['patternDefinitions'],
+  sourcePageId?: string,
+  /**
+   * Source document for optional flavours that need scene context (currently
+   * the `image/svg+xml` representation other applications can paste). Omit to
+   * write only the editable payload.
+   */
+  document?: Document,
 ): Promise<ClipboardWriteOutcome> {
   return enqueueClipboardWrite((generation) =>
     writeClipboardOutcomeNow(
@@ -1043,6 +1106,8 @@ export function writeClipboardOutcome(
       fontManifest,
       frameGuideLayouts,
       patternDefinitions,
+      sourcePageId,
+      document,
     ),
   );
 }
@@ -1139,6 +1204,8 @@ async function writeClipboardOutcomeNow(
   fontManifest?: Document['fontManifest'],
   frameGuideLayouts?: Record<string, LayoutGrid[]>,
   patternDefinitions?: Document['patternDefinitions'],
+  sourcePageId?: string,
+  document?: Document,
 ): Promise<ClipboardWriteOutcome> {
   const isCurrentWrite = (): boolean =>
     generation === undefined || generation === latestClipboardWrite;
@@ -1172,6 +1239,7 @@ async function writeClipboardOutcomeNow(
       fontDependencies,
       frameGuideLayouts,
       patternDefinitions,
+      sourcePageId,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
@@ -1191,16 +1259,26 @@ async function writeClipboardOutcomeNow(
           .filter((name): name is string => Boolean(name))
           .join('\n')
       : nodes.map((n) => n.name).join('\n');
+  // A second representation for other applications: without it, a copy into
+  // Inkscape/Krita/Figma arrives as node names (GraphiteEditor/Graphite#4499).
+  const svg = document
+    ? buildClipboardSvg(document, rootIds && rootIds.length > 0 ? rootIds : nodes.map((n) => n.id))
+    : null;
+  const svgBlob = svg ? new Blob([svg], { type: 'image/svg+xml' }) : null;
   const textBlob = new Blob([text], { type: 'text/plain' });
   if (platform?.kind === 'tauri') {
     try {
       const written = await platform.writeClipboardData([
         { mimeType: VARVE_MIME, data: new TextEncoder().encode(json) },
         { mimeType: LEGACY_MIME, data: new TextEncoder().encode(json) },
+        ...(svg ? [{ mimeType: 'image/svg+xml', data: new TextEncoder().encode(svg) }] : []),
         { mimeType: 'text/plain', data: new TextEncoder().encode(text) },
       ]);
       if (written && isCurrentWrite()) {
-        return { status: 'editable', mimeTypes: [VARVE_MIME, LEGACY_MIME, 'text/plain'] };
+        return {
+          status: 'editable',
+          mimeTypes: [VARVE_MIME, LEGACY_MIME, ...(svg ? ['image/svg+xml'] : []), 'text/plain'],
+        };
       }
     } catch {
       // Native rich clipboard support is optional; continue through the
@@ -1218,11 +1296,20 @@ async function writeClipboardOutcomeNow(
         new clipboardItemCtor({
           [WEB_VARVE_MIME]: new Blob([json], { type: WEB_VARVE_MIME }),
           [WEB_LEGACY_MIME]: new Blob([json], { type: WEB_LEGACY_MIME }),
+          ...(svgBlob ? { 'image/svg+xml': svgBlob } : {}),
           'text/plain': textBlob,
         }),
       ]);
       if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
-      return { status: 'editable', mimeTypes: [WEB_VARVE_MIME, WEB_LEGACY_MIME, 'text/plain'] };
+      return {
+        status: 'editable',
+        mimeTypes: [
+          WEB_VARVE_MIME,
+          WEB_LEGACY_MIME,
+          ...(svgBlob ? ['image/svg+xml'] : []),
+          'text/plain',
+        ],
+      };
     } catch (firstError) {
       if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
       try {
@@ -1287,6 +1374,7 @@ export async function writeClipboard(
   dependencyIds?: string[],
   depthMaps?: Record<string, DepthMapResource>,
   patternDefinitions?: Document['patternDefinitions'],
+  sourcePageId?: string,
 ): Promise<boolean> {
   return (
     (
@@ -1315,6 +1403,7 @@ export async function writeClipboard(
         undefined,
         undefined,
         patternDefinitions,
+        sourcePageId,
       )
     ).status === 'editable'
   );

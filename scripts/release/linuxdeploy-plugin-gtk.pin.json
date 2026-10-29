@@ -1,0 +1,7 @@
+{
+  "name": "linuxdeploy-plugin-gtk.sh",
+  "repository": "tauri-apps/linuxdeploy-plugin-gtk",
+  "commit": "dda522bce37387f1b853d9095713bfaa924c8423",
+  "url": "https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/dda522bce37387f1b853d9095713bfaa924c8423/linuxdeploy-plugin-gtk.sh",
+  "sha256": "7804c9eef13e59bf2783aad9882ef9db8f3f3f9e8d631874b1d348d550a3693f"
+}

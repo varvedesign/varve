@@ -1,38 +1,41 @@
 # Analytics measurement plan and data inventory
 
-Production website and desktop release builds are configured for the
-`varve.studio` Plausible site, but transmission still requires the relevant
-user consent. Local and unconfigured builds remain network-silent. This
-document describes the permitted contract and the data transmitted by the
-enabled aggregate provider. The website loads Plausible's production script
-only after website consent and disables its automatic capture features; Varve
-emits only the events listed below.
+The desktop app sends no usage stats. The production website and the `/try`
+browser demo use GoatCounter only after the visitor clicks Allow. Local and
+unconfigured website builds remain network-silent. This document describes the
+permitted contract and the data transmitted by that consent-gated collector.
+There is no remote analytics script; Varve emits only the events listed below.
 
 | Question | Metric / event | Fields | Category | Status | Decision |
 |---|---|---|---|---|---|
 | Which pages help visitors reach a useful destination? | `website_page_viewed` | normalized route | Website | ACTIVE | Improve navigation and documentation |
 | Which release/platform downloads matter? | `website_download_started` | release, platform, architecture, package type, release channel | Website | ACTIVE | Prioritize packaging and release support |
-| Do community links help? | `website_outbound_clicked` | destination category | Website | ACTIVE | Improve contribution/support paths |
-| Which contact channels are used? | `website_contact_clicked` | channel category | Website | ACTIVE | Improve support routing |
-| What starts an opted-in desktop session? | `app_launched` | surface | Usage | ACTIVE | Understand activation at aggregate level |
-| Which broad workflows are adopted? | `document_created`, `feature_used` | closed source/feature enum | Usage | ACTIVE | Prioritize feature work |
-| Where do exports fail or slow down? | `export_completed`, `export_failed` | format, duration bucket, error code | Diagnostics / usage | ACTIVE | Improve export reliability |
-| Which renderer/platform paths need work? | `renderer_fallback` | from, to, reason | Diagnostics | ACTIVE | Improve compatibility |
-| Does the browser demo drive downloads? | `browser_demo_launched`, `browser_demo_desktop_download` | entry source, release/platform/arch | Usage / website | ACTIVE | Measure demo-to-desktop conversion |
+| Do website clicks open the browser demo? | `browser_demo_launched` (`demo-launch-website`) | entry source | Website | ACTIVE | Measure site-to-demo clicks |
+| Do people open `/try` directly? | `demo-launch-direct` plus `try` / `try?ref=` | allowlisted campaign tag only | Website | ACTIVE | Measure demo visits and first-party campaign tags |
+| Which demo export formats are used? | `demo-export-<format>` | png, jpeg, webp, or svg | Website | ACTIVE | See whether the demo is used to save work |
+| Do demo visitors click Download desktop? | `demo-download-click` | none | Website | ACTIVE | Measure demo-to-download interest |
+| Do community links help? | `website_outbound_clicked` | destination category | Website | SCHEMA ONLY | Not sent by the current provider |
+| Which contact channels are used? | `website_contact_clicked` | channel category | Website | SCHEMA ONLY | Not sent by the current provider |
+
+Desktop product-usage events (`app_launched`, `document_created`,
+`feature_used`, `export_completed`, `export_failed`, `renderer_fallback`) remain
+in the shared schema for leftover call sites. Release desktop builds use a
+no-op provider and send none of them.
 
 ## Explicitly prohibited data
 
 The analytics boundary rejects filenames, paths, document/project/layer/page/
 component names, design text, comments, clipboard data, document contents,
 canvas pixels, screenshots, exports, imported metadata, EXIF, image hashes,
-geometry, generated code, AI prompts, arbitrary URLs and query strings, raw
+geometry, generated code, prompts, arbitrary URLs and query strings, raw
 error messages/stacks, email addresses, usernames, tokens, cookies,
 authorization values, machine/host/device identifiers, authentication IDs,
 advertising IDs, and arbitrary unknown fields.
 
 ## Consent and retention
 
-Missing or corrupt consent is `unknown` and sends nothing. Revocation removes
+Missing or corrupt consent is `unknown` and sends nothing. Website and `/try`
+share `varve:website-analytics-consent:goatcounter-v1`. Revocation removes
 pending events in that category. The client queue is bounded in memory and is
 discarded on process shutdown; it has no disk persistence. Crash-report
 retention remains governed by `docs/privacy/retention.md` and is independent of
@@ -40,14 +43,14 @@ this inventory.
 
 ## Data governance
 
-- **Retention**: client retains nothing. Plausible retains while the
-  subscription is active; data deleted within ~30 days of cancellation.
+- **Retention**: client retains nothing. GoatCounter retains aggregate counts
+  under the configured account policy.
 - **Access**: owner + one reviewer only; re-verified quarterly.
-- **Deletion / export**: export (CSV/API) before any account change; deletion
-  is subscription termination + provider deletion request.
-- **Provider settings**: auto pageviews/file-downloads/outbound-links/form-
-  submissions off, localStorage queue disabled, query-param stripping on,
-  DNT honored.
+- **Deletion / export**: export before any account change; deletion is account
+  termination plus a provider deletion request.
+- **Provider settings**: Sessions and Individual pageviews disabled, no remote
+  script, query strings limited to an allowlisted first-party `ref` tag,
+  DNT and GPC honored.
 
 ## Search Console and Bing Webmaster Tools
 

@@ -101,6 +101,8 @@ import '../../../styles/docs-prose.css';
         </p>
         <p>
           In a fixed area, wrapping consumes the physical height of the frame as the vertical inline extent. New columns progress leftward for vertical-rl and rightward for vertical-lr; authored line breaks remain authored breaks. The browser renderer uses a stable measured fallback when font bytes are unavailable, and native ttb shaping remains a separate runtime capability. HTML/CSS and SVG exports preserve writing-mode semantics; native PDF vertical text is currently reported as a target limitation rather than silently rotated.
+
+          PDF import reads a vertical font CMap (<code>/Identity-V</code> or <code>/WMode 1</code>) as vertical text: each column opens as an editable layer with Writing mode set to Vertical, right to left and the default Mixed character orientation, which you can change independently. Consecutive upright glyphs that a producer placed one at a time are merged into that column, while neighbouring columns stay separate layers.
         </p>
       </section>
 
@@ -274,6 +276,16 @@ import '../../../styles/docs-prose.css';
         <h2>Export behavior</h2>
         <p>
           SVG keeps editable text, feature settings, variable-axis settings, and native <code>textPath</code> semantics where the SVG viewer supports them. Browser PDF is a local raster PDF. Desktop PDF preserves simple eligible text through the native print path, but shaping-sensitive text—ligatures, non-Latin/script text, rich runs, feature values/ranges, axes, tracking, manual cluster edits, and path text—is rasterized from the live renderer so it cannot silently change shape. This preserves appearance but means that node is not searchable/editable text in the PDF. Convert to outlines when vector geometry is more important than PDF text semantics, and inspect the exported artifact before delivery.
+        </p>
+        <p>
+          A character the chosen font cannot draw is a separate case. The canvas
+          draws it with a fallback face, while the PDF writer outlines the
+          authored face, where the same character becomes a blank or a box.
+          Desktop PDF export reads the coverage of the font binaries it embeds
+          and names the affected characters, the font and the number of text
+          objects in Export Results, so the difference is visible before the file
+          is sent rather than after. It reports rather than substitutes: changing
+          the face silently would change the document's appearance.
         </p>
         <p>
           A native package export includes an editable font file only after the

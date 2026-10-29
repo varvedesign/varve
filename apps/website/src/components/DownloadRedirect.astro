@@ -29,8 +29,8 @@ const { heading, dest, destLabel } = Astro.props;
 <style>
   .redirect-page {
     max-width: 600px;
-    margin: 0 auto;
-    padding: clamp(4rem, 10vh, 8rem) 0;
+    margin-inline: auto;
+    padding: var(--space-9) 0;
     text-align: center;
   }
 
@@ -40,13 +40,13 @@ const { heading, dest, destLabel } = Astro.props;
     font-weight: 700;
     font-variation-settings: 'opsz' 144;
     letter-spacing: -0.02em;
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-5);
     color: var(--text-primary);
   }
 
   .redirect-page p {
     font-size: var(--type-content-body-size);
     color: var(--text-secondary);
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-5);
   }
 </style>

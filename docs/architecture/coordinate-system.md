@@ -103,12 +103,15 @@ never applied a second time.
   (`booleanAnchorForNode` + `placeBooleanResult`).
 - Paste/copy: `copySelected` records the source document and each root's
   placed-world transform (`ClipboardData.sourceDocumentId` and
-  `worldAnchor`); same-document paste preserves those transforms when there
-  is no explicit container, or applies one shared world translation when a
-  frame/group is selected, then rebases into the destination parent's local
-  space (`newLocal = targetWorld⁻¹ · translatedAnchor`). Foreign or legacy
-  payloads use the clipboard center-placement fallback because their
-  source-local coordinates are not destination-independent.
+  `worldAnchor`) and, for paged documents, the source page ID. Same-document
+  paste preserves those transforms only when the destination is the same
+  page and there is no explicit container; across pages it uses destination
+  center placement so a source page's world coordinates are not reused on a
+  different page. A selected frame/group applies one shared world translation,
+  then rebases into the destination parent's local space
+  (`newLocal = targetWorld⁻¹ · translatedAnchor`). Foreign or legacy payloads
+  use the clipboard center-placement fallback because their source-local
+  coordinates are not destination-independent.
 
 ## Keyboard movement
 

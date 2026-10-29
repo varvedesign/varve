@@ -47,6 +47,11 @@ import { computePlacementRevision } from '../../backgroundRemoval/SubjectIsolati
 import { useEditor } from '../../context';
 import { fingerprintImageData } from '../../context/imageFingerprint';
 import { objectSelectionCandidateReviewKey } from '../../context/objectSelectionTypes';
+import {
+  AI_DISABLED_HINT,
+  getAiFeaturesEnabled,
+  useAiFeaturesEnabled,
+} from '../../features/useAiFeaturesEnabled';
 import { replaceImageShapeContent } from '../../imageOperations';
 import { prepareImageMaskMapper } from '../../tools/imageMaskCoordinates';
 import {
@@ -515,6 +520,7 @@ export function ContentAwareFillDialog({
     setSelection,
     setTool,
   } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   // Backdrop dismissal requires the press and the release to happen on the
   // dialog element itself; a click dispatched on the dialog because a drag
@@ -2003,6 +2009,10 @@ export function ContentAwareFillDialog({
   }, []);
 
   const handleDownloadDiffusionModel = useCallback(async () => {
+    if (!getAiFeaturesEnabled()) {
+      setErrorMessage(AI_DISABLED_HINT);
+      return;
+    }
     setStatus('downloading');
     setErrorMessage(null);
     setDownloadProgress(0);
@@ -2048,6 +2058,10 @@ export function ContentAwareFillDialog({
   }, []);
 
   const handleImportDiffusionModel = useCallback(async () => {
+    if (!getAiFeaturesEnabled()) {
+      setErrorMessage(AI_DISABLED_HINT);
+      return;
+    }
     if (!diffusionModelImportAvailable) {
       setErrorMessage(
         'This build has no model-specific local import adapter. Arbitrary model files are not accepted.',
@@ -2102,6 +2116,10 @@ export function ContentAwareFillDialog({
   }, [diffusionModelImportAvailable]);
 
   const handleQualifyDiffusionModel = useCallback(async () => {
+    if (!getAiFeaturesEnabled()) {
+      setErrorMessage(AI_DISABLED_HINT);
+      return;
+    }
     const runId = qualificationRunRef.current + 1;
     qualificationRunRef.current = runId;
     const isCurrentQualification = () => qualificationRunRef.current === runId;
@@ -2143,6 +2161,11 @@ export function ContentAwareFillDialog({
   }, []);
 
   const handleGenerate = useCallback(async () => {
+    if ((usesDiffusion || quality === 'ai') && !getAiFeaturesEnabled()) {
+      setErrorMessage(AI_DISABLED_HINT);
+      announce(AI_DISABLED_HINT);
+      return;
+    }
     if (objectSelectionNeedsRefinement) {
       const message =
         'Refine the highlighted Object Selection extent with an include point on the missing edge or a box around the full target before generating.';
@@ -2853,6 +2876,7 @@ export function ContentAwareFillDialog({
     announce,
     contextPadding,
     canGenerate,
+    usesDiffusion,
     diffusionModelHandle,
     expandPadding,
     imageSrc,
@@ -3472,7 +3496,9 @@ export function ContentAwareFillDialog({
 
           {usesDiffusion && (
             <div className="caf-dialog__section">
-              {!diffusionModelInstalled &&
+              {!aiEnabled && <p className="caf-dialog__hint">{AI_DISABLED_HINT}</p>}
+              {aiEnabled &&
+                !diffusionModelInstalled &&
                 diffusionModelDownloadAvailable &&
                 capabilities.prompt &&
                 status !== 'downloading' && (
@@ -3492,7 +3518,7 @@ export function ContentAwareFillDialog({
                   Cancel download
                 </Button>
               )}
-              {diffusionModelImportAvailable && (
+              {aiEnabled && diffusionModelImportAvailable && (
                 <Button
                   type="button"
                   variant="default"
@@ -3508,7 +3534,8 @@ export function ContentAwareFillDialog({
                   Downloading local model… {downloadProgress}%
                 </p>
               )}
-              {diffusionModelInstalled &&
+              {aiEnabled &&
+                diffusionModelInstalled &&
                 diffusionModelQualificationAvailable &&
                 !diffusionModelHandle && (
                   <Button

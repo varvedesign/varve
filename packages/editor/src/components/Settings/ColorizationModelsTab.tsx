@@ -2,6 +2,7 @@ import type { ModelAcquisition } from '@varve/engine';
 import { getModelLoaderReady, listAllModels, resolveAcquisition } from '@varve/engine';
 import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { modelRequirementLabel } from '../../modelRequirements';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
@@ -42,6 +43,7 @@ async function buildRows(
 }
 
 export function ColorizationModelsTab() {
+  const aiEnabled = useAiFeaturesEnabled();
   const [rows, setRows] = useState<ModelRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadModelId, setDownloadModelId] = useState<string | null>(null);
@@ -113,7 +115,7 @@ export function ColorizationModelsTab() {
                     {busyId === row.id ? 'Removing...' : 'Remove'}
                   </Button>
                 )}
-                {!row.installed && row.acquisition.kind === 'remote' && (
+                {!row.installed && row.acquisition.kind === 'remote' && aiEnabled && (
                   <Button
                     variant="default"
                     onClick={() => setDownloadModelId(row.id)}

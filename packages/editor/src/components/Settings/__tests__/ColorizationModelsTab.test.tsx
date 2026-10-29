@@ -10,55 +10,60 @@ const mocks = vi.hoisted(() => ({
   mockSubscribe: vi.fn(() => () => {}),
 }));
 
-vi.mock('@varve/engine', () => ({
-  resolveAcquisition: (entry: { bundled: boolean; remoteUrl: string; checksum: string }) => {
-    if (entry.bundled)
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
+  return {
+    ...actual,
+    resolveAcquisition: (entry: { bundled: boolean; remoteUrl: string; checksum: string }) => {
+      if (entry.bundled)
+        return {
+          kind: 'bundled',
+          assetPath: `/models/${entry.id}.onnx`,
+          sha256: entry.checksum || '',
+        };
+      if (entry.remoteUrl && entry.checksum)
+        return {
+          kind: 'remote',
+          sources: [{ url: entry.remoteUrl, sha256: entry.checksum }],
+          sha256: entry.checksum,
+        };
       return {
-        kind: 'bundled',
-        assetPath: `/models/${entry.id}.onnx`,
-        sha256: entry.checksum || '',
+        kind: 'unavailable',
+        reasonCode: 'source-unavailable',
+        detail: 'No download source available',
       };
-    if (entry.remoteUrl && entry.checksum)
-      return {
-        kind: 'remote',
-        sources: [{ url: entry.remoteUrl, sha256: entry.checksum }],
-        sha256: entry.checksum,
-      };
-    return {
-      kind: 'unavailable',
-      reasonCode: 'source-unavailable',
-      detail: 'No download source available',
-    };
-  },
-  getModelLoaderReady: vi.fn().mockResolvedValue({
-    isModelAvailable: mocks.mockIsModelAvailable,
-    hasDownloadedBlob: mocks.mockHasDownloadedBlob,
-    subscribe: mocks.mockSubscribe,
-    deleteModel: vi.fn(),
-  }),
-  listAllModels: vi.fn(() => [
-    {
-      id: 'ddcolor',
-      name: 'DDColor',
-      sizeBytes: 156_000_000,
-      bundled: false,
-      remoteUrl: 'https://huggingface.co/piddnad/ddcolor_modelscope/resolve/main/ddcolor.onnx',
-      checksum: 'abc123',
-      description: 'Photo-realistic grayscale colorization',
-      precision: 'fp32',
     },
-    {
-      id: 'ddcolor-tiny',
-      name: 'DDColor Tiny',
-      sizeBytes: 50_000_000,
-      bundled: false,
-      remoteUrl: 'https://huggingface.co/piddnad/ddcolor_paper_tiny/resolve/main/ddcolor-tiny.onnx',
-      checksum: 'def456',
-      description: 'Fast preview colorization',
-      precision: 'fp32',
-    },
-  ]),
-}));
+    getModelLoaderReady: vi.fn().mockResolvedValue({
+      isModelAvailable: mocks.mockIsModelAvailable,
+      hasDownloadedBlob: mocks.mockHasDownloadedBlob,
+      subscribe: mocks.mockSubscribe,
+      deleteModel: vi.fn(),
+    }),
+    listAllModels: vi.fn(() => [
+      {
+        id: 'ddcolor',
+        name: 'DDColor',
+        sizeBytes: 156_000_000,
+        bundled: false,
+        remoteUrl: 'https://huggingface.co/piddnad/ddcolor_modelscope/resolve/main/ddcolor.onnx',
+        checksum: 'abc123',
+        description: 'Photo-realistic grayscale colorization',
+        precision: 'fp32',
+      },
+      {
+        id: 'ddcolor-tiny',
+        name: 'DDColor Tiny',
+        sizeBytes: 50_000_000,
+        bundled: false,
+        remoteUrl:
+          'https://huggingface.co/piddnad/ddcolor_paper_tiny/resolve/main/ddcolor-tiny.onnx',
+        checksum: 'def456',
+        description: 'Fast preview colorization',
+        precision: 'fp32',
+      },
+    ]),
+  };
+});
 
 vi.mock('@varve/ui', () => ({
   Button: ({ children, onClick, disabled, variant }) => (
@@ -92,6 +97,7 @@ afterEach(cleanup);
 
 describe('ColorizationModelsTab', () => {
   beforeEach(() => {
+    localStorage.clear();
     mocks.mockIsModelAvailable.mockResolvedValue(false);
     mocks.mockHasDownloadedBlob.mockResolvedValue(false);
   });
@@ -116,6 +122,13 @@ describe('ColorizationModelsTab', () => {
     render(<ColorizationModelsTab />);
     const dlButtons = await screen.findAllByText('Download');
     expect(dlButtons).toHaveLength(2);
+  });
+
+  it('disables downloads when AI features are off', async () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    render(<ColorizationModelsTab />);
+    expect(screen.queryByText('Turn on AI features in Settings to use this')).toBeNull();
+    expect(screen.queryAllByText('Download')).toHaveLength(0);
   });
 
   it('shows Remove button for installed downloaded models', async () => {

@@ -70,6 +70,13 @@ export interface TerminationCoordinatorDeps {
   onDiscardCommitted?: (docs: UnsavedDocument[]) => void | Promise<void>;
   trace?: (event: TerminationTraceEvent) => void;
   savePlan?: SavePlan;
+  /**
+   * Drain buffered editor drafts before the dirty set is derived. A surface
+   * that buffers typed input (see `context/pendingEdits.ts`) holds model
+   * writes the sessions' dirty flags cannot see yet, so terminating inside
+   * that window would decide "nothing unsaved" for work the user can see.
+   */
+  flushPendingEdits?: () => void;
 }
 
 interface ActiveTransaction {
@@ -138,21 +145,31 @@ export class TerminationCoordinator {
   shouldWarnOnUnload(): boolean {
     if (this.phase === 'committed') return false;
     if (this.phase !== 'idle') return true;
+    this.drainPendingEdits();
     return hasUnsavedDocuments(this.deps.api, 'application');
   }
 
   /** Best-effort unload flush (web): save dirty sessions without awaiting —
    *  recovery durability, not an unload dialog. */
   bestEffortFlush(): void {
+    this.drainPendingEdits();
     const docs = collectUnsavedDocuments(this.deps.api, 'application');
     for (const doc of docs) {
       void this.deps.api.saveSession(doc.sessionId);
     }
   }
 
+  private drainPendingEdits(): void {
+    this.deps.flushPendingEdits?.();
+  }
+
   private async run(intent: TerminationIntent): Promise<TerminationResult> {
     this.phase = 'checking';
     this.intent = intent;
+    // Buffered drafts first: the scope below counts dirty sessions, and a
+    // session whose only outstanding change is a held-back keystroke still
+    // reports clean until the buffer is applied.
+    this.drainPendingEdits();
     const scope = scopeForIntent(intent);
     this.scopeIds = scopeSessionIds(this.deps.api, scope);
     this.dirtyDocs = collectUnsavedDocuments(this.deps.api, scope);

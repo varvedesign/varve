@@ -48,13 +48,11 @@ fn build_pdfx_content(
     let mut content = Vec::new();
     content.extend_from_slice(b"q\n");
 
-    // White background
-    if use_cmyk {
-        content.extend_from_slice(b"0 0 0 0 k\n");
-    } else {
-        content.extend_from_slice(b"1 1 1 rg\n");
-    }
-    content.extend_from_slice(format!("0 0 {page_width:.2} {page_height:.2} re\nf\n").as_bytes());
+    // The page keeps its neutral initial backdrop, exactly as in
+    // `crate::export_pdf`: blend modes must composite with what the canvas
+    // shows, and a document that wants paper paints its page-background nodes.
+    // (A CMYK `0 0 0 0 k` rectangle would be ink-free but would still become
+    // the backdrop every blend composites against.)
 
     // Scene coordinates are trim-local (the same contract used by the
     // editor). PDF coordinates are media-local and Y-up, so move authored
@@ -182,6 +180,7 @@ fn build_pdfx_document(
     use_cmyk: bool,
     marks_geo: Option<&MarksGeometry>,
     gts_pdfx_version: &str,
+    allow_blend_modes: bool,
 ) -> Result<Vec<u8>, String> {
     let mut doc = Document::new();
     doc.version = pdf_version.to_string();
@@ -209,6 +208,9 @@ fn build_pdfx_document(
     // -- Build content with image rendering support --------------------------
     let (image_refs, content) = {
         let mut image_state = ImageRenderState::new(&mut doc);
+        // PDF/X-1a forbids live transparency, so its
+        // blend modes are reported rather than written; PDF/X-4 carries them.
+        image_state.allow_blend_modes = allow_blend_modes;
         let c = build_pdfx_content(
             nodes,
             media_width,
@@ -426,9 +428,15 @@ fn build_pdfx_document(
 /// - CMYK content (RGB fills converted to CMYK)
 /// - Optional crop marks via `marks_geo`
 /// - Proper MediaBox/BleedBox/TrimBox
-/// - No live transparency
+/// - No live transparency: blend modes are not written. The header version is
+///   PDF 1.4 for the 2003 profile, but the standard still forbids live
+///   transparency. `crate::unrepresented_blend_modes` reports the content that this
+///   costs, so a caller can refuse or disclose instead of shipping art that
+///   composites differently from the canvas.
 pub fn export_pdfx1a(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, String> {
-    build_pdfx_document(nodes, opts, "1.4", true, None, "PDF/X-1a:2003")
+    assert_pdfx1a_blends_are_representable(nodes)?;
+    assert_pdfx1a_has_no_live_transparency(nodes, opts)?;
+    build_pdfx_document(nodes, opts, "1.4", true, None, "PDF/X-1a:2003", false)
 }
 
 /// Export a PDF/X-1a document with crop marks.
@@ -437,7 +445,143 @@ pub fn export_pdfx1a_with_marks(
     opts: &PdfOptions,
     geo: &MarksGeometry,
 ) -> Result<Vec<u8>, String> {
-    build_pdfx_document(nodes, opts, "1.4", true, Some(geo), "PDF/X-1a:2003")
+    assert_pdfx1a_blends_are_representable(nodes)?;
+    assert_pdfx1a_has_no_live_transparency(nodes, opts)?;
+    build_pdfx_document(nodes, opts, "1.4", true, Some(geo), "PDF/X-1a:2003", false)
+}
+
+/// The native print API is also callable without editor preflight. Keep the
+/// format's blend-mode limitation enforced at this boundary so direct callers
+/// cannot get a successful PDF whose composition silently changed to Normal.
+fn assert_pdfx1a_blends_are_representable(nodes: &[SceneNode]) -> Result<(), String> {
+    let unsupported = crate::unrepresented_blend_modes(nodes, false);
+    if unsupported.is_empty() {
+        return Ok(());
+    }
+
+    let details = unsupported
+        .iter()
+        .map(|entry| format!("'{}' ({})", entry.node_name, entry.mode))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Err(format!(
+        "PDF/X-1a export stopped: these objects use blend modes the standard cannot carry: {details}. Export PDF/X-4, which carries blend modes, or flatten the complete composite against its opaque background."
+    ))
+}
+
+/// PDF/X-1a cannot contain live transparency. Refuse inputs that the writer
+/// would otherwise turn into `/ca` or image soft masks; a successful export
+/// must never claim PDF/X-1a while silently changing those pixels.
+fn assert_pdfx1a_has_no_live_transparency(
+    nodes: &[SceneNode],
+    opts: &PdfOptions,
+) -> Result<(), String> {
+    fn translucent_color(color: &varve_core::EngineColor) -> bool {
+        let alpha = match color {
+            varve_core::EngineColor::Rgb { a, .. }
+            | varve_core::EngineColor::Cmyk { a, .. }
+            | varve_core::EngineColor::Gray { a, .. }
+            | varve_core::EngineColor::Spot { a, .. } => *a,
+        };
+        alpha < 255.0
+    }
+    fn translucent_fill(fill: &varve_core::FillIR) -> bool {
+        match fill {
+            varve_core::FillIR::Solid {
+                color,
+                opacity,
+                visible,
+                ..
+            } => *visible && (*opacity < 1.0 || translucent_color(color)),
+            varve_core::FillIR::Gradient {
+                stops,
+                opacity,
+                visible,
+                ..
+            } => {
+                *visible
+                    && (*opacity < 1.0 || stops.iter().any(|stop| translucent_color(&stop.color)))
+            }
+            varve_core::FillIR::Image {
+                opacity, visible, ..
+            }
+            | varve_core::FillIR::Pattern {
+                opacity, visible, ..
+            } => *visible && *opacity < 1.0,
+        }
+    }
+
+    for node in nodes {
+        let translucent_raster_fill = node.fills.as_ref().is_some_and(|fills| {
+            fills.iter().any(|fill| {
+                let visible = match fill {
+                    varve_core::FillIR::Image { visible, .. }
+                    | varve_core::FillIR::Pattern { visible, .. } => *visible,
+                    _ => false,
+                };
+                if !visible {
+                    return false;
+                }
+                let Some(manifest) = opts.manifest.as_ref() else {
+                    return false;
+                };
+                let image = match fill {
+                    varve_core::FillIR::Image { src, .. } => {
+                        manifest.resolve_image_by_src(src).ok()
+                    }
+                    varve_core::FillIR::Pattern { tile_src, .. } => {
+                        manifest.resolve_image_by_src(tile_src).ok().or_else(|| {
+                            manifest
+                                .patterns
+                                .iter()
+                                .find(|pattern| {
+                                    pattern.id == *tile_src || pattern.tile_image_id == *tile_src
+                                })
+                                .and_then(|pattern| {
+                                    manifest.resolve_image(&pattern.tile_image_id).ok()
+                                })
+                        })
+                    }
+                    _ => None,
+                };
+                image.is_some_and(|image| {
+                    matches!(image.color_space, crate::resources::ColorSpace::Rgb)
+                        && image.data.chunks_exact(4).any(|rgba| rgba[3] < 255)
+                })
+            })
+        });
+        let translucent_fill = node
+            .fills
+            .as_ref()
+            .is_some_and(|fills| fills.iter().any(translucent_fill));
+        let legacy_fill_is_used = node.fills.as_ref().is_none_or(|fills| fills.is_empty());
+        let translucent_stroke = node
+            .strokes
+            .iter()
+            .any(|stroke| stroke.visible && translucent_color(&stroke.color));
+        let translucent_effect = node.effects.iter().any(|effect| match effect {
+            varve_core::Effect::DropShadow {
+                color,
+                opacity,
+                visible,
+                ..
+            } => *visible && (*opacity < 1.0 || translucent_color(color)),
+            _ => false,
+        });
+        if node.opacity < 1.0
+            || translucent_fill
+            || translucent_stroke
+            || translucent_effect
+            || (legacy_fill_is_used && translucent_color(&node.fill))
+            || translucent_raster_fill
+        {
+            return Err(format!(
+                "PDF/X-1a export stopped: '{}' uses transparency that this standard cannot carry. Flatten the affected artwork against an opaque background or export PDF/X-4.",
+                node.name
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Export a PDF/X-4 document (ISO 15930-7).
@@ -446,9 +590,10 @@ pub fn export_pdfx1a_with_marks(
 /// - OutputIntent with GTS_PDFX
 /// - Permits RGB content (no CMYK conversion)
 /// - Same box structure as X-1a
-/// - Supports live transparency
+/// - Supports live transparency, so blend modes are written as `/BM`
 pub fn export_pdfx4(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, String> {
-    build_pdfx_document(nodes, opts, "1.6", false, None, "PDF/X-4")
+    crate::assert_pdf_blends_are_representable(nodes, "PDF/X-4")?;
+    build_pdfx_document(nodes, opts, "1.6", false, None, "PDF/X-4", true)
 }
 
 /// Export a PDF/X-4 document with crop marks.
@@ -457,7 +602,8 @@ pub fn export_pdfx4_with_marks(
     opts: &PdfOptions,
     geo: &MarksGeometry,
 ) -> Result<Vec<u8>, String> {
-    build_pdfx_document(nodes, opts, "1.6", false, Some(geo), "PDF/X-4")
+    crate::assert_pdf_blends_are_representable(nodes, "PDF/X-4")?;
+    build_pdfx_document(nodes, opts, "1.6", false, Some(geo), "PDF/X-4", true)
 }
 
 #[cfg(test)]
@@ -465,6 +611,7 @@ mod tests {
     use super::*;
     use crate::profiles::{PrintProfile, RenderingIntent};
     use varve_colour::{profile_gcr, profile_tac};
+    use varve_core::BlendMode;
 
     #[test]
     fn rgb_to_cmyk_black() {
@@ -640,7 +787,7 @@ mod tests {
     }
 
     #[test]
-    fn pdfx1a_omits_transparent_pattern_tiles_with_an_explicit_warning() {
+    fn pdfx1a_refuses_transparent_pattern_tiles_instead_of_exporting_missing_artwork() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![varve_core::FillIR::Pattern {
             tile_src: "tile.png".into(),
@@ -682,17 +829,9 @@ mod tests {
             ..Default::default()
         };
 
-        let bytes = export_pdfx1a(&[node], &opts).expect("PDF/X-1a with transparent pattern");
-        let doc = Document::load_mem(&bytes).expect("parse PDF/X-1a");
-        let page_id = *doc
-            .get_pages()
-            .values()
-            .next()
-            .expect("PDF/X-1a has a page");
-        let page_content = doc.get_page_content(page_id);
-        let content = String::from_utf8_lossy(&page_content);
-        assert!(!content.contains("/Pat0"));
-        assert!(content.contains("transparent pattern cannot be represented"));
+        let error = export_pdfx1a(&[node], &opts).unwrap_err();
+        assert!(error.contains("PDF/X-1a"));
+        assert!(error.contains("PDF/X-4"));
     }
 
     #[test]
@@ -1150,5 +1289,290 @@ mod tests {
             total <= 770,
             "SWOP TAC 300% should limit total, got {total}"
         );
+    }
+
+    /// Blend states written into the single page of `bytes`.
+    fn blend_states(bytes: &[u8]) -> Vec<String> {
+        let doc = Document::load_mem(bytes).expect("parse PDF/X");
+        let page_id = *doc.get_pages().values().next().expect("PDF/X has a page");
+        let page = doc.get_object(page_id).unwrap().as_dict().unwrap();
+        let Some(states) = page
+            .get(b"Resources")
+            .ok()
+            .and_then(|value| value.as_dict().ok())
+            .and_then(|resources| resources.get(b"ExtGState").ok())
+            .and_then(|value| value.as_dict().ok())
+        else {
+            return Vec::new();
+        };
+        states
+            .iter()
+            .filter_map(|(name, value)| {
+                let dict = value.as_dict().ok()?;
+                let blend = dict.get(b"BM").ok()?.as_name().ok()?;
+                Some(format!(
+                    "{}={}",
+                    String::from_utf8_lossy(name),
+                    String::from_utf8_lossy(blend)
+                ))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn pdfx4_carries_blend_modes_because_it_permits_live_transparency() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.blend_mode = BlendMode::Multiply;
+        let opts = PdfOptions {
+            print_profile: Some(PrintProfile::Fogra39),
+            ..Default::default()
+        };
+        let bytes = export_pdfx4(&[node], &opts).expect("PDF/X-4 export");
+        assert_eq!(
+            blend_states(&bytes),
+            vec!["BMMultiply=Multiply".to_string()],
+            "PDF/X-4 allows live transparency, so the blend mode must be carried"
+        );
+    }
+
+    #[test]
+    fn pdfx4_refuses_a_mode_without_a_pdf_name() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Glow".into();
+        node.blend_mode = BlendMode::PlusLighter;
+        let error = export_pdfx4(&[node], &PdfOptions::default()).unwrap_err();
+        assert!(error.contains("PDF/X-4 export stopped"));
+        assert!(error.contains("Glow"));
+        assert!(error.contains("Plus Lighter"));
+    }
+
+    #[test]
+    fn pdfx1a_refuses_blend_modes_and_the_fidelity_report_names_them() {
+        // PDF/X-1a forbids live transparency: a `/BM` entry would break the conformance
+        // the file claims. Direct native callers must be refused just like the
+        // editor preflight, rather than receiving art silently composited as Normal.
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Kite".into();
+        node.blend_mode = BlendMode::Screen;
+        let opts = PdfOptions {
+            print_profile: Some(PrintProfile::Fogra39),
+            ..Default::default()
+        };
+        let error = export_pdfx1a(&[node.clone()], &opts).unwrap_err();
+        assert!(error.contains("Kite"));
+        assert!(error.contains("Screen"));
+        assert!(error.contains("PDF/X-4"));
+
+        assert_eq!(
+            crate::unrepresented_blend_modes(&[node], false),
+            vec![crate::UnrepresentedBlend {
+                node_name: "Kite".into(),
+                mode: "Screen",
+            }],
+            "PDF/X-1a output must be reportable, never silently normal-blended"
+        );
+    }
+
+    #[test]
+    fn pdfx1a_refuses_node_opacity_instead_of_emitting_live_transparency() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Translucent card".into();
+        node.opacity = 0.5;
+        let error = export_pdfx1a(&[node], &PdfOptions::default()).unwrap_err();
+        assert!(error.contains("Translucent card"));
+        assert!(error.contains("PDF/X-4"));
+    }
+
+    #[test]
+    fn pdfx1a_refuses_translucent_drop_shadow_instead_of_emitting_live_alpha() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Soft shadow".into();
+        node.effects = vec![varve_core::Effect::DropShadow {
+            id: None,
+            x: 3.0,
+            y: 3.0,
+            blur: 0.0,
+            spread: 0.0,
+            color: varve_core::EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                bit_depth: None,
+                profile: None,
+            },
+            opacity: 0.5,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }];
+        let error = export_pdfx1a(&[node], &PdfOptions::default()).unwrap_err();
+        assert!(error.contains("Soft shadow"));
+        assert!(error.contains("PDF/X-4"));
+    }
+
+    #[test]
+    fn pdfx1a_refuses_translucent_stroke_color() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Translucent outline".into();
+        node.strokes.push(varve_core::Stroke {
+            color: varve_core::EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 255.0,
+                a: 128.0,
+                bit_depth: None,
+                profile: None,
+            },
+            ..Default::default()
+        });
+        let error = export_pdfx1a(&[node], &PdfOptions::default()).unwrap_err();
+        assert!(error.contains("Translucent outline"));
+        assert!(error.contains("PDF/X-4"));
+    }
+
+    #[test]
+    fn pdfx1a_ignores_alpha_on_the_inactive_legacy_fill_when_stacked_fills_replace_it() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let opaque_fill = node.fill.clone();
+        if let varve_core::EngineColor::Rgb { a, .. } = &mut node.fill {
+            *a = 128.0;
+        }
+        node.fills = Some(vec![varve_core::FillIR::Solid {
+            color: opaque_fill,
+            opacity: 1.0,
+            blend_mode: varve_core::BlendMode::Normal,
+            visible: true,
+        }]);
+
+        export_pdfx1a(&[node], &PdfOptions::default())
+            .expect("inactive legacy fill must not block opaque stacked-fill output");
+    }
+
+    #[test]
+    fn pdfx1a_refuses_alpha_channel_image_fills() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Photo with alpha".into();
+        node.fills = Some(vec![varve_core::FillIR::Image {
+            src: "photo.png".into(),
+            fit: "fill".into(),
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+            image_width: None,
+            image_height: None,
+            opacity: 1.0,
+            blend_mode: varve_core::BlendMode::Normal,
+            visible: true,
+            alpha_mask: None,
+            crop: None,
+            rotation: None,
+            flip_h: None,
+            flip_v: None,
+            perspective: None,
+        }]);
+        let opts = PdfOptions {
+            manifest: Some(crate::resources::ExportManifest {
+                images: vec![crate::resources::ImageResource {
+                    id: "photo".into(),
+                    src: Some("photo.png".into()),
+                    mime_type: "image/png".into(),
+                    width: 1,
+                    height: 1,
+                    data: vec![255, 32, 16, 128],
+                    color_space: crate::resources::ColorSpace::Rgb,
+                }],
+                patterns: vec![],
+            }),
+            ..Default::default()
+        };
+
+        let error = export_pdfx1a(&[node], &opts).unwrap_err();
+        assert!(error.contains("Photo with alpha"));
+    }
+
+    #[test]
+    fn pdfx1a_ignores_alpha_channel_in_hidden_image_fills() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![varve_core::FillIR::Image {
+            src: "photo.png".into(),
+            fit: "fill".into(),
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+            image_width: None,
+            image_height: None,
+            opacity: 1.0,
+            blend_mode: varve_core::BlendMode::Normal,
+            visible: false,
+            alpha_mask: None,
+            crop: None,
+            rotation: None,
+            flip_h: None,
+            flip_v: None,
+            perspective: None,
+        }]);
+        let opts = PdfOptions {
+            manifest: Some(crate::resources::ExportManifest {
+                images: vec![crate::resources::ImageResource {
+                    id: "photo".into(),
+                    src: Some("photo.png".into()),
+                    mime_type: "image/png".into(),
+                    width: 1,
+                    height: 1,
+                    data: vec![255, 32, 16, 128],
+                    color_space: crate::resources::ColorSpace::Rgb,
+                }],
+                patterns: vec![],
+            }),
+            ..Default::default()
+        };
+
+        export_pdfx1a(&[node], &opts)
+            .expect("hidden image alpha does not create live transparency");
+    }
+
+    #[test]
+    fn pdfx_export_does_not_invent_a_paper_backdrop() {
+        // The page keeps its neutral initial backdrop, so a blend composites
+        // with what the canvas shows. A painted white (or ink-free CMYK)
+        // rectangle would silently become every blend's backdrop.
+        let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let node_pair = [node.clone()];
+        for (label, bytes) in [
+            (
+                "PDF/X-1a",
+                export_pdfx1a(
+                    &node_pair,
+                    &PdfOptions {
+                        print_profile: Some(PrintProfile::Fogra39),
+                        ..Default::default()
+                    },
+                )
+                .expect("pdfx1a"),
+            ),
+            (
+                "PDF/X-4",
+                export_pdfx4(
+                    &node_pair,
+                    &PdfOptions {
+                        print_profile: Some(PrintProfile::Fogra39),
+                        ..Default::default()
+                    },
+                )
+                .expect("pdfx4"),
+            ),
+        ] {
+            let doc = Document::load_mem(&bytes).expect("parse PDF/X");
+            let page_id = *doc.get_pages().values().next().expect("has a page");
+            let content = String::from_utf8_lossy(&doc.get_page_content(page_id)).into_owned();
+            assert!(
+                !content.contains("1.000 1.000 1.000 rg"),
+                "{label} must not paint white paper: {content}"
+            );
+            assert!(
+                !content.contains("0.000 0.000 0.000 0.000 k"),
+                "{label} must not paint an ink-free backdrop rectangle: {content}"
+            );
+        }
     }
 }

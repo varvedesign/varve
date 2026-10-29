@@ -255,17 +255,25 @@ const TOKEN_PATTERN =
 export function formatFileName(template: string, ctx: FileNameContext): string {
   const extension = (ctx.ext ?? extensionForFormat(ctx.format)).replace(/^\./, '');
 
+  // Token values are arbitrary user text (object, page, preset and variant
+  // names). They are flattened to one path segment *before* substitution so a
+  // slash in a name cannot invent a folder in the output — the template's own
+  // separators are the only structural ones. Penpot #3276 reported exactly
+  // this: a board named `Hero/Mobile` writing `Hero/Mobile.png` into the ZIP.
+  const tokenValue = (value: string): string =>
+    value.length === 0 ? '' : sanitizeSegment(value, { keepDots: true });
+
   const values: Record<string, string> = {
-    name: stripSourceExtension(ctx.name),
-    suffix: ctx.suffix ?? '',
+    name: tokenValue(stripSourceExtension(ctx.name)),
+    suffix: tokenValue(ctx.suffix ?? ''),
     ext: extension,
     format: ctx.format,
     scale: scaleToken(ctx.scale),
     index: ctx.index !== undefined ? String(ctx.index) : '',
-    page: ctx.page ?? ctx.variant ?? '',
+    page: tokenValue(ctx.page ?? ctx.variant ?? ''),
     pageNumber: ctx.pageNumber !== undefined ? String(ctx.pageNumber) : '',
-    variant: ctx.variant ?? '',
-    preset: ctx.presetName ?? '',
+    variant: tokenValue(ctx.variant ?? ''),
+    preset: tokenValue(ctx.presetName ?? ''),
     width: ctx.width !== undefined ? String(ctx.width) : '',
     height: ctx.height !== undefined ? String(ctx.height) : '',
     date: ctx.date ?? '',

@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@varve/platform';
+import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
 import { CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE } from './modelProfiles';
 
 const currentFrameContract = CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.frameContract;
@@ -122,6 +123,7 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
 export async function importNativeGenerativeModel(
   path: string,
 ): Promise<NativeGenerativeModelStatus> {
+  assertAiFeaturesEnabled();
   if (!isTauriRuntime())
     throw new Error('Local diffusion models can only be installed in the desktop app.');
   const { invoke } = await import('@tauri-apps/api/core');
@@ -132,6 +134,7 @@ export async function importNativeGenerativeModel(
 export async function qualifyNativeGenerativeModel(
   signal?: AbortSignal,
 ): Promise<NativeGenerativeModelStatus> {
+  assertAiFeaturesEnabled();
   if (!isTauriRuntime())
     throw new Error('Local diffusion models can only be qualified in the desktop app.');
   const { invoke } = await import('@tauri-apps/api/core');
@@ -169,6 +172,7 @@ export async function downloadNativeGenerativeModel(
   onProgress?: (progress: NativeGenerativeModelDownloadProgress) => void,
   signal?: AbortSignal,
 ): Promise<NativeGenerativeModelStatus> {
+  assertAiFeaturesEnabled();
   if (!isTauriRuntime())
     throw new Error('Local diffusion models can only be downloaded in the desktop app.');
   if (signal?.aborted) throw new Error('Download cancelled');

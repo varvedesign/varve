@@ -15,6 +15,7 @@ import {
   withDocumentWriteLock,
 } from '../persistence/crossTabWrite';
 import type { PersistenceRevision } from '../persistence/documentRevision';
+import { setRecoveryStatus } from '../persistence/recoveryStatus';
 import { getSharedRecoveryManager, type RecoveryManager } from '../recovery';
 import type { EditorState } from './types';
 
@@ -106,6 +107,12 @@ export function useAutoBackupServices(
         revision.fileId,
       );
     });
+    // Surface recovery failures: the service reports them, but nothing in the
+    // app consumed the report, so a failing safety net looked identical to a
+    // healthy one.
+    autoSaveRef.current.onStateChange((state) => {
+      setRecoveryStatus(state === 'error' ? 'failing' : 'ok');
+    });
     autoSaveRef.current.start();
   }
   /** Automatic versioned-backup service (distinct from crash-recovery auto-save). */
@@ -129,6 +136,7 @@ export function useAutoBackupServices(
       if (backupFrameKeyRef.current) cancelEditorFrame(backupFrameKeyRef.current);
       void autoSaveRef.current?.dispose();
       void backupRef.current?.shutdown();
+      setRecoveryStatus('ok');
     };
   }, []);
   return { autoSaveRef, backupRef, recoveryRef };

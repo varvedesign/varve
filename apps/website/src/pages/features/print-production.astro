@@ -59,6 +59,12 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           bleed edge. Raster and screen-PDF export paths remain format-specific; check the export
           capability before treating a bleed guide as an output promise.
         </p>
+        <p>
+          In desktop screen PDFs, decoded RGB images and raster pattern tiles are tagged with the sRGB
+          profile used by the canvas readback. This does not preserve every source image's embedded profile or
+          rendering intent. For press work, use the profile-controlled PDF/X route and verify the
+          proof with your print provider.
+        </p>
       </section>
 
       <section class="feature-section">

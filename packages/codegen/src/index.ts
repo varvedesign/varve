@@ -8,11 +8,12 @@
 
 import type { Affine } from '@varve/engine';
 import type { Document, ManagedColor, Mask, NodeId, SceneNode, VectorMaskData } from '@varve/scene';
-import { activePageNodes, isImageShape, resolveMask } from '@varve/scene';
+import { isImageShape, resolveMask } from '@varve/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@varve/shared';
+import { documentSceneRootIds } from './ir-converter';
 import { resolveLiveBooleanForExport } from './liveBooleanExport';
 import { buildPerspectiveImageSvg } from './perspectiveSvg';
-import { nodeEffectiveTransform, svgCompositing } from './shared';
+import { escapeXml, nodeEffectiveTransform, svgCompositing } from './shared';
 import {
   collectPathTextDefs,
   collectSvgPatternDefs,
@@ -21,9 +22,11 @@ import {
   pathTextSvgContent,
   pathTextSvgDef,
   pathTextSvgId,
+  svgFontFamilyValue,
   svgPatternFillForNode,
   svgRect,
 } from './svg';
+import { collectGradientDefs } from './svgPaintFeatures';
 import { exportShapeOf } from './warpBake';
 
 export { timelineToCSSKeyframes } from './animation-css';
@@ -173,14 +176,6 @@ function rgba(c: ManagedColor): string {
 
 function affineToSvg(t: Affine): string {
   return `matrix(${t[0]},${t[1]},${t[2]},${t[3]},${t[4]},${t[5]})`;
-}
-
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function fmtNum(n: number, precision: number): string {
@@ -403,13 +398,7 @@ function documentNodeBounds(
 
 /** Resolve current page artwork plus legacy flat root nodes without duplicates. */
 function documentExportRootIds(doc: Document): NodeId[] {
-  const contentRoots = new Set(doc.pages?.map((page) => page.contentRoot) ?? []);
-  return [
-    ...new Set([
-      ...activePageNodes(doc),
-      ...doc.rootChildren.filter((id) => !contentRoots.has(id)),
-    ]),
-  ];
+  return documentSceneRootIds(doc);
 }
 
 export function computeDocumentBounds(doc: Document): {
@@ -703,7 +692,21 @@ function nodeToSvg(
   const precision = options.precision ?? 3;
   const indent = options.minify ? '' : '  '.repeat(depth);
   const pattern = node.kind === 'shape' ? svgPatternFillForNode(node, doc) : undefined;
-  const fill = pattern?.supported ? `url(#${pattern.id})` : rgba(node.fill);
+  // The topmost paint wins, matching the per-node emitter. A linear or radial
+  // gradient references its paint server instead of flattening to one colour;
+  // angular/diamond gradients have no SVG equivalent and keep the flat
+  // fallback (the per-node exporter reports that case).
+  const lastFill = node.fills?.[node.fills.length - 1];
+  const gradientFillIndex =
+    lastFill?.type === 'gradient' &&
+    (lastFill.gradient?.type === 'linear' || lastFill.gradient?.type === 'radial')
+      ? (node.fills?.length ?? 1) - 1
+      : -1;
+  const fill = pattern?.supported
+    ? `url(#${pattern.id})`
+    : gradientFillIndex >= 0
+      ? `url(#grad-${node.id}-${gradientFillIndex})`
+      : rgba(node.fill);
   const fillOpacity =
     pattern?.supported && pattern.opacity < 1
       ? ` fill-opacity="${Number(pattern.opacity.toPrecision(12)).toString()}"`
@@ -836,7 +839,7 @@ function nodeToSvg(
         node.textMode === 'path' && node.pathTextSettings && !pathDef
           ? `<!-- varve: path text — referenced path ${node.pathTextSettings.pathNodeId} not found, exported as flat text -->\n${indent}`
           : '';
-      const tag = `${indent}${missingComment}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${node.fontFamily ?? 'Inter'}" font-weight="${node.fontWeight ?? 400}" transform="${transform}"${pathAttrs}${compositingSuffix}>${pathContent}</text>`;
+      const tag = `${indent}${missingComment}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${escapeXml(svgFontFamilyValue(node.fontFamily ?? 'Inter'))}" font-weight="${node.fontWeight ?? 400}" transform="${transform}"${pathAttrs}${compositingSuffix}>${pathContent}</text>`;
       if (maskUri) {
         return `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
       }
@@ -914,7 +917,16 @@ export function exportDocumentToSvgAdvanced(
     .map((id) => doc.nodes[id])
     .filter((node): node is SceneNode => Boolean(node));
   const patternDefs = collectSvgPatternDefs(rootNodes, doc);
-  const allDefs = [...maskDefs, ...uniquePathTextDefs, ...patternDefs];
+  // Gradients are collected for the whole document, not just pattern-rendered
+  // subtrees: previously a gradient-filled shape exported as one flat colour
+  // because no <linearGradient>/<radialGradient> reached <defs>.
+  const gradientDefs = rootNodes.flatMap((node) => collectGradientDefs(node, node.id, doc));
+  const uniqueGradientDefs = gradientDefs.filter((def, index, all) => {
+    const id = def.match(/\bid="([^"]+)"/)?.[1];
+    if (!id) return true;
+    return all.findIndex((candidate) => candidate.match(/\bid="([^"]+)"/)?.[1] === id) === index;
+  });
+  const allDefs = [...maskDefs, ...uniquePathTextDefs, ...patternDefs, ...uniqueGradientDefs];
   const defsSection =
     allDefs.length > 0 ? `  <defs>${nl}${allDefs.join(nl)}${nl}  </defs>${nl}` : '';
 

@@ -23,7 +23,8 @@ value in order to function, assume the user can obtain the value.
 Companion documents: [Security Hardening](security-hardening.md) (classification,
 compromise response, release trust), [CI Secrets, Permissions and Release
 Environment](../release/ci-secrets.md) (secret inventory + rotation),
-[SECURITY.md](../../SECURITY.md) (vulnerability reporting).
+[SECURITY.md](../../SECURITY.md) (vulnerability reporting),
+[incident runbook](incident-runbook.md) (hotfix and disclosure).
 
 **No real credential value appears anywhere in this repository, and none ever
 may.**

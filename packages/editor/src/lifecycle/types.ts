@@ -98,8 +98,10 @@ export interface PromptRequest {
   respond: (outcome: DialogOutcome | null) => void;
 }
 
-/** Result of an editor save attempt. `cancelled: true` means the user
- *  dismissed a Save As picker — never interpreted as "discard". */
+/** Result of an editor save attempt. `cancelled: true` means the write did
+ *  not establish a persistent save (the user dismissed a picker, or a
+ *  browser download started without confirmation that it was retained) —
+ *  never interpreted as "discard". */
 export type SaveOutcome = { ok: true } | { ok: false; cancelled: boolean };
 
 /** Editor surface the coordinator drives. Implemented by the React host

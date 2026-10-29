@@ -35,6 +35,7 @@ const ROUTES = [
   '/accessibility/',
   '/sitemap.xml',
   '/robots.txt',
+  '/.well-known/security.txt',
   '/favicon.svg',
   '/og-image.png',
   '/try/',

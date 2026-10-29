@@ -99,4 +99,40 @@ test.describe('File > Import format smoke', () => {
       .click();
     await page.screenshot({ path: testInfo.outputPath('design-format-svg-ai-eps-artwork.png') });
   });
+
+  test('reports that Inkscape live path effects lose their editable controls', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+    await openImportFromMenu(page);
+
+    const svg =
+      '<svg xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="180" height="120">' +
+      '<path fill="none" stroke="#39d0c6" stroke-width="8" d="M20 80 C60 20 120 20 160 80" ' +
+      'inkscape:original-d="M20 80 L90 30 L160 80" inkscape:path-effect="#path-effect1"/>' +
+      '</svg>';
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'live-path-effect.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(svg),
+    });
+
+    const report = page.getByRole('dialog', { name: 'Import results' });
+    await expect(report).toBeVisible({ timeout: 30_000 });
+    await expect(report).toContainText('1 file imported with fidelity changes');
+    await report.getByRole('button', { name: /show details/i }).click();
+    await expect(report).toContainText('live-path-effect.svg');
+    await expect(report).toContainText(
+      'Inkscape live path effects: the rendered SVG path is imported as editable geometry, but its original path and effect controls are not preserved.',
+    );
+    await page.screenshot({
+      path: testInfo.outputPath('inkscape-live-path-effect-import-report.png'),
+    });
+
+    await report.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(report).toHaveCount(0);
+    await page.screenshot({
+      path: testInfo.outputPath('inkscape-live-path-effect-rendered-path.png'),
+    });
+  });
 });

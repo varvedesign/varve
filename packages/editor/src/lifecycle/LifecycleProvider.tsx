@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { RecoveryManager } from '../components/Shell/RecoveryManager';
 import { useEditor } from '../context';
+import { flushPendingEdits } from '../context/pendingEdits';
 import { getSharedRecoveryManager } from '../recovery';
 import { TerminationCoordinator } from './coordinator';
 import { createFinalizerRegistry } from './finalizers';
@@ -135,6 +136,7 @@ export function LifecycleProvider({ onBackToHome }: { onBackToHome?: () => void 
       finalizers,
       dialogs: { prompt: (request) => setPromptRequest(request) },
       trace: devTrace,
+      flushPendingEdits,
       onCommit: async (intent) => {
         const commitHook = getLifecycleCommitHook();
         if (commitHook && (await commitHook(intent))) return;

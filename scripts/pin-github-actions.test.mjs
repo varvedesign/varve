@@ -6,7 +6,13 @@
  * Wired into the regression suite (pnpm test + CI pipeline-validation gate).
  */
 import assert from 'node:assert';
-import { ACTION_SHAS, extractActionUses, isMutableVersion, SHA_RE } from './pin-github-actions.mjs';
+import {
+  ACTION_SHAS,
+  actionMetadataCandidates,
+  extractActionUses,
+  isMutableVersion,
+  SHA_RE,
+} from './pin-github-actions.mjs';
 
 // ── SHA_RE ────────────────────────────────────────────────────────────────────
 assert.strictEqual(SHA_RE.test('11bd71901bbe5b1630ceea73d27597364c9af683'), true, 'full SHA ok');
@@ -98,6 +104,10 @@ const referenced = [
   'taiki-e/install-action',
   'softprops/action-gh-release',
   'pnpm/action-setup',
+  'github/codeql-action',
+  'github/codeql-action/init',
+  'github/codeql-action/analyze',
+  'actions/dependency-review-action',
 ];
 for (const action of referenced) {
   assert.ok(ACTION_SHAS[action], `ACTION_SHAS missing entry for ${action}`);
@@ -115,5 +125,26 @@ for (const sha of [
     `fabricated SHA ${sha} must not be in the pin table`,
   );
 }
+
+const nested = actionMetadataCandidates(
+  'github/codeql-action/init',
+  '9b3254085494b55a0f7c4c2b3d2d52cc712ce370',
+);
+assert.ok(
+  nested.includes(
+    'https://raw.githubusercontent.com/github/codeql-action/9b3254085494b55a0f7c4c2b3d2d52cc712ce370/init/action.yml',
+  ),
+  'nested CodeQL init metadata must resolve under the repo subpath',
+);
+const top = actionMetadataCandidates(
+  'actions/checkout',
+  '3d3c42e5aac5ba805825da76410c181273ba90b1',
+);
+assert.ok(
+  top.includes(
+    'https://raw.githubusercontent.com/actions/checkout/3d3c42e5aac5ba805825da76410c181273ba90b1/action.yml',
+  ),
+  'top-level actions keep the owner/repo URL',
+);
 
 console.log('pin-github-actions tests passed.');

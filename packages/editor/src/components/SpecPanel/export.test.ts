@@ -251,6 +251,38 @@ describe('exportNodeAsRaster', () => {
     expect(atob(image.data).length).toBe(8 * 6 * 4);
   });
 
+  it('stops PDF/X-1a export before the native writer when a node has opacity', async () => {
+    const doc = createDocument('PDFX opacity', true);
+    const base = makeShapeNode('pdfx-opacity', { kind: 'rect', x: 0, y: 0, w: 40, h: 30 });
+    const node = { ...base, opacity: 0.5 };
+    const pdfDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
+    const invoke = vi.fn(async () => [37, 80, 68, 70]);
+    (window as unknown as Record<string, unknown>).__TAURI__ = { core: { invoke } };
+
+    await expect(exportNodeAsPdfX(node, pdfDoc, 'pdf-x1a')).rejects.toThrow(
+      /PDF\/X-1a export stopped.*transparency.*PDF\/X-4/,
+    );
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('stops PDF/X-1a export before the native writer for translucent fill colors', async () => {
+    const doc = createDocument('PDFX fill alpha', true);
+    const base = makeShapeNode('pdfx-fill-alpha', { kind: 'rect', x: 0, y: 0, w: 40, h: 30 });
+    const node = {
+      ...base,
+      name: 'Translucent fill',
+      fills: [solidFill({ space: 'rgb', r: 255, g: 0, b: 0, a: 128 })],
+    };
+    const pdfDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
+    const invoke = vi.fn(async () => [37, 80, 68, 70]);
+    (window as unknown as Record<string, unknown>).__TAURI__ = { core: { invoke } };
+
+    await expect(exportNodeAsPdfX(node, pdfDoc, 'pdf-x1a')).rejects.toThrow(
+      /PDF\/X-1a export stopped.*Translucent fill/,
+    );
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
   it('blocks PDF/X press export for mockup frames instead of dropping the composition', async () => {
     const doc = createDocument('PDFX mockup', true);
     const node = {

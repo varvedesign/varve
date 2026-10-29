@@ -1,0 +1,138 @@
+title: "Linux report: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tried Varve on a Linux computer? Two questions are enough. The
+        rest is only if you want to add more.
+
+  - type: input
+    id: distro
+    attributes:
+      label: Which Linux are you using?
+      description: The name you see when you check your system settings.
+      placeholder: "e.g. Fedora 41, Ubuntu 24.04, CachyOS"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: how-it-went
+    attributes:
+      label: How did it go?
+      description: "A quick overall feel is enough. Example: Worked with some problems."
+      options:
+        - Worked well
+        - Worked with some problems
+        - Didn't work
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Which version of Varve? (optional)
+      description: "Open Help > About, or look at the window title."
+      placeholder: "0.5.1"
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which download did you use? (optional)
+      description: Skip this if you are not sure. It is the file you downloaded.
+      options:
+        - AppImage
+        - .deb (Debian or Ubuntu)
+        - .rpm (Fedora)
+        - Arch or CachyOS package
+        - Something else
+
+  - type: input
+    id: desktop
+    attributes:
+      label: Desktop setup (optional)
+      description: Only if you know. This is the name of your desktop (for example GNOME or KDE) and the display system under it (Wayland or X11). Skip this if you are not sure.
+      placeholder: "GNOME on Wayland, KDE on X11..."
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Graphics card (optional)
+      description: Skip this if you are not sure.
+      placeholder: "AMD RX 7800 XT, NVIDIA RTX 4070, Intel built-in..."
+
+  - type: input
+    id: ram
+    attributes:
+      label: Memory (optional)
+      description: How much memory the computer has, if you know.
+      placeholder: "16 GB, 32 GB"
+
+  - type: input
+    id: scaling
+    attributes:
+      label: Screen scaling (optional)
+      description: The size setting for text and windows, if you changed it.
+      placeholder: "100%, 125%, 200%"
+
+  - type: input
+    id: tablet
+    attributes:
+      label: Pen or tablet (optional)
+      description: Skip this if you draw with a mouse.
+      placeholder: "None, Wacom Intuos, XP-Pen..."
+
+  - type: dropdown
+    id: open-save
+    attributes:
+      label: Could you open and save files? (optional)
+      description: Skip this if you did not try.
+      options:
+        - Worked
+        - Had problems
+        - Did not try
+
+  - type: dropdown
+    id: export
+    attributes:
+      label: Could you export? (optional)
+      description: Skip this if you did not try.
+      options:
+        - Worked
+        - Had problems
+        - Did not try
+
+  - type: dropdown
+    id: performance
+    attributes:
+      label: Did it feel fast enough? (optional)
+      description: Skip this if you only opened it briefly.
+      options:
+        - Yes, it felt fast
+        - Sometimes slow
+        - Too slow to use
+        - Did not try
+
+  - type: textarea
+    id: error-details
+    attributes:
+      label: Error details (optional, only if you have them)
+      description: >-
+        Paste a short error note or drop a picture. If Varve opens, you can
+        also paste the report from Settings > Performance > Collect
+        capability report > Copy report. Please take out anything private
+        first.
+      placeholder: "A short error message, or a picture of the About window..."
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Private details (optional)
+      options:
+        - label: I took out anything private from pictures or error details.
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else? (optional)
+      description: Add more if you want. You can skip this.
+      placeholder: "It froze when I zoomed in, or the pen buttons did not work..."

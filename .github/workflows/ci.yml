@@ -476,6 +476,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Website unit tests
         run: pnpm test:website
+      - name: Check public claims
+        run: pnpm audit:claims
       # The website must build and pass its whole suite in BOTH deployment
       # modes from the same source: the /varve GitHub Pages project site and a
       # root custom domain. The e2e servers mount the project-site build beneath
@@ -515,6 +517,7 @@ jobs:
       - name: Website E2E (both modes)
         env:
           VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/website.json
+          FONTCONFIG_FILE: ${{ github.workspace }}/apps/website/tests/e2e/fonts.conf
         run: node scripts/quality/heavy-lease.mjs "CI website E2E" -- pnpm exec playwright test -c playwright.website.config.ts --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
       - name: Write website execution receipt
         if: always()
@@ -619,8 +622,6 @@ jobs:
       - name: Build production browser demo for E2E
         if: needs.changes.outputs.demo_dist == 'true' && matrix.shard == 1
         run: pnpm --filter @varve/desktop build:try
-        env:
-          VITE_VARVE_ANALYTICS_DOMAIN: varve.studio
       - name: Stage production demo for E2E
         if: needs.changes.outputs.demo_dist == 'true' && matrix.shard == 1
         run: node scripts/website/stage-demo.mjs
@@ -828,8 +829,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Pin to 24.04: ubuntu-latest is 26.04 and dropped libgdk-pixbuf2.0-dev.
           - name: linux-x11
-            os: ubuntu-latest
+            os: ubuntu-24.04
             xvfb: true
           - name: windows-x64
             os: windows-latest

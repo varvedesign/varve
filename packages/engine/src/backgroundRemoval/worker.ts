@@ -5,6 +5,7 @@
  */
 
 import type { InferenceSession, Tensor } from 'onnxruntime-web';
+import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
 import {
   computeMaskConfidence,
   decontaminateMask,
@@ -92,6 +93,7 @@ async function getSession(
   modelPath: string,
   modelId: string,
 ): Promise<{ session: InferenceSession; executionProvider: string }> {
+  assertAiFeaturesEnabled();
   if (cachedSession && cachedModelPath === modelPath) {
     return { session: cachedSession, executionProvider: cachedExecutionProvider };
   }

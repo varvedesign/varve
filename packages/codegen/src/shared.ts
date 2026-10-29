@@ -12,7 +12,13 @@ import type {
   SceneNode,
 } from '@varve/scene';
 import { effectivePaintOrder } from '@varve/scene';
-import { managedColorToRgba, multiplyAffine, rgbToHex, rotateDeg } from '@varve/shared';
+import {
+  escapeXmlText,
+  managedColorToRgba,
+  multiplyAffine,
+  rgbToHex,
+  rotateDeg,
+} from '@varve/shared';
 import type { TargetGap } from './types';
 
 /**
@@ -193,12 +199,14 @@ export function svgCompositing(
   return { attributes, styles };
 }
 
+/**
+ * Escape document text for an XML element or attribute.
+ *
+ * Delegates to the shared sanitizer so a pasted control character cannot make
+ * the whole export unparseable (see `@varve/shared` `xmlText`).
+ */
 export function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return escapeXmlText(s);
 }
 
 /**

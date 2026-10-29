@@ -11,9 +11,19 @@
  * Both write apps/website/src/data/release-manifest.json. Everything the
  * download page shows — versions, filenames, sizes, hashes, URLs — is derived
  * here from bytes that were either built or fetched; nothing is hand-typed.
+ * releaseDate is the CHANGELOG heading day for that version, else the
+ * America/Vancouver calendar day of generatedAt — never the UTC prefix of a
+ * late-evening Pacific timestamp.
  */
+import {
+  appImageShipsBundledWebKit,
+  compareReleaseVersion,
+  FIRST_BUNDLED_WEBKIT_APPIMAGE,
+} from '../../apps/website/src/data/release-version.mjs';
 import { productSlug } from './product.mjs';
 import { ARCHITECTURES, normalizeArchitecture, targetFor } from './targets.mjs';
+
+export { appImageShipsBundledWebKit, compareReleaseVersion, FIRST_BUNDLED_WEBKIT_APPIMAGE };
 
 /** Availability belongs to the selected release and a feed verified in this fetch. */
 export function releaseUpdaterAvailability(release, verifiedFeeds = {}) {
@@ -34,6 +44,58 @@ export function releaseUpdaterAvailability(release, verifiedFeeds = {}) {
 
 /** 0.5.0 has no bundle-wide signature; later ad-hoc-signed builds can use Open Anyway. */
 const MACOS_QUARANTINE_ONLY_RELEASES = new Set(['0.5.0']);
+
+/** Maintainer calendar for public release dates. GitHub timestamps are UTC. */
+export const MAINTAINER_TIME_ZONE = 'America/Vancouver';
+
+/**
+ * Keep-a-Changelog heading date for one version (`## [0.5.1] - 2026-10-15`).
+ * Accepts an optional `v` prefix in the heading. Returns null when absent.
+ */
+export function changelogDateForVersion(changelogText, version) {
+  if (typeof changelogText !== 'string' || !version) return null;
+  const bare = String(version).replace(/^v/, '');
+  const escaped = bare.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const heading = new RegExp(`^## \\[v?${escaped}\\] - (\\d{4}-\\d{2}-\\d{2})\\s*$`, 'm');
+  return changelogText.match(heading)?.[1] ?? null;
+}
+
+/**
+ * Calendar day of an instant in `timeZone`. Date-only `YYYY-MM-DD` strings are
+ * already calendar dates and must not be parsed as UTC midnight (that would
+ * shift them back a day in Pacific time).
+ */
+export function calendarDateInTimeZone(isoTimestamp, timeZone = MAINTAINER_TIME_ZONE) {
+  if (typeof isoTimestamp !== 'string' || !isoTimestamp) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoTimestamp)) return isoTimestamp;
+  const date = new Date(isoTimestamp);
+  if (Number.isNaN(date.getTime())) return null;
+  const formatted = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+  return /^\d{4}-\d{2}-\d{2}$/.test(formatted) ? formatted : null;
+}
+
+/**
+ * Public release date for the download page, JSON-LD, and other website facts.
+ *
+ * Prefer the CHANGELOG heading (the intended calendar day). Fall back to the
+ * pipeline timestamp in America/Vancouver so a late-evening Pacific publish
+ * that is already the next day in UTC still shows the Pacific day. Slice the
+ * ISO prefix only as a last resort.
+ */
+export function releaseCalendarDate({ version, generatedAt, changelogText } = {}) {
+  return (
+    changelogDateForVersion(changelogText, version) ??
+    calendarDateInTimeZone(generatedAt) ??
+    (typeof generatedAt === 'string' && /^\d{4}-\d{2}-\d{2}/.test(generatedAt)
+      ? generatedAt.slice(0, 10)
+      : null)
+  );
+}
 
 export function macosUnsignedCaveat(version) {
   if (version && MACOS_QUARANTINE_ONLY_RELEASES.has(version)) {
@@ -60,16 +122,28 @@ export function windowsUnsignedCaveat() {
 /** Copy for each installer format, keyed by the manifest `format` field. */
 export function formatCopy(product, version) {
   return {
-    appimage: {
-      title: 'AppImage',
-      blurb:
-        'Portable file for Linux — no install, no root. Uses the system WebKitGTK ' +
-        'libraries (same requirement as the .deb).',
-      caveat:
-        'Requires FUSE2 and a system WebKitGTK (libwebkit2gtk-4.1). On systems without ' +
-        'FUSE2, run with --appimage-extract-and-run.',
-      install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
-    },
+    appimage: appImageShipsBundledWebKit(version)
+      ? {
+          title: 'AppImage',
+          blurb:
+            'Portable file for Linux: no install, no root. Ships its own WebKitGTK, so it ' +
+            'launches without installing libwebkit2gtk.',
+          caveat:
+            'Requires FUSE2 and glibc 2.35+. On systems without FUSE2, run with ' +
+            '--appimage-extract-and-run. GPU/EGL come from the host Mesa stack. ' +
+            'GStreamer plugins are not bundled.',
+          install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
+        }
+      : {
+          title: 'AppImage',
+          blurb:
+            'Portable file for Linux: no install, no root. Uses the system WebKitGTK ' +
+            'libraries (same requirement as the .deb).',
+          caveat:
+            'Requires FUSE2 and a system WebKitGTK (libwebkit2gtk-4.1). On systems without ' +
+            'FUSE2, run with --appimage-extract-and-run.',
+          install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
+        },
     deb: {
       title: 'Debian package',
       blurb: 'For Debian 12+ and Ubuntu 22.04+.',
@@ -170,6 +244,7 @@ export function platformTrustLabel(platform, signing = {}, version) {
  * @param {string} options.checksumsText  raw SHA256SUMS.txt from the release
  * @param {string[]} [options.sbomFilenames] SBOM asset filenames on the release
  * @param {string} [options.integrity] 'verified' when manifest and checksums agree
+ * @param {string} [options.changelogText] CHANGELOG.md text; heading date wins
  * @returns {object} the website release data object
  */
 export function buildWebsiteReleaseData({
@@ -179,6 +254,7 @@ export function buildWebsiteReleaseData({
   checksumsText,
   sbomFilenames = [],
   integrity = 'verified',
+  changelogText,
 }) {
   const product = productSlug();
   const copy = formatCopy(product, manifest.version);
@@ -268,7 +344,11 @@ export function buildWebsiteReleaseData({
     hasRelease: true,
     version: manifest.version,
     tag,
-    releaseDate: manifest.generatedAt.slice(0, 10),
+    releaseDate: releaseCalendarDate({
+      version: manifest.version,
+      generatedAt: manifest.generatedAt,
+      changelogText,
+    }),
     prerelease: tag.includes('-'),
     // These three are the machine-readable signing state, populated from
     // post-build cryptographic verification (see scripts/release/signing-policy.mjs).

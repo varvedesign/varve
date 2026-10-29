@@ -1,6 +1,6 @@
 {
   "name": "@varve/desktop",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Varve desktop app (Tauri 2) — Vite + React frontend.",
   "type": "module",
@@ -27,7 +27,7 @@
     "@tauri-apps/plugin-updater": "^2.13.1",
     "@vitejs/plugin-react": "^6.0.5",
     "typescript": "^6.0.3",
-    "vite": "^8.2.1"
+    "vite": "^8.2.4"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
