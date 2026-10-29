@@ -29,6 +29,9 @@ import {
   encodeDocumentJson,
   setEncodeWarningToast,
 } from '../persistence/encodeWarnings';
+
+export { clearEncodeWarningState };
+
 import { type SaveIntent, type SaveOutcome, saveTargetFromSession } from '../persistence/saveTypes';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';

@@ -1285,12 +1285,20 @@ export function previewShapeBuilderAction(
   return { selected, output, remainders };
 }
 
-function sourceFilledRegion(model: ShapeBuilderModel, sourceId: NodeId, retry = false): Region2D {
+function sourceFilledResult(
+  model: ShapeBuilderModel,
+  sourceId: NodeId,
+  retry = false,
+): BooleanResult {
   const faces = model.faces.filter((face) => face.filledBy.includes(sourceId));
-  if (faces.length === 0) return { contours: [], holes: [], fillRule: 'evenodd' };
-  return booleanResultRegion(
-    booleanNormalizedRegions(faces.map(regionForFace), 'union', { retry }),
-  );
+  if (faces.length === 0) {
+    return { components: [], outerContours: [], holes: [], fillRule: 'evenodd' };
+  }
+  return booleanNormalizedRegions(faces.map(regionForFace), 'union', { retry });
+}
+
+function sourceFilledRegion(model: ShapeBuilderModel, sourceId: NodeId, retry = false): Region2D {
+  return booleanResultRegion(sourceFilledResult(model, sourceId, retry));
 }
 
 const DEGRADED_SHAPE_BUILDER_REASON =
@@ -1517,7 +1525,15 @@ export function applyShapeBuilderAction(
           revision: model.revision,
         };
       }
-      const sourceRegion = sourceFilledRegion(model, sourceId, true);
+      const sourceResult = sourceFilledResult(model, sourceId, true);
+      if (sourceResult.degraded) {
+        return {
+          ok: false,
+          reason: DEGRADED_SHAPE_BUILDER_REASON,
+          revision: model.revision,
+        };
+      }
+      const sourceRegion = booleanResultRegion(sourceResult);
       const remainder = booleanNormalizedRegions([sourceRegion, selectedRegion], 'subtract', {
         retry: true,
       });

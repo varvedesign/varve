@@ -505,6 +505,7 @@ import { useInteractionState } from './context/useInteractionState';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import {
+  clearEncodeWarningState,
   createPersistenceRevision,
   resolveFontManifest,
   usePersistence,
@@ -9504,6 +9505,7 @@ export function EditorProvider({
             announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
             return;
           }
+          clearEncodeWarningState();
           doc = decoded.document;
           const result = validateDocument(doc);
           if (!result.valid) {

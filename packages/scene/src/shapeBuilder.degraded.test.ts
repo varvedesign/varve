@@ -9,6 +9,7 @@ import {
 const clipperHarness = vi.hoisted(() => ({
   failDifference: false,
   failUnion: false,
+  failMultiUnion: false,
   failUnionRemaining: 0,
   unionCalls: 0,
 }));
@@ -36,6 +37,7 @@ vi.mock('polygon-clipping', async (importOriginal) => {
       if (clipperHarness.failUnionRemaining > 0) clipperHarness.failUnionRemaining -= 1;
       return fail();
     }
+    if (clipperHarness.failMultiUnion && args.length > 1) return fail();
     return kernel.union(...args);
   };
   const wrapped = {
@@ -100,6 +102,25 @@ describe('Shape Builder degraded clipper results', () => {
       expect(doc.nodes.b?.kind).toBe('shape');
     } finally {
       clipperHarness.failUnion = false;
+    }
+  });
+
+  it('refuses to commit when the source-filled union is degraded', () => {
+    const doc = rectangles();
+    const model = buildShapeBuilderModel(doc, ['a', 'b']);
+    expect(model.status).toBe('ready');
+    const overlap = model.faces.filter((face) => face.filledBy.length === 2).map((face) => face.id);
+    expect(overlap.length).toBeGreaterThan(0);
+    clipperHarness.failMultiUnion = true;
+    try {
+      const applied = applyShapeBuilderAction(doc, ['a', 'b'], overlap, 'erase');
+      expect(applied).toMatchObject({ ok: false });
+      if (applied.ok) return;
+      expect(applied.reason).toMatch(/could not complete the geometry/i);
+      expect(doc.nodes.a?.kind).toBe('shape');
+      expect(doc.nodes.b?.kind).toBe('shape');
+    } finally {
+      clipperHarness.failMultiUnion = false;
     }
   });
 

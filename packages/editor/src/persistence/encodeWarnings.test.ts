@@ -40,6 +40,22 @@ describe('encodeWarnings', () => {
     warn.mockRestore();
   });
 
+  it('toasts a warning raised before the handler registered', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const doc = brokenMaskDoc();
+
+    encodeDocumentJson(doc);
+    encodeDocumentJson(doc);
+    const toast = vi.fn();
+    setEncodeWarningToast(toast);
+
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(String(toast.mock.calls[0]?.[0])).toMatch(/clip|mask/i);
+    encodeDocumentJson(doc);
+    expect(toast).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
   it('toasts the same warning again after encode state is cleared', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const toast = vi.fn();
