@@ -40,7 +40,6 @@
     "crates/varve-generative-helper/src/main.rs": 441,
     "crates/varve-media/src/decode.rs": 456,
     "crates/varve-print/src/cmyk.rs": 1578,
-    "crates/varve-print/src/lib.rs": 6823,
     "crates/varve-print/src/outline.rs": 406,
     "crates/varve-print/src/resources.rs": 418,
     "crates/varve-print/src/shaper.rs": 766,
