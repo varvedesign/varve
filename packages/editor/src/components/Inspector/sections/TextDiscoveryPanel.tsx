@@ -30,6 +30,7 @@ import {
 } from '@varve/engine';
 import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
 import { classifyDiscoveryFailure } from './textDiscoveryFailure';
 
 type PanelState =
@@ -76,6 +77,7 @@ export function TextDiscoveryPanel({
   announce: (message: string) => void;
   disabled?: boolean;
 }) {
+  const aiEnabled = useAiFeaturesEnabled();
   const [state, setState] = useState<PanelState>('checking');
   const [query, setQuery] = useState('');
   const [threshold, setThreshold] = useState<number>(0.3);
@@ -451,6 +453,15 @@ export function TextDiscoveryPanel({
   }, [announce, detections.length]);
 
   const selected = detections.find((detection) => detection.id === selectedId) ?? null;
+
+  if (!aiEnabled) {
+    return (
+      <section className="insp-field-group" aria-label="Find objects by description">
+        <p className="insp-subsection__label">Find by description</p>
+        <p className="insp-field__hint">{AI_DISABLED_HINT}</p>
+      </section>
+    );
+  }
 
   return (
     <section className="insp-field-group" aria-label="Find objects by description">

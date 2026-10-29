@@ -754,6 +754,27 @@ describe('per-fill compositing', () => {
     expect(fillStyleSets.length).toBe(1);
     expect(String(rec.props.fillStyle ?? '')).toContain('255, 0, 0');
   });
+  it('an all-hidden fill stack paints nothing rather than the legacy fill', () => {
+    const rec = recorder();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'solid',
+          color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: false,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    };
+    replayIr(rec.target, [item]);
+    // The stack exists and every entry is hidden: nothing is painted, and the
+    // legacy colour must not stand in for it.
+    expect(rec.calls.filter((c) => c === 'set fillStyle').length).toBe(0);
+  });
 });
 
 describe('gradient degenerate shape handling', () => {

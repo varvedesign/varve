@@ -45,6 +45,14 @@ export {
   obbToAABB,
   orientedBBox,
 } from './align';
+export {
+  pathWithCampaign,
+  safeGoatCounterDomain,
+  VARVE_GOATCOUNTER_DOMAIN,
+  WEBSITE_CAMPAIGN_REF,
+  websiteCampaignRef,
+  websiteReferrer,
+} from './analytics/campaign';
 export type { AnalyticsProvider, HttpAnalyticsProviderOptions } from './analytics/client';
 export {
   AnalyticsClient,
@@ -666,6 +674,7 @@ export {
   variationSettingsKey,
 } from './textMeasure';
 export * from './thumbnail/contracts';
+export { splitGraphemeClusters, truncateGraphemes } from './truncateText';
 export { DEFAULT_ARTWORK_FONT_FAMILY } from './typographyDefaults';
 export type {
   FeatureNormalizationResult,
@@ -754,6 +763,7 @@ export {
   ZOOM_STEP_FACTOR,
   zoomAboutPoint,
 } from './viewport';
+export { escapeXmlText, sanitizeXmlText } from './xmlText';
 
 /** Semantic Strata package marker. */
 export const PACKAGE = '@varve/shared' as const;

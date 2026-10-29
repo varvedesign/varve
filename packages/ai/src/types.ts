@@ -13,7 +13,7 @@ export interface AISession {
   createdAt: number;
 }
 
-export type AIModel = 'varve-default' | 'claude-3-sonnet' | 'gpt-4o';
+export type AIModel = 'varve-default';
 
 /** Execution mode: on-device local models vs remote inference. */
 export type AIExecutionMode = 'local' | 'cloud' | 'hybrid' | 'disabled';

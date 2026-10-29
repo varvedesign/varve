@@ -2,6 +2,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { assertCanvasGesture, type CanvasPoint } from './helpers/canvasGesture';
 import { dismissFirstRunOverlayIfPresent } from './helpers/nav';
 
+export { dismissMissingFontsDialogIfPresent } from './helpers/nav';
+
 /** Click the visible label rather than the clipped native checkbox input. */
 export async function setVisibleCheckbox(control: Locator, checked: boolean): Promise<void> {
   await expect(control).toBeAttached();

@@ -521,7 +521,7 @@ The following dated files were moved from `docs/architecture/` to
 | Doc | Purpose |
 |-----|---------|
 | `privacy/consent-state.md` | Consent state for telemetry/crash reporting |
-| `privacy/analytics.md` | Analytics measurement plan and transmitted-data inventory (Plausible) |
+| `privacy/analytics.md` | Analytics measurement plan and transmitted-data inventory (GoatCounter) |
 | `privacy/crash-audit.md` | Crash reporting data audit |
 | `privacy/ingestion.md` | Data ingestion inventory |
 | `privacy/redaction.md` | Redaction rules |
@@ -533,6 +533,7 @@ The following dated files were moved from `docs/architecture/` to
 | `licensing/decision-research-2026-08-18.md` | Dated licensing decision research record |
 | `security/security-hardening.md` | Security hardening contract and policy (CSP, workflow policy, secret scanning) |
 | `security/trust-boundaries.md` | Source-sharing vs trust-sharing boundaries; client env allowlist (machine-enforced) |
+| `security/incident-runbook.md` | Vulnerability intake, severity, solo-maintainer hotfix path, advisory templates |
 
 ## Quality
 
@@ -622,6 +623,9 @@ The following dated files were moved from `docs/architecture/` to
 `docs/audits/` contains dated audit reports (canvas, motion, typography,
 accessibility, platform UX, inference, and more). They are point-in-time
 records; check the current code before acting on their findings.
+
+| `audits/open-pencil/README.md` | Frozen issue-corpus review, verified Varve improvements, evidence limitations, and completion record |
+| `audits/open-pencil/issues-2026-10-20.json` | Machine-readable issue IDs, review ranges, comment counts, and one disposition per frozen issue |
 
 | `audits/plugin-system-evidence-2026-09-25.md` | Baseline reconnaissance, official platform sources, user complaints, and mitigation trail |
 | `audits/plugin-system-validation-2026-09-25.md` | Local plugin scenario results, resource limits, visual evidence, and native hardware gap |

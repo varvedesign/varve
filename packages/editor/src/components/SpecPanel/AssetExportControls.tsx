@@ -34,6 +34,7 @@ import {
   Tooltip,
 } from '@varve/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { notifySuccessfulDemoExport } from '../../analytics/demoExportAnalytics';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { runBatchPreflight } from '../../exportService';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
@@ -524,10 +525,12 @@ export function AssetExportControls({
           const bytes = new TextEncoder().encode(svg);
           const saved = await platform.saveBinaryFile(filename, bytes, 'image/svg+xml', '.svg');
           setMessage(saved ? `Exported ${node.name} as SVG` : 'Export cancelled');
+          notifySuccessfulDemoExport('svg', !saved);
         } else {
           const blob = new Blob([svg], { type: 'image/svg+xml' });
           downloadBlob(blob, filename);
           setMessage(`Downloaded ${node.name} as SVG`);
+          notifySuccessfulDemoExport('svg');
         }
       } else {
         if (!eng) {
@@ -555,11 +558,13 @@ export function AssetExportControls({
               ? `Exported ${node.name} as ${ext.toUpperCase()} at ${formatScaleNumber(exportScale)}x${warningSuffix}`
               : 'Export cancelled',
           );
+          notifySuccessfulDemoExport(format, !saved);
         } else {
           downloadBlob(blob, filename);
           setMessage(
             `Downloaded ${node.name} as ${ext.toUpperCase()} at ${formatScaleNumber(exportScale)}x${warningSuffix}`,
           );
+          notifySuccessfulDemoExport(format);
         }
       }
     } catch (err) {

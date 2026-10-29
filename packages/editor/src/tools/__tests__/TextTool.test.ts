@@ -107,6 +107,78 @@ function makePointerEvent(
   } as unknown as PointerEvent;
 }
 
+describe('TextTool Enter starts editing', () => {
+  let tool: TextTool;
+  const textNode = { id: 't1', kind: 'text' as const, name: 'Text 1' };
+  const rectNode = { id: 'r1', kind: 'shape' as const, name: 'Rect 1' };
+
+  beforeEach(() => {
+    tool = new TextTool();
+  });
+
+  function ctxFor(selection: string[], nodes: Record<string, unknown>, extra = {}) {
+    return makeCtx({
+      selection,
+      document: { nodes, rootChildren: selection, name: 'Test' } as never,
+      getNode: (id: string) => nodes[id] as never,
+      textEditTargetId: null,
+      flushPendingEdits: vi.fn(),
+      setTextEditTargetId: vi.fn(),
+      commitTransaction: vi.fn(),
+      ...extra,
+    });
+  }
+
+  it('begins editing the single selected text layer on Ctrl+Enter', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: false, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(true);
+    expect(ctx.setTextEditTargetId).toHaveBeenCalledWith('t1');
+  });
+
+  it('leaves plain Enter to the layer-rename binding', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode });
+    expect(tool.onKeyDown?.({ key: 'Enter', repeat: false } as KeyboardEvent, ctx)).toBe(false);
+    expect(ctx.setTextEditTargetId).not.toHaveBeenCalled();
+  });
+
+  it('leaves a multi-selection alone: there is no single caret', () => {
+    const ctx = ctxFor(['t1', 't2'], { t1: textNode, t2: { ...textNode, id: 't2' } });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: false, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(false);
+    expect(ctx.setTextEditTargetId).not.toHaveBeenCalled();
+  });
+
+  it('ignores a selection that is not text', () => {
+    const ctx = ctxFor(['r1'], { r1: rectNode });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: false, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(false);
+    expect(ctx.setTextEditTargetId).not.toHaveBeenCalled();
+  });
+
+  it('does not re-enter a session that is already editing', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode }, { textEditTargetId: 't1' });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: false, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(false);
+  });
+
+  it('ignores held-key repeats', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: true, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(false);
+  });
+
+  it('ignores other keys', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode });
+    expect(tool.onKeyDown?.({ key: 'a', repeat: false } as KeyboardEvent, ctx)).toBe(false);
+  });
+});
+
 describe('TextTool', () => {
   let tool: TextTool;
 

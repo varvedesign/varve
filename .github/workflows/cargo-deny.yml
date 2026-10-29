@@ -1,0 +1,40 @@
+# Licence, advisory, ban, and source policy for both Cargo workspaces.
+name: cargo-deny
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: '33 4 * * 1'
+
+concurrency:
+  group: cargo-deny-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.97.1
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        with:
+          tool: cargo-deny@0.20.2
+          checksum: true
+          fallback: none
+      - name: Check engine workspace
+        run: cargo deny --manifest-path Cargo.toml check
+      - name: Check desktop workspace
+        run: cargo deny --manifest-path apps/desktop/src-tauri/Cargo.toml check

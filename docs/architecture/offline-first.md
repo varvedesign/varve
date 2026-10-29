@@ -28,7 +28,7 @@ Status: enforced contract, 2026-08-13.
    dead Apply/Preview buttons are prohibited. The Settings "On-device
    Assistants" section states this; analytics/diagnostics consent lives in
    Privacy.
-4. **AI features are on-device or opt-in downloads.** Background removal,
+4. **AI features are on-device, with downloads only when you ask.** Background removal,
   upscaling, and image tracing run bundled ONNX models or the native engine
   (ADR-0005); remote downloads are explicit user actions with a progress
   surface, never implicit.

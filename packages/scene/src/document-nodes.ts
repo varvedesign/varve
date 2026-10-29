@@ -31,6 +31,29 @@ export function addNode(doc: Document, node: SceneNode): Document {
   };
 }
 
+/**
+ * Append a node to the root paint order **in place**.
+ *
+ * Semantically identical to `addNode`; it differs only in cost. `addNode`
+ * shallow-copies `nodes` and `rootChildren` so callers can keep the previous
+ * document, which is O(n) per call and therefore O(n^2) for a loop that appends
+ * n nodes. Importers build a document they exclusively own and append once per
+ * imported element, so they need the append without the copy.
+ *
+ * Contract: the caller owns `doc`, `doc.nodes` and `doc.rootChildren` and must
+ * not hold a reference to the previous state. Copy them once at the start of
+ * assembly (see `packages/import/src/svg.ts`) and use this for the loop. Any
+ * caller that is not assembling a fresh document must use `addNode`.
+ */
+export function addNodeInPlace(doc: Document, node: SceneNode): NodeId {
+  const index = doc.rootChildren.length;
+  const prev = index > 0 ? doc.nodes[doc.rootChildren[index - 1]!] : null;
+  const order = generateKeyBetween(prev?.order ?? null, null);
+  doc.nodes[node.id] = { ...node, index, order } as SceneNode;
+  doc.rootChildren.push(node.id);
+  return node.id;
+}
+
 /** Insert a node at a specific paint-order index in the root. */
 export function insertNode(doc: Document, node: SceneNode, atIndex: number): Document {
   const next = [...doc.rootChildren];

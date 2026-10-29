@@ -235,6 +235,55 @@ describe('DocumentCodec', () => {
     expect(secondId).toBe(firstId);
   });
 
+  it('keeps per-page geometry and page order across save and reopen', () => {
+    // A document may mix orientations: each page carries its own width and
+    // height, and that is the whole of Varve's page-rotation model. A save
+    // that normalised pages to the first page's size, or reordered them, would
+    // silently re-lay-out a brochure.
+    let doc = createDocument('Mixed pages', {
+      physicalWidth: 612,
+      physicalHeight: 792,
+      documentUnit: 'pt',
+    });
+    const firstPage = doc.pages?.[0];
+    expect(firstPage).toBeDefined();
+    doc = {
+      ...doc,
+      pages: doc.pages?.map((page) =>
+        page.id === firstPage?.id ? { ...page, width: 816, height: 1056 } : page,
+      ),
+    };
+    doc = addPage(doc, { width: 1056, height: 816, name: 'Landscape plate' });
+    doc = addPage(doc, { width: 595, height: 842, name: 'A4 portrait' });
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'landscape-mark',
+        { kind: 'rect', x: 0, y: 0, w: 40, h: 40 },
+        { transform: [1, 0, 0, 1, 900, 120] },
+      ),
+    );
+
+    const encoded = DocumentCodec.encode(doc);
+    const result = DocumentCodec.decode(encoded);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const sizes = result.document.pages?.map((page) => [page.width, page.height]);
+    expect(sizes).toEqual([
+      [816, 1056],
+      [1056, 816],
+      [595, 842],
+    ]);
+    expect(result.document.pages?.map((page) => page.name)).toEqual([
+      firstPage?.name,
+      'Landscape plate',
+      'A4 portrait',
+    ]);
+    const mark = result.document.nodes['landscape-mark'];
+    expect(mark?.transform.slice(4)).toEqual([900, 120]);
+  });
+
   it('decodes, migrates, and validates serialized documents', () => {
     const legacy = {
       id: 'doc-legacy',

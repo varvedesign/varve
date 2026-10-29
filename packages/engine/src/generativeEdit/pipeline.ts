@@ -10,6 +10,7 @@ import {
   extractBoundedContext,
   validateMaskFrameGeometry,
 } from '../contentAwareFill/contextExtraction';
+import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
 import { prepareDiffusionFrame } from './diffusionFrame';
 import { runDeterministicExpandFallback } from './expandFallback';
 import { NATIVE_GENERATIVE_MODEL_PROFILE } from './nativeModel';
@@ -237,6 +238,7 @@ function providerFor(
 export async function runGenerativeEdit(
   request: GenerativeEditRequest,
 ): Promise<GenerativeEditResult> {
+  assertAiFeaturesEnabled();
   const startTime = performance.now();
   const capabilities = getGenerativeEditCapabilities();
   if (!capabilities[request.mode]) {

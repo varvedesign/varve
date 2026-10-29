@@ -133,6 +133,7 @@ test('security.txt is served and points at the security channel', async ({ reque
 
   const body = await response.text();
   expect(body).toContain('Contact: mailto:security@varve.studio');
+  expect(body).toContain('Policy: https://github.com/varvedesign/varve/blob/master/SECURITY.md');
   expect(body).toMatch(/^Expires: \d{4}-\d{2}-\d{2}T/m);
 
   // An expired security.txt is treated as invalid by consumers.
