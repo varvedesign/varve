@@ -22,15 +22,15 @@ test('workspace capability pages keep the six-mode contract and legacy feature U
   expect(workspaceText).toContain('Ctrl+Shift+8');
 
   const capabilityLinks = [
-    { label: /Logo tools in Design/, path: '/features/logo', heading: /Logo tools inside Design/ },
+    { label: /Logo tools in Design/, path: '/features/logo/', heading: /Logo tools inside Design/ },
     {
       label: /Email authoring workflow/,
-      path: '/features/email',
+      path: '/features/email/',
       heading: /A workspace for email authoring/,
     },
     {
       label: /shared Code export/,
-      path: '/features/code',
+      path: '/features/code/',
       heading: /Code export, wherever you work/,
     },
   ];

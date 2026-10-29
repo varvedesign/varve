@@ -22,7 +22,7 @@ test.describe('Effect Studio marketing surface', () => {
     await expect(page.getByText(/sticky section rail jumps/i)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Read the Effect Studio guide' })).toHaveAttribute(
       'href',
-      /\/docs\/tools\/effect-studio$/,
+      /\/docs\/tools\/effect-studio\/$/,
     );
     const screenshots = page.locator('.feature-preview__screenshots img');
     await expect(screenshots).toHaveCount(2);

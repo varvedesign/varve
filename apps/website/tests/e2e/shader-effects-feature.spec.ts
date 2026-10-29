@@ -13,7 +13,7 @@ test.describe('shader effects marketing workflow', () => {
     ).toBeVisible();
     await expect(page.getByRole('link', { name: 'Read the Shader Effects guide' })).toHaveAttribute(
       'href',
-      /\/docs\/tools\/shader-effects$/,
+      /\/docs\/tools\/shader-effects\/$/,
     );
     await page.screenshot({
       path: testInfo.outputPath('shader-effects-feature.png'),
