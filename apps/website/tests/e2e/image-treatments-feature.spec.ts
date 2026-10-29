@@ -16,7 +16,7 @@ test('image treatments explains constrained previews and preserves mobile reflow
   await expect(page.getByText(/active sliders and navigation take priority/i)).toBeVisible();
   await expect(
     page.getByRole('link', { name: /Read how performance modes work/i }),
-  ).toHaveAttribute('href', /\/docs\/performance$/);
+  ).toHaveAttribute('href', /\/docs\/performance\/?$/);
 
   const desktopLayout = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,

@@ -16,7 +16,7 @@ test('plugin feature and guide render without broken images or horizontal overfl
   for (const viewport of viewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto(featureUrl);
-    await expect(page).toHaveURL(new RegExp(`${basePath}/features/plugins$`));
+    await expect(page).toHaveURL(new RegExp(`${basePath}/features/plugins/?$`));
     await expect(
       page.getByRole('heading', { name: 'Useful extensions, with the document in your hands.' }),
     ).toBeVisible();

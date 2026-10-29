@@ -67,7 +67,7 @@ test('desktop and mobile use the same ordered destinations with bounded exact-pa
     ),
   ).toEqual(desktopDestinations);
   await expect(mobile.locator('a[aria-current="page"]')).toHaveCount(0);
-  await expect(page.locator('.site-footer a[href$="/contribute"]').first()).toBeAttached();
+  await expect(page.locator('.site-footer a[href$="/contribute/"]').first()).toBeAttached();
 });
 
 test('desktop disclosure opens by keyboard, closes on Escape, focus exit, and outside click', async ({

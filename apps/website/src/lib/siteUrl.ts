@@ -51,12 +51,41 @@ function isBasePrefixed(path: string, base: string): boolean {
 }
 
 /**
+ * True when the final path segment looks like a file (has an extension).
+ *
+ * Page routes on this site have no extension; assets (`.svg`, `.png`, `.json`,
+ * `.txt`, `.mp4`, `.varve`, …) do. The distinction lets `sitePath` keep asset
+ * URLs byte-identical while making page URLs match the slash form GitHub Pages
+ * serves with a 200.
+ */
+function isAssetPath(pathname: string): boolean {
+  const last = pathname.split('/').pop() ?? '';
+  return last.includes('.');
+}
+
+/**
+ * Append the page trailing slash before any query or fragment suffix.
+ *
+ * `'/docs'` -> `'/docs/'`, `'/docs?x=1'` -> `'/docs/?x=1'`,
+ * `'/docs#top'` -> `'/docs/#top'`. Asset paths, the root, and paths that
+ * already end in a slash are returned unchanged.
+ */
+function withPageSlash(path: string): string {
+  const match = path.match(/^([^?#]*)([?#].*)?$/);
+  if (!match) return path;
+  const pathname = match[1];
+  const suffix = match[2] ?? '';
+  if (!pathname || pathname.endsWith('/') || isAssetPath(pathname)) return path;
+  return `${pathname}/${suffix}`;
+}
+
+/**
  * Base-prefixed relative URL for an internal page or asset.
  *
- * `sitePath('/docs')` -> `/docs` on the production build, `/varve/docs` on
- * the legacy Pages build. External URLs, mailto:/tel:/other schemes,
- * fragments, protocol-relative URLs and already-prefixed paths pass through
- * unchanged.
+ * `sitePath('/docs')` -> `/docs/` on the production build, `/varve/docs/` on
+ * the legacy Pages build. Asset paths keep their extension form. External
+ * URLs, mailto:/tel:/other schemes, fragments, protocol-relative URLs and
+ * already-prefixed paths pass through unchanged.
  *
  * An empty path or the root page maps to the base itself.
  */
@@ -64,11 +93,12 @@ export function sitePath(path: string, base?: string): string {
   if (!path) return baseOf(base ?? import.meta.env.BASE_URL);
   if (NON_LOCAL.test(path)) return path;
   const prefix = baseOf(base ?? import.meta.env.BASE_URL);
-  if (isBasePrefixed(path, prefix)) return path;
+  if (isBasePrefixed(path, prefix)) return withPageSlash(path);
 
   const clean = path.replace(/^\/+/, '');
   // Join and collapse runs of slashes without touching `//` inside a scheme.
-  return (prefix + clean).replace(/([^:])\/+/g, '$1/');
+  const joined = (prefix + clean).replace(/([^:])\/+/g, '$1/');
+  return withPageSlash(joined);
 }
 
 /**
@@ -90,17 +120,19 @@ export function siteUrl(path: string, base?: string, site?: string): string {
  * Resolve the page's own canonical URL from its rendered URL.
  *
  * `Astro.url.pathname` already carries the base path in a base-aware build
- * (`/varve/docs/`), so the canonical is origin + pathname, with the trailing
- * slash removed and the root mapped to the bare base.
+ * (`/varve/docs/`). On GitHub Pages (`build.format: 'directory'`) the served
+ * URL for a page ends in a slash; the slashless form 301s. The canonical must
+ * therefore be origin + pathname with the slash **kept**, not stripped. The
+ * root page maps to the base itself.
  */
 export function canonicalUrl(pathname: string, base?: string, site?: string): string {
-  const trimmed = pathname.replace(/\/+$/, '') || '/';
   const origin = siteOrigin(site);
   const prefix = baseOf(base ?? import.meta.env.BASE_URL);
   const bareBase = prefix === '/' ? '/' : prefix.replace(/\/+$/, '');
+  const clean = pathname.replace(/\/+/g, '/');
   // The root page renders as the base itself (e.g. /varve/) — keep its slash.
-  if (trimmed === bareBase) return `${origin}${prefix}`;
-  return `${origin}${trimmed}`;
+  if (clean === '/' || clean === bareBase || clean === `${bareBase}/`) return `${origin}${prefix}`;
+  return `${origin}${clean.endsWith('/') ? clean : `${clean}/`}`;
 }
 
 /** Absolute URL for the Open Graph / social image. */

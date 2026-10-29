@@ -8,6 +8,10 @@ import { canonicalUrl, ogImageUrl, siteOrigin, sitePath, siteUrl } from '../lib/
  * internal link, asset, canonical URL, sitemap entry and robots location
  * flows through sitePath/siteUrl — these tests pin the normalization rules
  * so a hand-written URL cannot leak back in.
+ *
+ * On GitHub Pages the served form of a page ends in a slash; the slashless
+ * form 301s. Page paths therefore gain the slash, while asset paths with a
+ * file extension stay byte-identical.
  */
 const BASE_VARVE = '/varve';
 const BASE_ROOT = '/';
@@ -15,9 +19,9 @@ const SITE_PAGES = 'https://k-arthur.github.io';
 const SITE_DOMAIN = 'https://varve.studio';
 
 describe('sitePath normalization (project-site mode, base /varve)', () => {
-  it('prefixes root-relative paths with the base', () => {
-    expect(sitePath('/docs', BASE_VARVE)).toBe('/varve/docs');
-    expect(sitePath('/docs/tools/color', BASE_VARVE)).toBe('/varve/docs/tools/color');
+  it('prefixes root-relative page paths with the base and adds the served trailing slash', () => {
+    expect(sitePath('/docs', BASE_VARVE)).toBe('/varve/docs/');
+    expect(sitePath('/docs/tools/color', BASE_VARVE)).toBe('/varve/docs/tools/color/');
     expect(sitePath('/favicon.svg', BASE_VARVE)).toBe('/varve/favicon.svg');
   });
 
@@ -26,10 +30,25 @@ describe('sitePath normalization (project-site mode, base /varve)', () => {
     expect(sitePath('', BASE_VARVE)).toBe('/varve/');
   });
 
-  it('preserves query strings and hash fragments', () => {
-    expect(sitePath('/download?platform=linux', BASE_VARVE)).toBe('/varve/download?platform=linux');
-    expect(sitePath('/docs#top', BASE_VARVE)).toBe('/varve/docs#top');
+  it('adds the page slash before query strings and hash fragments', () => {
+    expect(sitePath('/download?platform=linux', BASE_VARVE)).toBe(
+      '/varve/download/?platform=linux',
+    );
+    expect(sitePath('/docs#top', BASE_VARVE)).toBe('/varve/docs/#top');
     expect(sitePath('#choose-platform', BASE_VARVE)).toBe('#choose-platform');
+  });
+
+  it('keeps asset paths with an extension unchanged', () => {
+    expect(sitePath('/favicon.svg', BASE_VARVE)).toBe('/varve/favicon.svg');
+    expect(sitePath('/search-index.json', BASE_VARVE)).toBe('/varve/search-index.json');
+    expect(sitePath('/llms.txt', BASE_VARVE)).toBe('/varve/llms.txt');
+    expect(sitePath('/samples/varve-poster.varve', BASE_VARVE)).toBe(
+      '/varve/samples/varve-poster.varve',
+    );
+    expect(sitePath('/screenshots/workflow.mp4', BASE_VARVE)).toBe(
+      '/varve/screenshots/workflow.mp4',
+    );
+    expect(sitePath('/og-image.png?v=1', BASE_VARVE)).toBe('/varve/og-image.png?v=1');
   });
 
   it('passes through external URLs and non-HTTP schemes untouched', () => {
@@ -41,19 +60,20 @@ describe('sitePath normalization (project-site mode, base /varve)', () => {
     expect(sitePath('//cdn.example.com/app.js', BASE_VARVE)).toBe('//cdn.example.com/app.js');
   });
 
-  it('never double-prefixes an already base-prefixed path', () => {
-    expect(sitePath('/varve/docs', BASE_VARVE)).toBe('/varve/docs');
+  it('adds the page slash to an already base-prefixed page path', () => {
+    expect(sitePath('/varve/docs', BASE_VARVE)).toBe('/varve/docs/');
     expect(sitePath('/varve/', BASE_VARVE)).toBe('/varve/');
+    expect(sitePath('/varve/favicon.svg', BASE_VARVE)).toBe('/varve/favicon.svg');
   });
 
-  it('collapses duplicate slashes inside the joined path', () => {
-    expect(sitePath('docs//tools', BASE_VARVE)).toBe('/varve/docs/tools');
+  it('collapses duplicate slashes and then adds the page slash', () => {
+    expect(sitePath('docs//tools', BASE_VARVE)).toBe('/varve/docs/tools/');
   });
 });
 
 describe('sitePath normalization (production mode, base /)', () => {
-  it('keeps root-relative paths at the root', () => {
-    expect(sitePath('/docs', BASE_ROOT)).toBe('/docs');
+  it('keeps root-relative paths at the root and adds the page slash', () => {
+    expect(sitePath('/docs', BASE_ROOT)).toBe('/docs/');
     expect(sitePath('/favicon.svg', BASE_ROOT)).toBe('/favicon.svg');
     expect(sitePath('/', BASE_ROOT)).toBe('/');
   });
@@ -61,7 +81,7 @@ describe('sitePath normalization (production mode, base /)', () => {
 
 describe('siteUrl absolute URLs', () => {
   it('joins origin and base for absolute metadata URLs (legacy Pages mode)', () => {
-    expect(siteUrl('/docs', BASE_VARVE, SITE_PAGES)).toBe('https://k-arthur.github.io/varve/docs');
+    expect(siteUrl('/docs', BASE_VARVE, SITE_PAGES)).toBe('https://k-arthur.github.io/varve/docs/');
     expect(siteUrl('/og-image.png', BASE_VARVE, SITE_PAGES)).toBe(
       'https://k-arthur.github.io/varve/og-image.png',
     );
@@ -69,7 +89,7 @@ describe('siteUrl absolute URLs', () => {
   });
 
   it('uses the root on the production build', () => {
-    expect(siteUrl('/docs', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.studio/docs');
+    expect(siteUrl('/docs', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.studio/docs/');
   });
 
   it('returns fully-qualified URLs unchanged', () => {
@@ -78,20 +98,24 @@ describe('siteUrl absolute URLs', () => {
 });
 
 describe('canonicalUrl from a rendered pathname', () => {
-  it('strips trailing slashes and maps the root to the base (legacy Pages mode)', () => {
+  it('keeps the served trailing slash and maps the root to the base (legacy Pages mode)', () => {
     expect(canonicalUrl('/varve/docs/', BASE_VARVE, SITE_PAGES)).toBe(
-      'https://k-arthur.github.io/varve/docs',
+      'https://k-arthur.github.io/varve/docs/',
     );
     expect(canonicalUrl('/varve/', BASE_VARVE, SITE_PAGES)).toBe(
       'https://k-arthur.github.io/varve/',
     );
     expect(canonicalUrl('/varve/download/', BASE_VARVE, SITE_PAGES)).toBe(
-      'https://k-arthur.github.io/varve/download',
+      'https://k-arthur.github.io/varve/download/',
+    );
+    expect(canonicalUrl('/varve/docs', BASE_VARVE, SITE_PAGES)).toBe(
+      'https://k-arthur.github.io/varve/docs/',
     );
   });
 
-  it('is root-relative on the production build', () => {
-    expect(canonicalUrl('/docs/', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.studio/docs');
+  it('keeps the served trailing slash on the production build', () => {
+    expect(canonicalUrl('/docs/', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.studio/docs/');
+    expect(canonicalUrl('/docs', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.studio/docs/');
     expect(canonicalUrl('/', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.studio/');
   });
 });

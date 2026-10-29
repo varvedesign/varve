@@ -39,7 +39,7 @@ test('clipboard feature page remains usable at mobile width', async ({ page }, t
   // destination rather than one label string.
   const downloadCta = page.locator('[data-download-cta]:visible').first();
   await expect(downloadCta).toBeVisible();
-  await expect(downloadCta).toHaveAttribute('href', /\/download$/);
+  await expect(downloadCta).toHaveAttribute('href', /\/download\/?$/);
   await page.screenshot({
     path: testInfo.outputPath('clipboard-feature-mobile.png'),
     fullPage: true,

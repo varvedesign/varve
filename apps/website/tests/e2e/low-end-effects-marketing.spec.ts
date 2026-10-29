@@ -19,7 +19,7 @@ test('enhancement claims and responsive help work on both deployment base paths'
   await expect(page.getByText(/reopening that document does not need the model/i)).toBeVisible();
   const helpLink = page.getByRole('link', { name: 'Read the model and memory guide' });
   const helpPath = new URL((await helpLink.getAttribute('href'))!, page.url()).pathname;
-  expect(helpPath).toBe(`${basePath}/docs/tools/image-enhancement`);
+  expect(helpPath).toBe(`${basePath}/docs/tools/image-enhancement/`);
   await expect(page.locator('.model-install-grid')).toBeVisible();
   await expect
     .poll(() =>
@@ -56,7 +56,7 @@ test('enhancement claims and responsive help work on both deployment base paths'
   });
 
   await helpLink.click();
-  await expect(page).toHaveURL(new RegExp(`${basePath}/docs/tools/image-enhancement$`));
+  await expect(page).toHaveURL(new RegExp(`${basePath}/docs/tools/image-enhancement/?$`));
   await expect(page.getByRole('heading', { name: 'Models and memory' })).toBeVisible();
   await expect(
     page.getByText(/Cancellation remains in progress until the reader has stopped/i),
@@ -69,6 +69,6 @@ test('enhancement claims and responsive help work on both deployment base paths'
   await expect(page.getByText(/physical Duet touch\/pen/i)).toBeVisible();
   const chromebookLink = page.getByRole('link', { name: 'Chromebook route guide' });
   expect(new URL((await chromebookLink.getAttribute('href'))!, page.url()).pathname).toBe(
-    `${basePath}/docs/chromebook`,
+    `${basePath}/docs/chromebook/`,
   );
 });

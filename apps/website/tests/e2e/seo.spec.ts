@@ -156,14 +156,14 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
     const canonical = new URL(meta.canonical!);
     expect(KNOWN_ORIGINS, `${route}: canonical origin`).toContain(canonical.origin);
     // In the ghpages build the canonical carries a /varve base prefix that
-    // the page URL does not, so check the canonical path ends with the route.
+    // the page URL does not, and the served page URL ends with a slash, so
+    // check the canonical path ends with the served route form.
     const routePath = new URL(page.url()).pathname.replace(/\/+$/, '') || '/';
-    const routeSuffix = routePath === '/' ? '/' : routePath;
+    const expectedSuffix = routePath === '/' ? '/' : `${routePath}/`;
     const canonicalPath = canonical.pathname;
     expect(
-      canonicalPath.indexOf(routeSuffix) === canonicalPath.length - routeSuffix.length ||
-        (routeSuffix === '/' && canonicalPath === `${canonicalPath.replace(/\/+$/, '')}/`),
-      `${route}: canonical path ends with visited route`,
+      canonicalPath.endsWith(expectedSuffix),
+      `${route}: canonical path ends with the served route`,
     ).toBe(true);
 
     expect(meta.ogUrl, `${route}: og:url`).toBe(meta.canonical);
@@ -208,7 +208,7 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
       const canonicalRoot = meta.canonical!;
       expect(software?.url, `${route}: software url`).toBe(canonicalRoot);
       expect(software?.downloadUrl, `${route}: software downloadUrl`).toBe(
-        new URL('download', canonicalRoot).toString().replace(/\/$/, ''),
+        new URL('download/', canonicalRoot).toString(),
       );
       expect(software?.image, `${route}: software image`).toMatch(/\/brand\/varve-icon\.svg$/);
     }

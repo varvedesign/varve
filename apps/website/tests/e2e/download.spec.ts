@@ -332,15 +332,15 @@ test('platform shortcut routes redirect to the download tab', async ({ browser }
   const page = await context.newPage();
 
   await page.goto('/linux');
-  await expect(page).toHaveURL(/\/download#platform-linux/);
+  await expect(page).toHaveURL(/\/download\/?#platform-linux/);
   await expect(page.locator('#platform-tab-linux')).toHaveAttribute('aria-selected', 'true');
 
   await page.goto('/windows');
-  await expect(page).toHaveURL(/\/download#platform-windows/);
+  await expect(page).toHaveURL(/\/download\/?#platform-windows/);
   await expect(page.locator('#platform-tab-windows')).toHaveAttribute('aria-selected', 'true');
 
   await page.goto('/mac');
-  await expect(page).toHaveURL(/\/download#platform-macos/);
+  await expect(page).toHaveURL(/\/download\/?#platform-macos/);
   await expect(page.locator('#platform-tab-macos')).toHaveAttribute('aria-selected', 'true');
 
   await page.goto('/install');
@@ -563,12 +563,12 @@ test('after-install section links a downloadable sample document and tutorials',
 
   await expect(
     page.locator('#after-install').getByRole('link', { name: 'first-project guide' }),
-  ).toHaveAttribute('href', /\/docs\/getting-started\/first-project$/);
+  ).toHaveAttribute('href', /\/docs\/getting-started\/first-project\/?$/);
 
   // Troubleshooting links resolve to existing pages.
   await expect(
     page.locator('#troubleshoot-help').getByRole('link', { name: 'Troubleshooting guide' }),
-  ).toHaveAttribute('href', /\/support\/troubleshooting$/);
+  ).toHaveAttribute('href', /\/support\/troubleshooting\/?$/);
 
   await context.close();
 });

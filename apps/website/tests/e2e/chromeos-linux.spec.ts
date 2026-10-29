@@ -78,18 +78,18 @@ test('Linux download surfaces link to the ChromeOS guide', async ({ page, browse
   await expect(
     linuxSection.locator('.distro-table').getByText('ChromeOS (Linux development environment)'),
   ).toBeVisible();
-  await expect(linuxSection.locator('a[href$="/docs/chromeos-linux"]').first()).toBeVisible();
+  await expect(linuxSection.locator('a[href$="/docs/chromeos-linux/"]').first()).toBeVisible();
   await context.close();
 
   await page.goto('/docs/getting-started');
-  await expect(page.locator('a[href$="/docs/chromeos-linux"]').first()).toBeVisible();
+  await expect(page.locator('a[href$="/docs/chromeos-linux/"]').first()).toBeVisible();
 
   await page.goto('/support/troubleshooting');
-  await expect(page.locator('a[href$="/docs/chromeos-linux"]').first()).toBeVisible();
+  await expect(page.locator('a[href$="/docs/chromeos-linux/"]').first()).toBeVisible();
   await expect(page.getByRole('heading', { name: /ChromeOS/ }).first()).toBeVisible();
 
   await page.goto('/docs');
-  await expect(page.locator('a[href$="/docs/chromeos-linux"]').first()).toBeVisible();
+  await expect(page.locator('a[href$="/docs/chromeos-linux/"]').first()).toBeVisible();
 });
 
 test('the guide route is discoverable from the sitemap', async ({ request }) => {

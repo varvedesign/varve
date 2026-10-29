@@ -71,7 +71,7 @@ test('mobile menu closes after choosing a destination', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/');
   await page.locator('.mobile-menu-toggle').click();
-  await page.locator('.mobile-nav-dialog a[href$="/download"]').first().click();
+  await page.locator('.mobile-nav-dialog a[href$="/download/"]').first().click();
   await expect(page).toHaveURL(/\/download/);
   await expect(page.locator('.mobile-nav-dialog')).not.toHaveAttribute('open', '');
 });

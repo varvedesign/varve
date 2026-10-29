@@ -18,7 +18,7 @@ test.describe('colorization marketing and documentation', () => {
     await expect(page.getByText(/no source image is uploaded as a fallback/i)).toBeVisible();
     await expect(
       page.getByRole('link', { name: /Read the Colorize workflow guide/i }),
-    ).toHaveAttribute('href', /\/docs\/tools\/colorization$/);
+    ).toHaveAttribute('href', /\/docs\/tools\/colorization\/?$/);
     await page.screenshot({
       path: testInfo.outputPath('colorization-feature.png'),
       fullPage: true,
@@ -49,7 +49,7 @@ test.describe('colorization marketing and documentation', () => {
     await page.goto('/docs');
     await expect(page.getByRole('link', { name: 'Colorize & Recolor' })).toHaveAttribute(
       'href',
-      /\/docs\/tools\/colorization$/,
+      /\/docs\/tools\/colorization\/?$/,
     );
 
     await page.goto('/docs/tools/colorization');

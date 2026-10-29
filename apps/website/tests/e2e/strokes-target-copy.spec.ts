@@ -109,10 +109,10 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
 
   const guide = page.getByRole('link', { name: 'Read the stroke guide' });
   const guidePath = await guide.getAttribute('href');
-  expect(guidePath).toBe(`${basePath}/docs/tools/strokes`);
+  expect(guidePath).toBe(`${basePath}/docs/tools/strokes/`);
   await expect(page.getByRole('link', { name: 'Read the Object Selection guide' })).toHaveAttribute(
     'href',
-    `${basePath}/docs/tools/object-selection`,
+    `${basePath}/docs/tools/object-selection/`,
   );
   await guide.click();
   await expect(page.getByRole('heading', { name: 'Strokes', exact: true })).toBeVisible();
@@ -160,7 +160,7 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
   const productStrokeLink = page.getByRole('link', {
     name: 'See the verified strokes, flats, references, and clipped-shading workflows',
   });
-  await expect(productStrokeLink).toHaveAttribute('href', `${basePath}/features/strokes`);
+  await expect(productStrokeLink).toHaveAttribute('href', `${basePath}/features/strokes/`);
   await expect(page.getByText(/sampling and export inclusion separately/i)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('product-dark-mobile.png'), fullPage: true });
 

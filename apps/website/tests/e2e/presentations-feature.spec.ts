@@ -14,7 +14,7 @@ test('feature and guide are searchable and linked under both site base paths', a
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await page.goto(route(baseURL, 'features'));
   await page.getByRole('link', { name: 'Presentation authoring in Design' }).click();
-  await expect(page).toHaveURL(/\/features\/presentations$/);
+  await expect(page).toHaveURL(/\/features\/presentations\/?$/);
   await expect(page.locator('.status-pill-experimental')).toContainText(
     /Source-build preview|Experimental · v\d+\.\d+\.\d+/,
   );
@@ -31,7 +31,7 @@ test('feature and guide are searchable and linked under both site base paths', a
   }
   await expect(page.getByRole('link', { name: 'Read the presentation guide' })).toHaveAttribute(
     'href',
-    /\/docs\/presentations$/,
+    /\/docs\/presentations\/?$/,
   );
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
