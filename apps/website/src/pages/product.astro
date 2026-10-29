@@ -1,10 +1,41 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { sitePath } from '../lib/siteUrl';
+import { siteOrigin, sitePath, siteUrl } from '../lib/siteUrl';
 import ClosingCTA from '../components/ClosingCTA.astro';
+import release from '../data/release-manifest.json';
+
+/**
+ * SoftwareApplication JSON-LD for the product overview — the definition-side
+ * counterpart to the discovery schema on / and the download-oriented schema
+ * on /download (each with its own @id). The visible page states the license,
+ * the free Community Edition, and the platforms, so the schema mirrors that
+ * content; softwareVersion derives from the verified release manifest.
+ */
+const productSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  '@id': `${siteUrl('/product')}#software`,
+  name: 'Varve',
+  applicationCategory: 'DesignApplication',
+  operatingSystem: 'Linux, macOS, Windows',
+  description:
+    'Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print production, running natively on Linux, macOS, and Windows.',
+  ...(release.version ? { softwareVersion: release.version } : {}),
+  license: 'FSL-1.1-MIT',
+  url: siteUrl('/product'),
+  downloadUrl: siteUrl('/download'),
+  image: siteUrl('/brand/varve-icon.svg'),
+  publisher: { '@id': `${siteOrigin()}#organization` },
+  isAccessibleForFree: true,
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+};
 ---
 
-<Layout title="What is Varve?" description="Varve is a local-first design suite with six task workspaces: Design, Print, Draw, Photo, Motion, and Email. Logo tools live in Design and shared Code export works across the suite.">
+<Layout title="What is Varve?" description="Varve is a local-first design suite with six task workspaces: Design, Print, Draw, Photo, Motion, and Email — one document model, no account, no subscription." structuredData={productSchema}>
   <div class="container-custom">
     <div class="product-page">
       <h1 class="page-hero-title">What is Varve?</h1>
@@ -237,7 +268,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         </p>
         <ul>
           <li><strong>Critical production deadlines:</strong> expect bugs, incomplete tools, and workflow changes. Keep backups and test before relying on it for paid work.</li>
-          <li><strong>Teams needing real-time collaboration:</strong> collaboration is not implemented — this is a single-user tool today.</li>
+          <li><strong>Teams needing always-on hosted collaboration:</strong> real-time collaboration is in public beta and not part of the v0.5.1 installers yet — you host the room yourself (desktop loopback or the standalone room server), there is no Varve-operated service, and sessions are not end-to-end encrypted.</li>
           <li><strong>Complex-script text:</strong> the engine has a canonical UAX #9 + paragraph layout pipeline (itemization, line breaking, visual run order, caret geometry), but live Canvas2D shaping and export parity for Arabic, Hebrew, Devanagari, Thai, and similar scripts remains in development.</li>
           <li><strong>Intel Macs:</strong> macOS builds target Apple Silicon only. The on-device AI depends on the ONNX Runtime, whose upstream discontinued Intel macOS binaries, and Apple has ended new Intel macOS support.</li>
         </ul>

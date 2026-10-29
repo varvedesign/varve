@@ -22,7 +22,7 @@ const faqs = [
   },
   {
     q: 'Is Varve a Figma alternative?',
-    a: "It's a genuine alternative for vector, layout, typography, and prototyping work, with the opposite storage model: Varve documents are local files with no account required, where Figma is browser-based and built around real-time multi-user collaboration. Varve also runs natively on Linux, which Figma does not. Varve does not have real-time collaboration yet, so if that's central to your workflow, it isn't a drop-in replacement today.",
+    a: "It's a genuine alternative for vector, layout, typography, and prototyping work, with the opposite storage model: Varve documents are local files with no account required, where Figma is browser-based and built around real-time multi-user collaboration. Varve also runs natively on Linux, which Figma does not. Varve's real-time collaboration is in public beta and not part of the v0.5.1 installers yet (it ships with the next release), so if always-on hosted collaboration is central to your workflow, this is not a drop-in replacement today.",
   },
   {
     q: 'Is Varve like Adobe Illustrator?',
@@ -94,7 +94,7 @@ const faqSchema = {
           </div>
           <div class="spec-row" role="row">
             <span class="spec-key" role="columnheader">Collaboration</span>
-            <span class="spec-val" role="cell">Not implemented yet — UI scaffolding only, single-user today.</span>
+            <span class="spec-val" role="cell">In public beta in the source tree, but not in the v0.5.1 installers yet — it ships with the next release. You host the room: loopback from the desktop app or the standalone room server, with ordered property-level sync, live cursors, cursor chat, and spotlight. Not end-to-end encrypted.</span>
           </div>
           <div class="spec-row" role="row">
             <span class="spec-key" role="columnheader">Maturity</span>
@@ -153,7 +153,7 @@ const faqSchema = {
               </tr>
               <tr>
                 <th scope="row">Collaboration</th>
-                <td>Single-user</td>
+                <td>Real-time (beta)</td>
                 <td>Real-time</td>
                 <td>File-based</td>
                 <td>File-based</td>
@@ -183,7 +183,7 @@ const faqSchema = {
           <div class="from-card">
             <h3>Figma</h3>
             <p class="from-what">Browser-based, built around real-time multi-user collaboration and UI design workflows.</p>
-            <p class="from-diff"><strong>Varve differs:</strong> a native desktop app with documents as local files, no account — and it runs natively on Linux, which Figma does not. No real-time collaboration yet.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> a native desktop app with documents as local files, no account — and it runs natively on Linux, which Figma does not. Real-time collaboration is in public beta, but not part of the v0.5.1 installers yet.</p>
           </div>
           <div class="from-card">
             <h3>Adobe Illustrator</h3>

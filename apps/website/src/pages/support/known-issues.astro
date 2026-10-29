@@ -97,10 +97,10 @@ const issues: KnownIssue[] = [
     category: 'Typography',
   },
   {
-    title: 'Collaboration is UI scaffolding only',
+    title: 'Real-time collaboration is not in the v0.5.1 installers',
     status: 'experimental',
-    description: 'Collaboration features (PresenceIndicator, CollabCursorOverlay) are UI scaffolding with no transport or wire protocol. Real-time collaboration does not work.',
-    workaround: 'Use version control (git) for collaboration.',
+    description: 'The collaboration implementation — host a room from the desktop app (loopback) or run the standalone room server, with ordered property-level operations, live cursors, cursor chat, and spotlight follow — is in public beta in the source tree and ships with the next release; the v0.5.1 installers do not include it. Sessions are not end-to-end encrypted (the room server stores documents in plaintext), a loopback session is not an internet invite, and undo in a shared session reverses only your own eligible edits.',
+    workaround: 'Until the next release, collaborate through shared files and version control. See docs/architecture/collaboration-system.md for the implementation and its limits.',
     category: 'Collaboration',
   },
   {

@@ -37,7 +37,9 @@ const downloadSchema = release.hasRelease
       ...(release.version ? { softwareVersion: release.version } : {}),
       ...(release.releaseDate ? { datePublished: release.releaseDate } : {}),
       downloadUrl: release.releaseUrl,
-      releaseNotes: siteUrl('/releases'),
+      // /releases is a noindex redirect alias; schema consumers get the
+      // canonical changelog page instead.
+      releaseNotes: siteUrl('/changelog'),
       license: 'FSL-1.1-MIT',
       isAccessibleForFree: true,
       offers: {

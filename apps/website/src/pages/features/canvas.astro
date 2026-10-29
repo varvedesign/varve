@@ -5,7 +5,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Canvas & Rendering" description="Varve's canvas: infinite canvas with culling, sticky snap, rulers, guides, grids, view rotation, multi-page documents, and a live minimap, rendered by a native Rust engine.">
+<Layout title="Canvas & Rendering" description="Varve's canvas: infinite canvas with culling, sticky snap, rulers, guides, grids, view rotation, multi-page documents, and a live minimap.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -291,7 +291,7 @@ import { sitePath } from '../../lib/siteUrl';
           <p><strong>Current limitations:</strong></p>
           <ul>
             <li>Some legacy integrations still expose world-space values; use the artboard-local conversion helpers for page-aware tools and exports</li>
-            <li>Collaboration features are UI scaffolding only (no transport or wire protocol)</li>
+            <li>Real-time collaboration is in public beta and not part of the v0.5.1 installers yet: a session runs on a room you host (desktop loopback or your own server), and sessions are not end-to-end encrypted</li>
             <li>Responsive behavior is validated in automated Chromium viewports; physical display scaling, compositor scheduling, and unusually large documents can change the observed frame time</li>
           </ul>
         </div>

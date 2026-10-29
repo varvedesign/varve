@@ -1,6 +1,6 @@
 # Varve
 
-> Varve is a free, local-first desktop design suite for vector graphics, page layout, typography, motion, prototyping, and print production. It runs natively on Linux, macOS, and Windows. No account is required, no subscription is needed, and core editing works offline. Source-available under FSL-1.1-MIT; each release converts to MIT after two years. Currently in public beta.
+> Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print production, running natively on Linux, macOS, and Windows. No account is required, no subscription is needed, and core editing works offline. Free and source-available under FSL-1.1-MIT; each release converts to MIT after two years. Currently in public beta.
 
 ## What Varve is
 
@@ -10,12 +10,12 @@
 - It is free with no subscription and no feature lockouts. Only the Community Edition exists today.
 - Desktop builds use a native Rust engine; the same engine compiles to WASM for the experimental browser demo at [/try](try/), which is a bounded sample-document experience rather than a hosted replacement for the desktop app.
 
-## Release status (verified against the published release on 2026-10-09)
+## Release status (verified against the published release on 2026-10-15)
 
-- Status: public beta. The latest **published** application release is **Varve 0.5.0**, published 2026-10-09; the first public release was **0.1.0**. Installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon DMG), and Windows (x86_64 and ARM64 NSIS installers). Windows and macOS installers are not code-signed; the macOS DMG is not notarized. The release includes SHA-256 checksums, SBOMs, and GitHub build provenance. Its signed updater feed covers writable Linux AppImage, Windows NSIS, and installed Apple Silicon macOS apps; deb/rpm installs update manually.
-- Version **0.5.0** is available from the official [GitHub release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0) and the download page. Verify the downloaded installer against the published checksum before running it.
+- Status: public beta. The latest **published** application release is **Varve 0.5.1**, published 2026-10-15; the first public release was **0.1.0**. Installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon DMG), and Windows (x86_64 and ARM64 NSIS installers). Windows installers are not code-signed; macOS bundles are ad-hoc signed so Gatekeeper opens them, but they are not Developer ID-signed or notarized. The release includes SHA-256 checksums, SBOMs, and GitHub build provenance. Its signed updater feed covers writable Linux AppImage, Windows NSIS, and installed Apple Silicon macOS apps; deb/rpm installs update manually.
+- Version **0.5.1** is available from the official [GitHub release](https://github.com/varvedesign/varve/releases/tag/v0.5.1) and the download page. Verify the downloaded installer against the published checksum before running it.
 - The download page renders every artifact from the verified release manifest (SHA-256 checksums, SBOMs, system requirements); nothing is hand-typed.
-- The document format (`.varve`) is versioned. Published v0.2.1 wrote schema 2.21; v0.5.0 writes schema 2.33 and migrates older documents on open, including a pointed comic-balloon tail correction. Newer documents are not backward-compatible with older app versions, so keep backups. Documents saved by pre-release builds with the legacy `.strata` extension remain openable through the versioned migration pipeline.
+- The document format (`.varve`) is versioned. Published v0.2.1 wrote schema 2.21; v0.5.1 writes schema 2.33 and migrates older documents on open, including a pointed comic-balloon tail correction. Newer documents are not backward-compatible with older app versions, so keep backups. Documents saved by pre-release builds with the legacy `.strata` extension remain openable through the versioned migration pipeline.
 - Downloads labeled "Varve" outside the official GitHub repository are not official.
 
 ## Platforms and system requirements
@@ -24,7 +24,7 @@
 - macOS: Apple Silicon (aarch64), macOS 13 Ventura or later. No Intel build.
 - Windows: 10 (1809) or 11. x86_64 and ARM64 NSIS installers.
 - Minimum 4 GB RAM (8 GB recommended), 500 MB storage.
-- macOS and Windows releases are not yet code-signed. Linux artifacts ship with SHA-256 checksums, an SBOM, and GitHub build provenance.
+- Windows installers are not code-signed. macOS bundles are ad-hoc signed (Gatekeeper opens them) but are not Developer ID-signed or notarized. Linux artifacts ship with SHA-256 checksums, an SBOM, and GitHub build provenance.
 - ChromeOS is not a supported native platform. Several routes are documented: the browser demo, an installed web app, and Linux packages through ChromeOS's Linux environment. None has been verified on physical Chromebook hardware.
 
 ## Key facts (feature status)
@@ -33,30 +33,30 @@
 - Export formats: SVG, PDF (RGB), PDF/X-1a and PDF/X-4 (CMYK), PNG/WebP/JPEG, code export (React/Tailwind, React/CSS Modules, Svelte, Vue, Web Components, Flutter, SwiftUI, email HTML), and CSS/Lottie/SVG animation. MP4/WebM video export is capability-gated on the platform's WebCodecs support.
 - Print support: CMYK color management, ICC profiles, crop and registration marks, color bars, bleed boxes, print preflight checks.
 - Typography: multi-line text, OpenType features, variable fonts, text on path, inline editing, CJK line breaking. Complex-script shaping and bidirectional layout are implemented in the text engine, but the live canvas still falls back to browser measurement in places, so Arabic, Devanagari, Thai, and similar scripts are not yet guaranteed to match across fonts and exports — verify the exported result.
-- Collaboration: not implemented (UI scaffolding only).
-- Motion: timeline animation, keyframes, easing, Smart Animate, and prototype interactions. State-machine types and runtime exist in the document model, but there is no state-machine inspector, rigging, or IK yet.
+- Collaboration: real-time collaboration is implemented and in public beta — but not part of the v0.5.1 installers; it ships with the next release. Local-first editing needs no account: host a room from the desktop app (loopback on your machine) or run the standalone room server you control. Participants apply an ordered sequence of validated, property-level operations with live cursors, selections, cursor chat, and spotlight follow. Sessions are not end-to-end encrypted (the room server stores documents in plaintext); a loopback session is not an internet invite; in a shared session, undo reverses only your own eligible edits. Limits: [collaboration system](https://github.com/varvedesign/varve/blob/master/docs/architecture/collaboration-system.md), [self-hosting guide](https://github.com/varvedesign/varve/blob/master/docs/architecture/collaboration-self-hosting.md).
+- Motion: timeline animation, keyframes, easing, Smart Animate, and prototype interactions. Motion is still in public beta. State-machine types and runtime exist in the document model, but there is no state-machine inspector, rigging, or IK yet.
 - Image tracing: raster-to-vector tracing (silhouette, centerline, pixel-art modes) with a native Rust provider on desktop and a TypeScript fallback on web; centerline is native-only.
 - Illustration and comics: brush opacity/flow, stylus pressure, separable flats and clipped shading, panel layouts, and editable speech/thought/shout balloons with localization-aware lettering.
 - Photo: adjustments, retouching, tracing, masks, colorization, depth-aware effects, and a documented RAW/HDR development subset. Model-based features may require optional downloads.
-- Local intelligence: background removal, image enhancement, object selection, depth blur, and palette extraction run locally. Models download only when requested, with SHA-256 verification where available; there is no Varve-hosted inference service.
+- Local intelligence: background removal, image enhancement, object selection, depth blur, and palette extraction run locally. Generative Edit (mask-guided Fill, Remove, and Expand on one selected image) is available; Replace and prompt-conditioned modes stay gated until a qualified local model exists. AI features are on in Settings by default and can be turned off. Models download only when requested, with SHA-256 verification where available; there is no Varve-hosted inference service.
 
-### Included in the published 0.5.0 release
+### Included in the published 0.5.1 release
 
 - Six task workspaces (Design, Print, Draw, Photo, Motion, Email) with docked, floating, and split panels.
 - Presentation decks: ordered editable frames with audience preview and raster PDF or PNG delivery. The PDF is not editable or searchable and has no tagged reading order.
 - Reusable pattern authoring, manual token import/re-import, and bounded local Wasm plugins for selected-layer analysis and batch renaming.
-- Mockups (planar, perspective, cylindrical, and folded-mesh). Interactive real-time collaboration is still not implemented.
+- Mockups (planar, perspective, cylindrical, and folded-mesh). Real-time collaboration is not part of the v0.5.1 release; it is in public beta in the source tree and ships with the next release.
 
 ## Frequently asked questions
 
 - Is Varve free? Yes. The Community Edition is free to download and use — no subscriptions, no feature lockouts, and no mandatory cloud requirements.
 - Does Varve work offline? Yes. Core editing works fully offline with no account required. Optional network features (model downloads, font search, update checks) are each explicit and user-controlled.
 - Is Varve open source? The source is publicly available under FSL-1.1-MIT, a source-available license that is not OSI-approved open source. After two years, each release converts to the MIT license.
-- Does Varve have real-time collaboration? Not yet. Collaboration is UI scaffolding only, with no transport or wire protocol.
+- Does Varve have real-time collaboration? Yes, in public beta (not in the v0.5.1 installers yet — it ships with the next release). Host a room from the desktop app (loopback on your machine) or run the standalone room server you control; participants apply ordered validated property-level operations with live cursors, cursor chat, and spotlight follow. Sessions are not end-to-end encrypted (the room server stores documents in plaintext), a loopback session is not an internet invite, and undo reverses only your own eligible edits. See the [collaboration system docs](https://github.com/varvedesign/varve/blob/master/docs/architecture/collaboration-system.md).
 - Can I use Varve for professional print work? It has CMYK management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and preflight checks, but it is in public beta — test thoroughly before critical production use.
 - Does Varve support ARM processors? Yes. Apple Silicon (macOS), Linux ARM64, and Windows ARM64 are all published. There is no Intel macOS build.
-- Has Varve shipped a release? Yes: the latest published application release is Varve 0.5.0 (2026-10-09), public beta, with Linux (x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64) installers. Expect rough edges and a versioned file format. The separate `varve-models-v1` release contains optional AI model artifacts, not an application installer.
-- Can I download version 0.5.0? Yes. Download it from [varve.studio/download](download) or the [official GitHub release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0), then verify the checksum before running the installer.
+- Has Varve shipped a release? Yes: the latest published application release is Varve 0.5.1 (2026-10-15), public beta, with Linux (x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64) installers. Expect rough edges and a versioned file format. The separate `varve-models-v1` release contains optional AI model artifacts, not an application installer.
+- Can I download version 0.5.1? Yes. Download it from [varve.studio/download](download) or the [official GitHub release](https://github.com/varvedesign/varve/releases/tag/v0.5.1), then verify the checksum before running the installer.
 
 ## Documentation
 
@@ -121,4 +121,4 @@ as capacity allows — there is no 24/7 support desk.
 - [Security](security)
 - [Press and brand assets](press)
 - [Contribute](contribute)
-- [Releases](releases)
+- [Changelog](changelog)

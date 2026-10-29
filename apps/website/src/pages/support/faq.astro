@@ -16,7 +16,7 @@ const releaseDateStr = release.releaseDate
 //
 // Note: Google retired FAQ rich results from Search on 2026-05-07, so this is
 // not a results-dropdown mechanism anymore. It is retained for answer engines
-// and AI citation, and `faqParity.test.ts` guards question-level drift.
+// and AI citation, and `faqDisclosure.test.ts` guards question-level drift.
 const faqSchema = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -82,7 +82,7 @@ const faqSchema = {
       name: 'Does Varve have real-time collaboration?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Not yet. Collaboration features are currently UI scaffolding only with no transport or wire protocol. This is planned for future development.',
+        text: 'Yes, in public beta (not in the v0.5.1 installers yet — it ships with the next release). Local-first editing needs no account: host a room from the desktop app (loopback on your machine) or run the standalone room server you control. Participants apply an ordered sequence of validated, property-level operations with live cursors, cursor chat, and spotlight follow. Sessions are not end-to-end encrypted (the room server stores documents in plaintext), a loopback session is not an internet invite, and undo reverses only your own eligible edits. See the collaboration architecture document (docs/architecture/collaboration-system.md) for the remaining limits.',
       },
     },
     {
@@ -331,7 +331,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">Does Varve have real-time collaboration?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>Not yet. Collaboration features are currently UI scaffolding only with no transport or wire protocol. This is planned for future development.</p>
+            <p>Yes, in public beta (not in the v0.5.1 installers yet — it ships with the next release). Local-first editing needs no account: host a room from the desktop app (loopback on your machine) or run the standalone room server you control. Participants apply an ordered sequence of validated, property-level operations with live cursors, cursor chat, and spotlight follow. Sessions are not end-to-end encrypted (the room server stores documents in plaintext), a loopback session is not an internet invite, and undo reverses only your own eligible edits. See the <a href="https://github.com/varvedesign/varve/blob/master/docs/architecture/collaboration-system.md">collaboration architecture document</a> for the remaining limits.</p>
           </div>
         </details>
 

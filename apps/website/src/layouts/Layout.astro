@@ -3,7 +3,7 @@ import '../styles/global.css';
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SearchDialog from '../components/SearchDialog.astro';
-import { CONTACTS } from '@varve/shared';
+import { CONTACTS, PRODUCT_STATUS } from '@varve/shared';
 import { canonicalUrl as canonicalUrlOf, ogImageUrl as ogImageUrlOf, siteOrigin as siteOriginOf, sitePath, siteUrl } from '../lib/siteUrl';
 import geistLatinWoff2 from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
 import plexLatinWoff2 from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2?url';
@@ -23,7 +23,7 @@ interface Props {
 
 const {
   title,
-  description = "Varve is a local-first design tool for vector, layout, typography, motion, prototyping, and print. Cross-platform design suite — no subscription.",
+  description = "Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print production, running natively on Linux, macOS, and Windows.",
   image = "/og-image.png",
   structuredData,
   noindex = false,
@@ -91,8 +91,10 @@ const sitewideStructuredData: object[] = [
     url: siteOriginOf(),
     name: 'Varve',
     alternateName: 'Varve · Free Design Software',
+    // Entity definition wording mirrors the copy-pasteable product description
+    // on /press and the llms.txt summary so answer engines see one fact set.
     description:
-      'Varve is a local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print. Free and source-available under FSL-1.1-MIT.',
+      `Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print production, running natively on Linux, macOS, and Windows. Free and source-available under FSL-1.1-MIT; each release converts to MIT after two years. Currently in ${PRODUCT_STATUS.label.toLowerCase()}.`,
     publisher: { '@id': `${siteOriginOf()}#organization` },
     inLanguage: 'en',
   },
@@ -222,6 +224,18 @@ const csp = [
       type="text/plain"
       title="Varve project summary for language models"
       href={sitePath('/llms.txt')}
+    />
+    {/*
+      Changelog feed. The route is an .xml endpoint (src/pages/changelog.xml.ts),
+      so neither the sitemap builder (which enumerates only .astro page files)
+      nor the search-index builder (which walks only .html output) can pick it
+      up.
+    */}
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="Varve changelog"
+      href={sitePath('/changelog.xml')}
     />
     <meta name="generator" content={Astro.generator} />
     {noindex ? (
