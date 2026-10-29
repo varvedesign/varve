@@ -64,10 +64,11 @@ Approved colors and clearspace: see `docs/brand-guide.md`.
 ## Privacy statement
 
 Varve is a local-first application. Core editing works offline and requires
-no account. Optional network features are: automatic update checks
-(configurable), consented aggregate analytics (Plausible, no cookies,
-privacy-focused), and explicit on-device model downloads. The privacy
-policy is published at https://varve.studio/about/privacy.
+no account. The desktop app sends no usage stats. The website and /try demo
+use GoatCounter only after Allow. Other optional network features are
+automatic update checks (configurable) and explicit on-device model
+downloads. The privacy policy is published at
+https://varve.studio/about/privacy.
 
 ## Structured data (JSON)
 

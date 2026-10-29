@@ -31,6 +31,7 @@ import {
   textWrap,
   tryInvertAffine,
 } from '@varve/shared';
+import { emailGenericFamily } from './email-compat';
 import { resolveLiveBooleanForExport } from './liveBooleanExport';
 import {
   adjustmentStackTargetGaps,
@@ -882,7 +883,8 @@ function buildTextContent(node: TextNode, indent: string): string {
     for (const run of paragraph.runs) {
       const runAttrs: string[] = [`x="${x.toFixed(2)}"`, `y="${y.toFixed(2)}"`];
       const format = run.format ?? {};
-      if (format.fontFamily) runAttrs.push(`font-family="${escapeXml(format.fontFamily)}"`);
+      if (format.fontFamily)
+        runAttrs.push(`font-family="${escapeXml(svgFontFamilyValue(format.fontFamily))}"`);
       if (format.fontSize) runAttrs.push(`font-size="${format.fontSize}"`);
       if (format.fontWeight) runAttrs.push(`font-weight="${format.fontWeight}"`);
       if (format.fontStyle === 'italic') runAttrs.push(`font-style="italic"`);
@@ -1190,7 +1192,14 @@ ${shapeInner}`
       ];
       const textStrokeAttrs = strokeAttrsForNode(textNode, textNode.id);
       if (textStrokeAttrs) attrs.push(textStrokeAttrs.trim());
-      if (textNode.fontFamily) attrs.push(`font-family="${escapeXml(textNode.fontFamily)}"`);
+      // Always name a family: the engine renders a node without one in
+      // DEFAULT_ARTWORK_FONT_FAMILY (engine.ts), so omitting the attribute let
+      // the viewer pick its own default (usually serif) for the same document.
+      attrs.push(
+        `font-family="${escapeXml(
+          svgFontFamilyValue(textNode.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY),
+        )}"`,
+      );
       if (textNode.fontWeight) attrs.push(`font-weight="${textNode.fontWeight}"`);
       if (textNode.fontStyle === 'italic') attrs.push(`font-style="italic"`);
       if (textNode.textAlign)
@@ -1370,7 +1379,7 @@ ${shapeInner}`
           else if (alignV === 'bottom') textY = cell.y + cell.h - padding - totalH + lineH - 3;
           for (const line of lines) {
             out.push(
-              `${indent}  <text x="${fmt(textX)}" y="${fmt(textY)}" fill="${rgba(color)}" font-size="${fontSize}" font-family="${escapeXml(DEFAULT_ARTWORK_FONT_FAMILY)}" font-weight="${weight}" text-anchor="${anchor}">${escapeXml(line.text)}</text>`,
+              `${indent}  <text x="${fmt(textX)}" y="${fmt(textY)}" fill="${rgba(color)}" font-size="${fontSize}" font-family="${escapeXml(svgFontFamilyValue(DEFAULT_ARTWORK_FONT_FAMILY))}" font-weight="${weight}" text-anchor="${anchor}">${escapeXml(line.text)}</text>`,
             );
             textY += lineH;
           }
@@ -1416,6 +1425,41 @@ ${shapeInner}`
     }
   }
   return '';
+}
+
+/**
+ * `font-family` value for exported SVG: the design face plus a generic
+ * fallback, classified by the same rules the email/CSS exporters use.
+ *
+ * Without a generic family a viewer that lacks the design face falls back to
+ * its own default — usually a serif — so a sans-serif design renders in the
+ * wrong classification with no warning. SVG cannot carry the font's
+ * classification, so the generic keyword is the only portable hint. Evidence:
+ * vectorcraft#3135 ("SVG export: font-family has no generic fallback, so
+ * viewers without the font draw serif").
+ */
+export function svgFontFamilyValue(family: string): string {
+  const name = family.trim();
+  if (!name) return 'sans-serif';
+  const generic = emailGenericFamily(name);
+  const fallback = generic === 'serif' ? 'serif' : generic === 'mono' ? 'monospace' : 'sans-serif';
+  // A family that is already the generic ends the list; never repeat it.
+  if (name.toLowerCase() === fallback) return name;
+  return `${quoteFontFamily(name)}, ${fallback}`;
+}
+
+/**
+ * Quote a family name that is not a single identifier.
+ *
+ * This is not cosmetic. Chromium parses `font-family="Source Sans 3, sans-serif"`
+ * as one family *name* — the whole attribute value — so it matches nothing and
+ * the text falls back to the viewer default (usually a serif). Quoting the name
+ * makes the list parse, and the generic family take effect. Verified by
+ * rendering both forms in Chromium (see the audit record).
+ */
+function quoteFontFamily(name: string): string {
+  if (/^[A-Za-z_-][A-Za-z0-9_-]*$/.test(name)) return name;
+  return `'${name.replace(/'/g, "\\'")}'`;
 }
 
 export function exportNodeToSvg(

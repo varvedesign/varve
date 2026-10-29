@@ -16,6 +16,7 @@
 
 import { Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SettingsProvider } from '../components/Settings/SettingsContext';
 import { EditorProvider } from '../context';
 import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
 import { PanelHostProvider } from '../workspace/PanelHostContext';
@@ -408,17 +409,19 @@ export function AuxiliaryRoot({ windowInfo: overrideInfo }: AuxiliaryRootProps =
   if (!info) return <InvalidRouteState />;
 
   return (
-    <AuxiliarySessionProvider
-      windowId={info.windowId}
-      sessionId={info.sessionId}
-      panelTypeIds={info.panelTypeIds}
-      transactionId={info.transactionId}
-      panelInstanceId={info.panelInstanceId}
-      generation={info.generation}
-    >
-      <PanelHostProvider windowId={info.windowId} isAuxiliary>
-        <AuxiliaryShellInner info={info} />
-      </PanelHostProvider>
-    </AuxiliarySessionProvider>
+    <SettingsProvider>
+      <AuxiliarySessionProvider
+        windowId={info.windowId}
+        sessionId={info.sessionId}
+        panelTypeIds={info.panelTypeIds}
+        transactionId={info.transactionId}
+        panelInstanceId={info.panelInstanceId}
+        generation={info.generation}
+      >
+        <PanelHostProvider windowId={info.windowId} isAuxiliary>
+          <AuxiliaryShellInner info={info} />
+        </PanelHostProvider>
+      </AuxiliarySessionProvider>
+    </SettingsProvider>
   );
 }

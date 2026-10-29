@@ -37,7 +37,15 @@ Varve is source-available under FSL-1.1-MIT, and each release becomes MIT two ye
 
 ## The AI inside Varve is separate
 
-Varve's own AI features run on your device and are on by default. A single switch in Settings turns them all off. They include background removal, object selection, image enhancement (denoise, deblur and upscale), and Fill, Remove and Expand in Generative Edit. Larger models download only when you ask. There's no Varve-hosted AI service, and none of these features sends your images to an online service. A desktop prompt-conditioned path exists in code for Fill, Replace, and Expand, but it stays behind a model-required gate until a local model is installed and qualified. Fill, Remove, and promptless Expand reconstruct from the image itself, not from a text prompt.
+AI features are on by default, run on your device with no Varve AI server, and can be turned off in Settings. Larger models download only when you ask. There's no Varve-hosted AI service, and none of these features sends your images to an online service. A desktop prompt-conditioned path exists in code for Fill, Replace, and Expand, but it stays behind a model-required gate until a local model is installed and qualified. Fill, Remove, and promptless Expand reconstruct from the image itself, not from a text prompt.
+
+## Original by design
+
+Varve's interface was designed for moving one job between disciplines. It isn't a copy of another app's layout, menus or icons.
+
+## What we don't claim yet
+
+PDF/X files aren't certified by a third party. Multi-page booklet export is on the roadmap. Performance is still being tuned on large documents.
 
 ## Questions
 

@@ -117,7 +117,7 @@ jobs:
       matrix:
         include:
           - name: linux-x11-software
-            os: ubuntu-latest
+            os: ubuntu-24.04
             xvfb: true
           - name: windows-webview2
             os: windows-latest

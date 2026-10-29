@@ -4,11 +4,10 @@ import { publishedFeatureVersion } from './feature-release';
 type PublishedRelease = { hasRelease: boolean; version?: string; updater?: boolean };
 
 /**
- * GitHub owner that published historical tags (v0.5.0, v0.2.1, …).
- * Those release URLs must keep resolving before a repository transfer;
- * GitHub redirects the same paths after the move.
+ * Canonical GitHub repository for published release URLs.
+ * Historical tags remain on this repo after the move from K-Arthur/varve.
  */
-export const PUBLISHED_RELEASE_REPOSITORY = 'https://github.com/K-Arthur/varve';
+export const PUBLISHED_RELEASE_REPOSITORY = 'https://github.com/varvedesign/varve';
 
 /** Prepared changelog notes do not establish installer or release-link availability. */
 export function changelogReleaseState(version: string, manifest: PublishedRelease = release) {

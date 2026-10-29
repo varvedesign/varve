@@ -127,15 +127,32 @@ test.describe('Overlay geometry and event reliability', () => {
     );
 
     const logoItem = fileMenu.getByRole('menuitem', { name: /^Logo/ });
-    const logoRect = await logoItem.boundingBox();
-    expect(logoRect).not.toBeNull();
+    await expect(logoItem).toBeVisible();
     await logoItem.hover();
     const submenuLayer = page.locator(
       '[data-overlay-kind="submenu"][data-overlay-state="visible"]',
     );
     await expect(submenuLayer).toHaveCount(1);
-    const submenuRect = await rect(page, '[data-overlay-kind="submenu"]');
-    assertInsideViewport(submenuRect, viewport);
+    // Opening the submenu can shift the File menu and Floating UI may paint
+    // once before autoUpdate settles. Measure the Logo item after hover and
+    // wait until the flyout is attached to that settled box, rather than
+    // comparing a one-shot submenu rect against a pre-hover parent.
+    let logoRect: { x: number; y: number; width: number; height: number } | null = null;
+    let submenuRect: Rect | null = null;
+    await expect
+      .poll(
+        async () => {
+          logoRect = await logoItem.boundingBox();
+          if (!logoRect) return Number.NEGATIVE_INFINITY;
+          submenuRect = await rect(page, '[data-overlay-kind="submenu"]');
+          return submenuRect.left - (logoRect.x + logoRect.width);
+        },
+        { timeout: 5_000, message: 'Wait for the Logo submenu to attach to the parent item' },
+      )
+      .toBeGreaterThanOrEqual(-3);
+    expect(logoRect).not.toBeNull();
+    expect(submenuRect).not.toBeNull();
+    assertInsideViewport(submenuRect!, viewport);
     assertVerticalOverlap(
       {
         left: logoRect!.x,
@@ -145,9 +162,8 @@ test.describe('Overlay geometry and event reliability', () => {
         width: logoRect!.width,
         height: logoRect!.height,
       },
-      submenuRect,
+      submenuRect!,
     );
-    expect(submenuRect.left).toBeGreaterThanOrEqual(logoRect!.x + logoRect!.width - 3);
     await recordEvidence(page, testInfo, 'menubar-file-logo');
 
     // Escape first dismisses the deepest branch and restores focus to its

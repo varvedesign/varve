@@ -215,7 +215,7 @@ const REQUIREMENTS: Record<string, string[]> = {
   ],
   macos: [
     'OS: macOS 13 Ventura or later',
-    'CPU: Apple Silicon only. There is no Intel macOS build — the on-device AI depends on ONNX Runtime, whose upstream discontinued macOS Intel binaries; see the FAQ for details.',
+    'CPU: Apple Silicon only. There is no Intel macOS build. On-device image tools such as background removal depend on ONNX Runtime, whose upstream discontinued macOS Intel binaries; see the FAQ for details.',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Storage: 500 MB minimum free disk',
   ],
@@ -325,7 +325,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
 <Layout
   title="Download Varve"
-  description="Download Varve beta for Linux, macOS, and Windows — free and source-available under FSL-1.1-MIT. SHA-256 checksums, SBOMs, and system requirements."
+  description="Download Varve beta for Linux, macOS, and Windows. Free and source-available under FSL-1.1-MIT. SHA-256 checksums, SBOMs, and system requirements."
   structuredData={downloadSchema ? [downloadSchema] : undefined}
 >
   <div class="container-custom">
@@ -348,8 +348,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
           (experimental) or install it as a web app. On a Chromebook with the Linux
           development environment enabled, the{' '}
           <a href={sitePath('/docs/chromeos-linux')}>Linux package</a> is a separate
-          experimental route. The installers below target Linux, macOS, and Windows —
-          there is no native ChromeOS, Android, or iOS installer. Compare the routes in{' '}
+          experimental route. The installers below target Linux, macOS, and Windows.
+          There is no native ChromeOS, Android, or iOS installer. Compare the routes in{' '}
           <a href={sitePath('/docs/chromebook')}>Varve on Chromebook</a>.
         </p>
       </section>
@@ -360,7 +360,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
           <p>
             Varve is still in development and no installer has been published. This page will
             list downloads, sizes and SHA-256 checksums when the first release is tagged. Until
-            then there is nothing to install — please do not download Varve-branded builds from
+            then there is nothing to install. Please do not download Varve-branded builds from
             anywhere else.
           </p>
           <p>
@@ -417,7 +417,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
           <div class="try-browser-banner">
             <p>
-              <strong>Or try it right now</strong> — no download required.
+              <strong>Or try it right now.</strong> No download required.
               The editor runs in your browser on the WASM engine; the browser
               build is experimental, with the limits listed in the{' '}
               <a href={sitePath('/docs/browser-demo')}>browser guide</a>.
@@ -539,8 +539,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               <h2>{anySigned ? 'Some builds are not code-signed' : 'These builds are not code-signed'}</h2>
               <p>
                 {anySigned
-                  ? 'Code-signing certificates are still being rolled out per platform. Where a platform is not signed, your operating system cannot verify who built that file — check the platform note below and verify your download.'
-                  : 'Varve does not yet have code-signing certificates, so your operating system cannot verify who built these files. That is a statement about this project\'s budget, not about the files — but you cannot tell the difference without checking, so please check.'}
+                  ? 'Code-signing certificates are still being rolled out per platform. Where a platform is not signed, your operating system cannot verify who built that file. Check the platform note below and verify your download.'
+                  : 'Varve does not yet have code-signing certificates, so your operating system cannot verify who built these files. That is a statement about this project\'s budget, not about the files, but you cannot tell the difference without checking, so please check.'}
               </p>
               <p>
                 <strong>Verify the file you downloaded</strong> against the published checksum
@@ -567,7 +567,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               </p>
               <p class="download-meta">
                 A checksum detects corruption or a swapped file, but it does not prove who
-                built the file — an attacker who can replace the download can replace the
+                built the file. An attacker who can replace the download can replace the
                 checksum too. Treat unsigned builds as unsigned, and prefer the GitHub release
                 page as the download source.
               </p>
@@ -595,7 +595,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               <p class="download-meta">
                 A signature identifies who built the file and proves it was not modified after
                 signing. New signatures can still trigger a one-time OS warning until the
-                publisher builds reputation — this is normal and does not mean the file is bad.
+                publisher builds reputation. This is normal and does not mean the file is bad.
               </p>
             </div>
           )}
@@ -692,7 +692,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   </div>
                   <div class="format-notes">
                     <p>
-                      <strong>AppImage</strong> — a single portable file that needs no root or
+                      <strong>AppImage:</strong> a single portable file that needs no root or
                       package manager. Use it on openSUSE and other glibc-based distros that meet
                       the requirements below. It is not a universal Linux ABI: Alpine and other
                       musl-based systems are not supported. Requires glibc 2.35+ and FUSE2 (or{' '}
@@ -703,20 +703,20 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       On Arch and CachyOS, the repository PKGBUILD is also available.
                     </p>
                     <p>
-                      <strong>Debian package (.deb)</strong> — installs system-wide and pulls in
+                      <strong>Debian package (.deb):</strong> installs system-wide and pulls in
                       the WebKitGTK dependency automatically. There is no apt repository for
                       Varve, so <code>apt upgrade</code> does not update it; install the newer
                       package file from the release page over it. For Debian, Ubuntu, and
                       derivatives.
                     </p>
                     <p>
-                      <strong>RPM package (.rpm)</strong> — installs system-wide. There is no
+                      <strong>RPM package (.rpm):</strong> installs system-wide. There is no
                       dnf/yum repository for Varve, so <code>dnf upgrade</code> does not update
                       it; install the newer package file from the release page over it. For
                       Fedora, RHEL, and derivatives.
                     </p>
                     <p>
-                      <strong>Arch/CachyOS PKGBUILD</strong> — the{' '}
+                      <strong>Arch/CachyOS PKGBUILD:</strong> the{' '}
                       <code>varve-desktop-bin</code> PKGBUILD in the{' '}
                       <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">
                         repository
@@ -729,7 +729,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       is currently closed.
                     </p>
                     <p>
-                      <strong>ChromeOS (Linux development environment)</strong> — install the{' '}
+                      <strong>ChromeOS (Linux development environment):</strong> install the{' '}
                       <code>.deb</code> inside the Linux container. It is an ARM64 or x86_64
                       Debian environment, not native ChromeOS Chrome; GPU acceleration is not
                       available to Linux apps, and files kept only inside the container are
@@ -815,7 +815,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   asked whether Varve may periodically check for newer versions; you can change or
                   revoke that choice at any time in Settings &rarr; Updates. Update checks send only
                   your current version, platform, architecture and channel to Varve's release
-                  endpoint — no account, document data or device identifier.
+                  endpoint. No account, document data or device identifier.
                 </p>
                 <p>
                   Downloads are cryptographically verified against a signature embedded in the
@@ -833,7 +833,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     <strong>Windows (NSIS):</strong> updates install through the installer with a
                     visible progress window, and installation happens only after your approval.
                     {!release.signed &&
-                      ' Windows may show a SmartScreen warning for unsigned builds — choose More info, then Run anyway. Windows 11 Smart App Control can block unsigned apps with no override; use the browser version if that happens.'}
+                      ' Windows may show a SmartScreen warning for unsigned builds. Choose More info, then Run anyway. Windows 11 Smart App Control can block unsigned apps with no override; use the browser version if that happens.'}
                   </li>
                   <li>
                     <strong>macOS:</strong> in-app updates are available for installed copies
@@ -844,7 +844,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     and replace your installed copy.
                     {release.signed !== true &&
                       (release.version === '0.5.0'
-                        ? ' 0.5.0 has no bundle-wide signature — after installing, run xattr -dr com.apple.quarantine /Applications/Varve.app.'
+                        ? ' 0.5.0 has no bundle-wide signature. After installing, run xattr -dr com.apple.quarantine /Applications/Varve.app.'
                         : ' After the first launch attempt, use System Settings > Privacy & Security > Open Anyway.')}
                   </li>
                   <li>
@@ -857,7 +857,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   </li>
                 </ul>
                 <p class="download-meta">
-                  Updates are cryptographically signed and verified. {!release.signed && 'Platform code-signing (Apple Developer ID, Windows Authenticode) is not yet provisioned — see the '}
+                  Updates are cryptographically signed and verified. {!release.signed && 'Platform code-signing (Apple Developer ID, Windows Authenticode) is not yet provisioned. See the '}
                   <a href={sitePath('/docs/updates')}>Updates guide</a>
                   {!release.signed && ' for platform-specific details.'}
                 </p>
@@ -918,7 +918,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   <strong>First launch.</strong> Varve opens a welcome screen where you can start a
                   new document, open a recent file, or load the sample document. If your operating
                   system blocks the app (unsigned build), the platform notes above say exactly what
-                  to do — and verify the checksum first.
+                  to do, and verify the checksum first.
                 </div>
               </li>
               <li>
@@ -959,7 +959,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 &gt; About (Windows) and pick the matching label above.
               </li>
               <li>
-                <strong>Linux — AppImage will not start (FUSE2 missing):</strong> install the{' '}
+                <strong>Linux: AppImage will not start (FUSE2 missing).</strong> Install the{' '}
                 <code>fuse2</code> package on Arch (<code>sudo pacman -S fuse2</code>),
                 <code>libfuse2</code> on Debian 12 or Ubuntu 22.04
                 (<code>sudo apt install libfuse2</code>), or <code>libfuse2t64</code> on Debian 13
@@ -980,34 +980,34 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <code>.deb</code> / <code>.rpm</code> instead.
               </li>
               <li>
-                <strong>Linux — .deb fails to install or start:</strong> the package needs the
-                system WebKitGTK library — <code>sudo apt install libwebkit2gtk-4.1-0</code>, then
-                reinstall the package.
+                <strong>Linux: .deb fails to install or start.</strong> The package needs the
+                system WebKitGTK library. Install it with{' '}
+                <code>sudo apt install libwebkit2gtk-4.1-0</code>, then reinstall the package.
               </li>
               <li>
-                <strong>ChromeOS — the Linux app does not install, launch, or see files:</strong>{' '}
+                <strong>ChromeOS: the Linux app does not install, launch, or see files:</strong>{' '}
                 use the <code>.deb</code> for your architecture (<code>uname -m</code>) inside the
                 Linux development environment, keep projects in a shared My files/Drive folder
                 (container files are deleted with the environment), and expect software rendering.
                 See the <a href={sitePath('/docs/chromeos-linux')}>ChromeOS guide</a>.
               </li>
               <li>
-                <strong>Arch/CachyOS — the repository PKGBUILD is fine to use:</strong> the{' '}
+                <strong>Arch/CachyOS: the repository PKGBUILD is fine to use:</strong> the{' '}
                 <code>varve-desktop-bin</code> PKGBUILD in the{' '}
                 <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">repository</a>{' '}
-                is fixed. It builds from the AppImage — run{' '}
-                <code>makepkg -si</code> from the PKGBUILD directory — and installs desktop
+                is fixed. It builds from the AppImage. Run{' '}
+                <code>makepkg -si</code> from the PKGBUILD directory, and it installs desktop
                 integration without FUSE. The AppImage also works:{' '}
                 <code>chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code>.
                 An AUR package is coming; AUR registration is currently closed.
               </li>
               <li>
-                <strong>macOS — the app is blocked:</strong>{' '}
+                <strong>macOS: the app is blocked:</strong>{' '}
                 {release.version === '0.5.0' ? (
                   <>
                     0.5.0 has no bundle-wide signature, so Open Anyway does not appear. After
                     dragging Varve to Applications, run{' '}
-                    <code>xattr -dr com.apple.quarantine /Applications/Varve.app</code> — that
+                    <code>xattr -dr com.apple.quarantine /Applications/Varve.app</code>. That
                     removes the download quarantine flag so macOS will open the app. Do not
                     disable Gatekeeper.
                   </>
@@ -1021,8 +1021,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 )}
               </li>
               <li>
-                <strong>Windows — SmartScreen warning:</strong> choose More info, then Run
-                anyway — after verifying the SHA-256 checksum shown above. Windows 11 Smart App
+                <strong>Windows: SmartScreen warning:</strong> choose More info, then Run
+                anyway, after verifying the SHA-256 checksum shown above. Windows 11 Smart App
                 Control can block unsigned apps with no override; use the{' '}
                 <a href={sitePath('/try/')}>browser version</a> if that happens.
               </li>

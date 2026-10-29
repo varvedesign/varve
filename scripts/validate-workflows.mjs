@@ -365,6 +365,84 @@ function validateVarveRules(content, filename) {
     }
   }
 
+  errors.push(...validatePinnedPixbufLinuxRunners(content, name));
+
+  return errors;
+}
+
+const GDK_PIXBUF_2_DEV = 'libgdk-pixbuf2.0-dev';
+const FLOATING_UBUNTU_RUNNER = 'ubuntu-latest';
+
+function loadWorkflowDocument(content) {
+  try {
+    const yamlPath = require.resolve('js-yaml');
+    const { load } = require(yamlPath);
+    const doc = load(content);
+    return doc && typeof doc === 'object' ? doc : null;
+  } catch {
+    return null;
+  }
+}
+
+function linuxRunnersForJob(job) {
+  const runners = [];
+  const runsOn = job?.['runs-on'];
+  if (typeof runsOn === 'string') runners.push(runsOn);
+  const matrix = job?.strategy?.matrix;
+  if (Array.isArray(matrix?.os)) runners.push(...matrix.os);
+  if (Array.isArray(matrix?.include)) {
+    for (const cell of matrix.include) {
+      if (typeof cell?.os === 'string') runners.push(cell.os);
+    }
+  }
+  return runners;
+}
+
+function jobInstallsGdkPixbuf2Dev(job) {
+  return (job?.steps ?? []).some((step) => {
+    if (typeof step?.run !== 'string') return false;
+    const code = step.run
+      .split('\n')
+      .filter((line) => !/^\s*#/.test(line))
+      .join('\n');
+    return code.includes('apt-get install') && code.includes(GDK_PIXBUF_2_DEV);
+  });
+}
+
+/**
+ * ubuntu-latest moved to 26.04 (resolute), which dropped libgdk-pixbuf2.0-dev.
+ * Jobs that still apt-install that name must stay on the 22.04/24.04 images
+ * the AppImage and WebKitGTK 4.1 setup was built against.
+ */
+function validatePinnedPixbufLinuxRunners(content, filename) {
+  const errors = [];
+  const workflow = loadWorkflowDocument(content);
+  if (!workflow?.jobs) return errors;
+  const name = filename.split('/').pop();
+  const emitsFloatingLinuxMatrix = /"os"\s*:\s*\[\s*"ubuntu-latest"/.test(content);
+
+  for (const [jobId, job] of Object.entries(workflow.jobs)) {
+    if (!jobInstallsGdkPixbuf2Dev(job)) continue;
+    const runners = linuxRunnersForJob(job);
+    if (runners.includes(FLOATING_UBUNTU_RUNNER)) {
+      errors.push(
+        `${name} ${jobId}: jobs that install ${GDK_PIXBUF_2_DEV} cannot use ${FLOATING_UBUNTU_RUNNER} ` +
+          '(Ubuntu 26.04 dropped that package; pin ubuntu-24.04 or ubuntu-22.04)',
+      );
+    }
+    const runsOn = job['runs-on'];
+    if (
+      emitsFloatingLinuxMatrix &&
+      typeof runsOn === 'string' &&
+      runsOn.includes('matrix.os') &&
+      !runners.some((runner) => runner === 'ubuntu-22.04' || runner === 'ubuntu-24.04')
+    ) {
+      errors.push(
+        `${name} ${jobId}: jobs that install ${GDK_PIXBUF_2_DEV} cannot take Linux runners ` +
+          `from a ${FLOATING_UBUNTU_RUNNER} matrix (pin ubuntu-24.04 or ubuntu-22.04)`,
+      );
+    }
+  }
   return errors;
 }
 

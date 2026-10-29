@@ -19,10 +19,39 @@ const SIMPLE_SVG =
   '<svg><rect x="10" y="10" width="100" height="60" fill="#1f8a70" /><circle cx="60" cy="40" r="24" fill="#ffd166" /></svg>';
 const CLONED_FILL_OPACITY_SVG =
   '<svg xmlns:xlink="http://www.w3.org/1999/xlink"><defs><rect id="opacity-source" width="100" height="60" fill="#e5e" fill-opacity=".1" /></defs><use xlink:href="#opacity-source" /><use xlink:href="#opacity-source" x="110" /></svg>';
+const SVG_VISIBILITY_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" visibility="hidden"><g visibility="hidden"><rect x="10" y="10" width="60" height="60" fill="#ef4444" /><rect x="50" y="10" width="60" height="60" visibility="visible" fill="#facc15" /></g><rect x="120" y="10" width="40" height="60" fill="#22c55e" style="display:none" /><rect x="170" y="10" width="60" height="60" visibility="visible" fill="#2563eb" /></svg>';
+const SVG_MIXED_SUBPATH_HOLE =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#2563eb" d="M0 0h24v24H0M6 6v12h12V6z" /></svg>';
 
 async function openImportFromMenu(page: import('@playwright/test').Page): Promise<void> {
   await page.getByRole('menubar').getByRole('menuitem', { name: 'File' }).click();
   await page.getByRole('menuitem', { name: /import/i }).click();
+}
+
+/**
+ * Clear a first-use micro-hint before a canvas snapshot.
+ *
+ * Hints appear for ~4 s after the first use of a tool and float over the
+ * artwork, so a snapshot taken while one is on screen captures the hint instead
+ * of the import. Which hints fire depends on onboarding state, which is not part
+ * of the fixture — so dismiss rather than depend on timing.
+ */
+async function dismissMicroHint(page: import('@playwright/test').Page): Promise<void> {
+  const dismiss = page.getByRole('button', { name: 'Dismiss hint' });
+  if (
+    await dismiss
+      .first()
+      .isVisible({ timeout: 500 })
+      .catch(() => false)
+  ) {
+    await dismiss.first().click();
+  }
+  await page
+    .locator('.micro-hint')
+    .first()
+    .waitFor({ state: 'hidden', timeout: 5000 })
+    .catch(() => undefined);
 }
 
 async function ensureEditor(page: import('@playwright/test').Page): Promise<void> {
@@ -125,6 +154,7 @@ test.describe('File → Import', () => {
         window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
       ).__varvePerf?.forceFullRedraw?.();
     });
+    await dismissMicroHint(page);
     await page.waitForTimeout(700);
     await expect(canvas).toHaveScreenshot('file-import-svg.png', {
       // Canvas worker startup can leave the SVG paint one frame behind while
@@ -153,8 +183,61 @@ test.describe('File → Import', () => {
         window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
       ).__varvePerf?.forceFullRedraw?.();
     });
+    await dismissMicroHint(page);
     await page.waitForTimeout(700);
     await expect(canvas).toHaveScreenshot('file-import-svg-use-opacity.png', {
+      maxDiffPixels: 100,
+    });
+  });
+
+  test('preserves hidden SVG visibility and omits display-none artwork', async ({ page }) => {
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'visibility.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(SVG_VISIBILITY_SVG, 'utf-8'),
+    });
+
+    const layers = page.locator('.layers-panel');
+    await expect(layers.locator('[role="treeitem"]')).toHaveCount(4, { timeout: 30000 });
+    await expect(
+      layers.getByRole('treeitem', { name: /Rectangle, Vector rectangle, hidden/ }),
+    ).toHaveCount(1);
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await page.evaluate(() => {
+      (
+        window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+      ).__varvePerf?.forceFullRedraw?.();
+    });
+    await dismissMicroHint(page);
+    await page.waitForTimeout(700);
+    await expect(canvas).toHaveScreenshot('file-import-svg-visibility.png', {
+      maxDiffPixels: 100,
+    });
+  });
+
+  test('renders a hole formed by mixed open and closed SVG subpaths', async ({ page }) => {
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'mixed-contour-hole.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(SVG_MIXED_SUBPATH_HOLE, 'utf-8'),
+    });
+
+    await expect(page.locator('.layers-panel [role="treeitem"]')).toHaveCount(1, {
+      timeout: 30000,
+    });
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await page.evaluate(() => {
+      (
+        window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+      ).__varvePerf?.forceFullRedraw?.();
+    });
+    await page.waitForTimeout(700);
+    await canvas.click({ position: { x: 150, y: 150 } });
+    await page.waitForTimeout(100);
+    await expect(canvas).toHaveScreenshot('file-import-svg-mixed-subpath-hole.png', {
       maxDiffPixels: 100,
     });
   });

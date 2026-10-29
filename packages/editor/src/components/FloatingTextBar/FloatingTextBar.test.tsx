@@ -518,4 +518,40 @@ describe('FloatingTextBar', () => {
     const toolbar = await settledToolbar();
     expect(toolbar).toHaveAttribute('aria-label', 'Text formatting');
   });
+
+  it('coalesces a text colour picker drag into one undo entry', async () => {
+    const beginPreview = vi.fn();
+    const commitPreview = vi.fn();
+    render(<FloatingTextBar {...defaultProps({ beginPreview, commitPreview })} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Text color' }));
+
+    const picker = await waitFor(() => {
+      const found = document.querySelector('.color-picker');
+      if (!found) throw new Error('colour picker not open');
+      return found as HTMLElement;
+    });
+
+    // The picker's own gesture lifecycle, not the number of change events,
+    // decides how many undo entries the drag produces.
+    fireEvent.pointerDown(picker, { button: 0, pointerId: 1 });
+    fireEvent.pointerUp(picker, { button: 0, pointerId: 1 });
+
+    expect(beginPreview).toHaveBeenCalledTimes(1);
+    expect(commitPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open a colour gesture when the picker never receives a gesture', async () => {
+    const beginPreview = vi.fn();
+    const commitPreview = vi.fn();
+    render(<FloatingTextBar {...defaultProps({ beginPreview, commitPreview })} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Text color' }));
+    await waitFor(() => {
+      expect(document.querySelector('.color-picker')).not.toBeNull();
+    });
+
+    expect(beginPreview).not.toHaveBeenCalled();
+    expect(commitPreview).not.toHaveBeenCalled();
+  });
 });
