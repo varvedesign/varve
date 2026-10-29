@@ -44,7 +44,6 @@
     "crates/varve-print/src/resources.rs": 418,
     "crates/varve-print/src/shaper.rs": 766,
     "crates/varve-room/src/protocol.rs": 508,
-    "crates/varve-room/src/server.rs": 1976,
     "crates/varve-room/src/store.rs": 636,
     "crates/varve-room/tests/server_integration.rs": 1100,
     "crates/varve-sync/src/lib.rs": 1329,
