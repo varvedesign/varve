@@ -3,7 +3,12 @@ import { booleanTwoPolygons } from './engine';
 import { type ClipperRegion, clipRegions, regionToFlat } from './polygon-clipper';
 import { pointInCompoundPath, regionToPathData } from './region';
 
-const clipperHarness = vi.hoisted(() => ({ failDifference: false, failUnion: false }));
+const clipperHarness = vi.hoisted(() => ({
+  failDifference: false,
+  failUnion: false,
+  failUnionRemaining: 0,
+  unionCalls: 0,
+}));
 
 vi.mock('polygon-clipping', async (importOriginal) => {
   const actual = await importOriginal<typeof import('polygon-clipping')>();
@@ -22,7 +27,9 @@ vi.mock('polygon-clipping', async (importOriginal) => {
     return kernel.difference(...args);
   };
   const union = (...args: never[]) => {
-    if (clipperHarness.failUnion) {
+    clipperHarness.unionCalls += 1;
+    if (clipperHarness.failUnion || clipperHarness.failUnionRemaining > 0) {
+      if (clipperHarness.failUnionRemaining > 0) clipperHarness.failUnionRemaining -= 1;
       throw new Error(
         'Unable to complete output ring starting at [0, 0]. Last matching segment found ends at [1, 1].',
       );
@@ -88,6 +95,38 @@ describe('clipRegions', () => {
     expect(() =>
       clipRegions([rectRegion(0, 0, 100, 100), rectRegion(100, 0, 100, 100)], 'subtract', 1e-9),
     ).not.toThrow();
+  });
+
+  it('retries a one-off kernel failure and skips retries during preview', () => {
+    clipperHarness.failUnionRemaining = 1;
+    clipperHarness.unionCalls = 0;
+    try {
+      const recovered = clipRegions(
+        [rectRegion(0, 0, 10, 10), rectRegion(5, 0, 10, 10)],
+        'union',
+        1e-9,
+        { retry: true },
+      );
+      expect(recovered.degraded).not.toBe(true);
+      expect(clipperHarness.unionCalls).toBeGreaterThan(1);
+    } finally {
+      clipperHarness.failUnionRemaining = 0;
+    }
+
+    clipperHarness.failUnionRemaining = 1;
+    clipperHarness.unionCalls = 0;
+    try {
+      const preview = clipRegions(
+        [rectRegion(0, 0, 10, 10), rectRegion(5, 0, 10, 10)],
+        'union',
+        1e-9,
+        { retry: false },
+      );
+      expect(preview.degraded).toBe(true);
+      expect(clipperHarness.unionCalls).toBe(1);
+    } finally {
+      clipperHarness.failUnionRemaining = 0;
+    }
   });
 
   it('union fallback keeps overlapping islands filled under nonzero', () => {

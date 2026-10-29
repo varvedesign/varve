@@ -22,7 +22,11 @@ import {
   updateCalloutTailEndpoint,
   wrapTextInCallout,
 } from './index';
-import type { GroupNode, ShapeNode } from './types';
+import type { Fill, GroupNode, ShapeNode } from './types';
+
+function solidPaint(color: { space: 'rgb'; r: number; g: number; b: number; a: number }): Fill {
+  return { type: 'solid', color, opacity: 1, blendMode: 'normal', visible: true };
+}
 
 describe('comic callouts', () => {
   it('creates ordinary body, tail, and editable text children', () => {
@@ -662,6 +666,81 @@ describe('shaped balloons (burst and cloud)', () => {
     const speech = updateCalloutKind(cloud, created.groupId, 'speech');
     const speechBody = speech.nodes[created.bodyId] as ShapeNode;
     expect(speechBody.fill).toMatchObject(pink);
+    expect((speech.nodes[created.groupId] as GroupNode).callout?.outlineNodeId).toBeUndefined();
+  });
+
+  it('keeps Inspector fills when switching kind both ways', () => {
+    const pink = { space: 'rgb' as const, r: 255, g: 64, b: 160, a: 255 };
+    const created = createCallout(createDocument('fills-kind', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const recoloured = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.bodyId]: {
+          ...(created.document.nodes[created.bodyId] as ShapeNode),
+          fill: pink,
+          fills: [solidPaint(pink)],
+        },
+      },
+    };
+    const burst = updateCalloutKind(recoloured, created.groupId, 'burst');
+    const burstGroup = burst.nodes[created.groupId] as GroupNode;
+    const burstBody = burst.nodes[created.bodyId] as ShapeNode;
+    const burstOutline = burst.nodes[burstGroup.callout?.outlineNodeId ?? ''];
+    expect(burstBody.fills).toEqual([]);
+    expect(burstBody.fill.a).toBe(0);
+    expect(burstGroup.callout?.fillLayout).toBe('outline');
+    expect(burstOutline?.kind).toBe('shape');
+    if (burstOutline?.kind !== 'shape') return;
+    expect(burstOutline.fills?.[0]).toMatchObject({ type: 'solid', color: pink });
+    expect(burstOutline.fill).toMatchObject(pink);
+
+    const speech = updateCalloutKind(burst, created.groupId, 'speech');
+    const speechGroup = speech.nodes[created.groupId] as GroupNode;
+    const speechBody = speech.nodes[created.bodyId] as ShapeNode;
+    expect(speechBody.fills?.[0]).toMatchObject({ type: 'solid', color: pink });
+    expect(speechBody.fill).toMatchObject(pink);
+    expect(speechGroup.callout?.fillLayout).toBeUndefined();
+    expect(speechGroup.callout?.outlineNodeId).toBeUndefined();
+  });
+
+  it('moves paintRefs with the silhouette when switching kind both ways', () => {
+    const created = createCallout(createDocument('paintrefs-kind', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const referenced = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.bodyId]: {
+          ...(created.document.nodes[created.bodyId] as ShapeNode),
+          paintRefs: ['paint-balloon'],
+        },
+      },
+    };
+    const burst = updateCalloutKind(referenced, created.groupId, 'burst');
+    const burstGroup = burst.nodes[created.groupId] as GroupNode;
+    const burstBody = burst.nodes[created.bodyId] as ShapeNode;
+    const burstOutline = burst.nodes[burstGroup.callout?.outlineNodeId ?? ''];
+    expect(burstBody.paintRefs).toBeUndefined();
+    expect(burstBody.fills).toEqual([]);
+    expect(burstOutline?.kind).toBe('shape');
+    if (burstOutline?.kind !== 'shape') return;
+    expect(burstOutline.paintRefs).toEqual(['paint-balloon']);
+
+    const speech = updateCalloutKind(burst, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId] as ShapeNode;
+    expect(speechBody.paintRefs).toEqual(['paint-balloon']);
     expect((speech.nodes[created.groupId] as GroupNode).callout?.outlineNodeId).toBeUndefined();
   });
 

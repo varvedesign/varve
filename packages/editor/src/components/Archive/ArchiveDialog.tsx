@@ -832,8 +832,14 @@ export function ArchiveDialog({
             )}
             {createResult.warnings && createResult.warnings.length > 0 && (
               <div className="archive-dialog__preview-row">
-                <span className="archive-dialog__preview-key">Warnings</span>
-                <span className="archive-dialog__preview-value">{createResult.warnings[0]}</span>
+                <span className="archive-dialog__preview-key">
+                  Warnings ({createResult.warnings.length})
+                </span>
+                <ul className="archive-dialog__preview-value archive-dialog__preview-warnings">
+                  {createResult.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>

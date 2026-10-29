@@ -15,7 +15,12 @@ import { getParent } from '../document';
 import { addNode, reparentNode } from '../document-nodes';
 import { nextNodeId } from '../node-id';
 import type { Fill, NodeId, ShapeNode } from '../types';
-import { type BooleanOpType, type BooleanResult, booleanNormalizedRegions } from './engine';
+import {
+  type BooleanOpType,
+  type BooleanResult,
+  booleanNormalizedRegions,
+  type ClipperOptions,
+} from './engine';
 import type { Point2D, Region2D } from './region';
 import { signedArea } from './region';
 
@@ -669,7 +674,11 @@ function makeResultNode(result: BooleanResult, first: ShapeNode, id: string): Sh
  *   3. Boolean operation via the new engine
  *   4. Result construction as a compound path ShapeNode
  */
-export function booleanOp(kind: BooleanOpType, nodes: ShapeNode[]): ShapeNode {
+export function booleanOp(
+  kind: BooleanOpType,
+  nodes: ShapeNode[],
+  options?: ClipperOptions,
+): ShapeNode {
   if (nodes.length === 0) throw new Error('booleanOp requires at least one node');
   const first = nodes[0]!;
   const id = freshId();
@@ -728,7 +737,7 @@ export function booleanOp(kind: BooleanOpType, nodes: ShapeNode[]): ShapeNode {
   }
 
   // Perform the boolean operation with coordinate normalization
-  const result = booleanNormalizedRegions(regions, kind);
+  const result = booleanNormalizedRegions(regions, kind, options);
 
   // Build the result ShapeNode
   return makeResultNode(result, first, id);

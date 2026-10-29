@@ -19,6 +19,7 @@ import type { Document } from './document';
 import { addChild, addNode, makePathNode, makeShapeNode, makeTextNode } from './document';
 import { reparentPreservingWorldTransform } from './document-nodes';
 import { getParent, makeGroupNode } from './document-utils';
+import { primaryColor, resolveNodeFills } from './fills';
 import { nextNodeId } from './node-id';
 import { textGeometryInput } from './textBounds';
 import type {
@@ -26,6 +27,7 @@ import type {
   CalloutRecipe,
   CalloutTail,
   CalloutTailStyle,
+  Fill,
   GroupNode,
   NodeId,
   SceneNode,
@@ -122,25 +124,58 @@ export function isShapedCalloutKind(kind: CalloutKind): boolean {
   return kind === 'burst' || kind === 'cloud';
 }
 
+export interface CalloutFillMigrationWarning {
+  code: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+  path?: string;
+}
+
 /**
- * Older shaped balloons filled both the rect body and the silhouette. Move a
- * default white body fill onto the outline and clear the body so only the
- * star paints. Custom body colours are left for the kind-switch path.
+ * Older shaped balloons filled both the rect body and the silhouette. Decode
+ * moves a default white body fill onto the outline and clears the body so
+ * only the star paints. Current files already carry `fillLayout: 'outline'`
+ * and are left alone. Custom body colours are left for the kind-switch path.
  */
-export function migrateShapedCalloutFills(doc: Document): Document {
+export function migrateShapedCalloutFills(
+  doc: Document,
+  warnings?: CalloutFillMigrationWarning[],
+): Document {
   let changed = false;
   const nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
   for (const node of Object.values(doc.nodes)) {
     if (node.kind !== 'group' || !node.callout || !isShapedCalloutKind(node.callout.kind)) continue;
+    if (node.callout.fillLayout === 'outline') continue;
     const body = nodes[node.callout.bodyNodeId];
     const outlineId = node.callout.outlineNodeId;
     const outline = outlineId ? nodes[outlineId] : undefined;
     if (body?.kind !== 'shape' || outline?.kind !== 'shape') continue;
-    if (!isDefaultWhiteFill(body.fill)) continue;
-    nodes[body.id] = { ...body, fill: CLEAR, strokes: [] };
-    if (isClearFill(outline.fill)) {
-      nodes[outline.id] = { ...outline, fill: WHITE };
+    if (!isDefaultWhitePaint(body)) {
+      nodes[node.id] = {
+        ...node,
+        callout: { ...node.callout, fillLayout: 'outline' },
+      };
+      changed = true;
+      continue;
     }
+    const clearedBody = withCalloutPaint(body, 'clear');
+    nodes[body.id] = clearedBody;
+    if (isClearCalloutPaint(outline)) {
+      nodes[outline.id] = withCalloutPaint(outline, {
+        fill: WHITE,
+        fills: [solidWhiteFill()],
+      });
+    }
+    nodes[node.id] = {
+      ...node,
+      callout: { ...node.callout, fillLayout: 'outline' },
+    };
+    warnings?.push({
+      code: 'document.callout-fill-migrated',
+      message: 'Moved a default white fill from a shaped balloon body onto its outline',
+      severity: 'info',
+      path: `nodes.${body.id}.fill`,
+    });
     changed = true;
   }
   return changed ? { ...doc, nodes } : doc;
@@ -214,6 +249,82 @@ function isDefaultWhiteFill(fill: ShapeNode['fill']): boolean {
 function opaqueCalloutFill(fill: ShapeNode['fill'] | undefined): ShapeNode['fill'] {
   if (!fill || isClearFill(fill)) return WHITE;
   return fill;
+}
+
+function solidWhiteFill(): Fill {
+  return {
+    type: 'solid',
+    color: WHITE,
+    opacity: 1,
+    blendMode: 'normal',
+    visible: true,
+  };
+}
+
+type CalloutPaint = {
+  fill: ShapeNode['fill'];
+  fills: Fill[];
+  paintRefs?: string[];
+};
+
+function isDefaultWhitePaint(node: ShapeNode): boolean {
+  if (node.paintRefs && node.paintRefs.length > 0) return false;
+  const fills = node.fills && node.fills.length > 0 ? node.fills : undefined;
+  if (fills) {
+    const visible = fills.filter((fill) => fill.visible !== false);
+    if (visible.length !== 1) return false;
+    const fill = visible[0]!;
+    if (fill.type !== 'solid' || !fill.color) return false;
+    if ((fill.opacity ?? 1) !== 1) return false;
+    return isDefaultWhiteFill(fill.color);
+  }
+  return isDefaultWhiteFill(node.fill);
+}
+
+function isClearCalloutPaint(node: ShapeNode): boolean {
+  if (node.paintRefs && node.paintRefs.length > 0) return false;
+  if (node.fills && node.fills.length > 0) {
+    return node.fills.every(
+      (fill) =>
+        fill.visible === false || fill.opacity === 0 || (fill.type === 'solid' && !fill.color?.a),
+    );
+  }
+  return isClearFill(node.fill);
+}
+
+function readCalloutPaint(node: ShapeNode): CalloutPaint {
+  if (node.paintRefs && node.paintRefs.length > 0) {
+    return {
+      fill: opaqueCalloutFill(node.fill),
+      fills: (node.fills ?? []).map((fill) => ({ ...fill })),
+      paintRefs: [...node.paintRefs],
+    };
+  }
+  const fills = resolveNodeFills(node);
+  const color = primaryColor(fills) ?? node.fill;
+  return {
+    fill: opaqueCalloutFill(color),
+    fills: fills.map((fill) => ({ ...fill })),
+  };
+}
+
+function withCalloutPaint(node: ShapeNode, paint: CalloutPaint | 'clear'): ShapeNode {
+  if (paint === 'clear') {
+    const { paintRefs: _paintRefs, ...rest } = node;
+    return { ...rest, fill: CLEAR, fills: [] };
+  }
+  const next: ShapeNode = {
+    ...node,
+    fill: paint.fill,
+    fills: paint.fills,
+  };
+  if (paint.paintRefs && paint.paintRefs.length > 0) {
+    next.paintRefs = paint.paintRefs;
+  } else {
+    const { paintRefs: _paintRefs, ...withoutRefs } = next;
+    return withoutRefs;
+  }
+  return next;
 }
 
 function point(x: number, y: number): PathPoint {
@@ -569,6 +680,7 @@ function recipe(
     fitToText: false,
     fitPolicy: 'reflow',
     parametric: true,
+    ...(isShapedCalloutKind(kind) ? { fillLayout: 'outline' as const } : {}),
   };
 }
 
@@ -1100,31 +1212,23 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
   let nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
 
   // Outline lifecycle: shaped kinds carry a star outline behind the body;
-  // rect-bodied kinds must not keep one. Authored fill moves with the
-  // silhouette so a recolor is not wiped by a kind switch.
+  // rect-bodied kinds must not keep one. Authored paint (fills, paintRefs,
+  // and the legacy fill) moves with the silhouette so an Inspector recolor
+  // is not wiped by a kind switch.
   let outlineId = group.callout.outlineNodeId;
   const existingOutline = outlineId ? nodes[outlineId] : undefined;
   const hasStarOutline = existingOutline?.kind === 'shape' && existingOutline.shape.kind === 'star';
-  const existingOutlineFill = existingOutline?.kind === 'shape' ? existingOutline.fill : undefined;
-  let outlineFill: ShapeNode['fill'] = WHITE;
-  let bodyFill: ShapeNode['fill'] = body.fill;
-  if (shaped && wasShaped) {
-    outlineFill = opaqueCalloutFill(hasStarOutline ? existingOutlineFill : body.fill);
-    bodyFill = CLEAR;
-  } else if (shaped) {
-    outlineFill = opaqueCalloutFill(body.fill);
-    bodyFill = CLEAR;
-  } else if (wasShaped) {
-    bodyFill = opaqueCalloutFill(hasStarOutline ? existingOutlineFill : body.fill);
-  } else {
-    bodyFill = opaqueCalloutFill(body.fill);
-  }
+  const bodyPaint = readCalloutPaint(body);
+  const outlinePaint =
+    hasStarOutline && existingOutline?.kind === 'shape'
+      ? readCalloutPaint(existingOutline)
+      : undefined;
+  const movingPaint = wasShaped ? (outlinePaint ?? bodyPaint) : bodyPaint;
 
   if (shaped && outlineId && hasStarOutline) {
     nodes[outlineId] = {
-      ...(existingOutline as ShapeNode),
+      ...withCalloutPaint(existingOutline as ShapeNode, movingPaint),
       shape: outlineStarShape(kind, body.shape.w, body.shape.h),
-      fill: outlineFill,
       strokes: [ink],
     };
   } else if (shaped) {
@@ -1132,18 +1236,17 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
     const minted = nextNodeId({ ...doc, nextId });
     outlineId = minted.id;
     nextId = minted.doc.nextId;
-    nodes[outlineId] = {
-      ...outlineNode(outlineId, body.shape.w, body.shape.h, kind, ink),
-      fill: outlineFill,
-    };
+    nodes[outlineId] = withCalloutPaint(
+      outlineNode(outlineId, body.shape.w, body.shape.h, kind, ink),
+      movingPaint,
+    );
   } else if (outlineId) {
     delete nodes[outlineId];
     outlineId = undefined;
   }
 
   nodes[body.id] = {
-    ...body,
-    fill: bodyFill,
+    ...withCalloutPaint(body, shaped ? 'clear' : movingPaint),
     cornerRadius: shaped ? 0 : calloutStyle(kind).cornerRadius,
     strokes: shaped ? [] : [ink],
   };
@@ -1198,6 +1301,8 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
   const nextCallout: CalloutRecipe = { ...group.callout, kind };
   if (outlineId) nextCallout.outlineNodeId = outlineId;
   else delete nextCallout.outlineNodeId;
+  if (shaped) nextCallout.fillLayout = 'outline';
+  else delete nextCallout.fillLayout;
   const withChildren = {
     ...doc,
     nextId,

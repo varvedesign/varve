@@ -592,10 +592,25 @@ function collectClipElements(doc: SceneDocument, node: SceneNode): string[] {
   return [];
 }
 
+const maskDefCache = new WeakMap<SceneDocument, Map<string, string | null>>();
+
+function maskDefFor(doc: SceneDocument, nodeId: string, mask: Mask): string | null {
+  let cached = maskDefCache.get(doc);
+  if (!cached) {
+    cached = new Map();
+    maskDefCache.set(doc, cached);
+  }
+  const hit = cached.get(nodeId);
+  if (hit !== undefined) return hit;
+  const def = buildMaskDef(doc, nodeId, mask);
+  cached.set(nodeId, def);
+  return def;
+}
+
 function maskReferenceAttributes(doc: SceneDocument, node: SceneNode): string {
   const mask = resolveMask(node, doc);
   if (!mask) return '';
-  if (!buildMaskDef(doc, node.id, mask)) return '';
+  if (!maskDefFor(doc, node.id, mask)) return '';
   const url = `url(#mask-${node.id})`;
   return mask.type === 'clip' && !mask.inverted ? ` clip-path="${url}"` : ` mask="${url}"`;
 }
@@ -853,7 +868,7 @@ function collectSubtreeMaskDefs(doc: SceneDocument, node: SceneNode): string[] {
   const defs: string[] = [];
   const mask = resolveMask(node, doc);
   if (mask) {
-    const def = buildMaskDef(doc, node.id, mask);
+    const def = maskDefFor(doc, node.id, mask);
     if (def) defs.push(def);
   }
   // Recurse into containers (frame, group) to check children.

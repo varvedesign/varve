@@ -14,6 +14,11 @@ export { hasSelfIntersections, resolveSelfIntersections } from './self-intersect
 
 export type BooleanOpType = 'union' | 'subtract' | 'intersect' | 'exclude';
 
+/** Retry kernel failures with snap/perturb. Preview/drag should pass `{ retry: false }`. */
+export interface ClipperOptions {
+  retry?: boolean;
+}
+
 type Pair = [number, number];
 type Ring = Pair[];
 type Polygon = Ring[];
@@ -199,11 +204,12 @@ export function clipRegions(
   regions: ClipperRegion[],
   operation: BooleanOpType,
   tolerance: number,
+  options?: ClipperOptions,
 ): ClipperRegion {
   const geometries = regions.map(regionToGeometry).filter((geometry) => geometry.length > 0);
   if (!geometries.length) return { components: [], fillRule: 'evenodd' };
 
-  const attempted = runClipperWithRetry(operation, geometries, tolerance);
+  const attempted = runClipperWithRetry(operation, geometries, tolerance, options?.retry !== false);
   return {
     ...multiPolygonToRegion(attempted.geometry, attempted.fillRule, tolerance),
     ...(attempted.degraded ? { degraded: true } : {}),
@@ -291,15 +297,18 @@ function runClipperWithRetry(
   operation: BooleanOpType,
   geometries: MultiPolygon[],
   tolerance: number,
+  retry: boolean,
 ): { geometry: MultiPolygon; fillRule: FillRule; degraded: boolean } {
   const exact = tryClipper(operation, geometries);
   if (exact) return { geometry: exact, fillRule: 'evenodd', degraded: false };
 
-  const snapped = tryClipper(operation, snapGeometries(geometries, tolerance));
-  if (snapped) return { geometry: snapped, fillRule: 'evenodd', degraded: false };
+  if (retry) {
+    const snapped = tryClipper(operation, snapGeometries(geometries, tolerance));
+    if (snapped) return { geometry: snapped, fillRule: 'evenodd', degraded: false };
 
-  const perturbed = tryClipper(operation, perturbGeometries(geometries, tolerance));
-  if (perturbed) return { geometry: perturbed, fillRule: 'evenodd', degraded: false };
+    const perturbed = tryClipper(operation, perturbGeometries(geometries, tolerance));
+    if (perturbed) return { geometry: perturbed, fillRule: 'evenodd', degraded: false };
+  }
 
   return { ...fallbackClipperGeometry(operation, geometries), degraded: true };
 }

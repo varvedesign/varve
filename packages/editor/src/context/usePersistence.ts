@@ -7,12 +7,7 @@ import {
   stripExtension,
   upsertPreservingMeta,
 } from '@varve/platform';
-import {
-  type Document,
-  DocumentCodec,
-  type DocumentCodecWarning,
-  validateDocument,
-} from '@varve/scene';
+import { type Document, DocumentCodec, validateDocument } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useCallback, useRef } from 'react';
 import { commitLibrarySave } from '../persistence/librarySave';
@@ -29,6 +24,7 @@ import {
   getPersistenceFontCatalog,
   serializeDocumentSnapshot as serializeDocumentSnapshotPure,
 } from '../persistence/documentRevision';
+import { encodeDocumentJson, setEncodeWarningToast } from '../persistence/encodeWarnings';
 import { type SaveIntent, type SaveOutcome, saveTargetFromSession } from '../persistence/saveTypes';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
@@ -39,22 +35,6 @@ import type { EditorState, LoadDocumentMeta, SaveIssue, SessionFileMeta } from '
 import { getCanvasViewport } from './viewportOps';
 
 export type { LoadDocumentMeta };
-
-function encodeDocumentJson(doc: Document): { json: string; warnings: DocumentCodecWarning[] } {
-  return DocumentCodec.encodeWithWarnings(doc);
-}
-
-function surfaceEncodeWarnings(
-  warnings: DocumentCodecWarning[],
-  report?: (message: string) => void,
-): void {
-  const notable = warnings.filter(
-    (warning) => warning.severity === 'warning' || warning.severity === 'error',
-  );
-  if (notable.length === 0 || !report) return;
-  const first = notable[0]!.message;
-  report(notable.length === 1 ? first : `${first} (${notable.length} issues on save)`);
-}
 
 export interface PersistenceAPI {
   serializeDocument: () => string;
@@ -98,6 +78,7 @@ export function usePersistence(
   ) => { zoom: number; pan: { x: number; y: number } } | null,
   reportEncodeWarning?: (message: string) => void,
 ): PersistenceAPI {
+  setEncodeWarningToast(reportEncodeWarning);
   const serializeDocument = useCallback(() => {
     return serializeDocumentSnapshot(stateRef.current.document);
   }, [stateRef]);
@@ -304,8 +285,7 @@ async function performSave(
     );
   }
 
-  const encoded = encodeDocumentJson(s.document);
-  surfaceEncodeWarnings(encoded.warnings, reportEncodeWarning);
+  const encoded = encodeDocumentJson(s.document, reportEncodeWarning);
   const json = encoded.json;
 
   if (target.kind === 'download-only') {
@@ -434,8 +414,7 @@ async function chooseAndAdopt(
   const target = choice.target;
   const s = stateRef.current;
   const meta = s.sessions.find((sess) => sess.id === s.activeId);
-  const encoded = encodeDocumentJson(s.document);
-  surfaceEncodeWarnings(encoded.warnings, reportEncodeWarning);
+  const encoded = encodeDocumentJson(s.document, reportEncodeWarning);
   const json = encoded.json;
   const written = await platform.writeSaveTarget(target, json);
   if (written.kind !== 'written') {
@@ -508,8 +487,7 @@ async function performSaveCopy(
 ): Promise<SaveOutcome> {
   const s = stateRef.current;
   const meta = s.sessions.find((sess) => sess.id === s.activeId);
-  const encoded = encodeDocumentJson(s.document);
-  surfaceEncodeWarnings(encoded.warnings, reportEncodeWarning);
+  const encoded = encodeDocumentJson(s.document, reportEncodeWarning);
   const json = encoded.json;
   const choice = await platform.chooseDocumentSaveTarget(meta?.name ?? 'Untitled');
   if (choice.kind === 'cancelled') {

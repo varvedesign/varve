@@ -55,12 +55,16 @@ import { normalizeStrokeIds } from './strokeIdentity';
 import { emptyTableModel, tableContentNodeIds } from './table';
 import { normalizeTableModelDefensively } from './tableOps';
 import {
+  type Fill,
+  type ManagedColor,
   type NodeId,
   normalizeConceptArtReferenceMetadata,
   normalizeImageFillData,
   type Page,
   type RasterMaskAsset,
   type SceneNode,
+  type TextEffectState,
+  type TextNode,
 } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
@@ -764,6 +768,53 @@ function sanitizeStructuralMaskState(doc: Document, warnings: DocumentCodecWarni
   return changed ? { ...doc, nodes } : doc;
 }
 
+function isManagedColorValue(value: unknown): value is ManagedColor {
+  return isRecord(value) && typeof value.space === 'string';
+}
+
+function normalizeTextEffectValue(raw: unknown): TextEffectState | undefined {
+  if (!isRecord(raw) || typeof raw.preset !== 'string' || raw.preset.length === 0) return undefined;
+  const next: TextEffectState = { preset: raw.preset };
+  if (isManagedColorValue(raw.restoreFill)) next.restoreFill = raw.restoreFill;
+  if (Array.isArray(raw.restoreFills)) next.restoreFills = raw.restoreFills as Fill[];
+  return next;
+}
+
+function sanitizeTextEffectState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  let changed = false;
+  const nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
+  for (const [nodeId, node] of Object.entries(doc.nodes)) {
+    if (node.kind !== 'text' || node.textEffect === undefined) continue;
+    const normalized = normalizeTextEffectValue(node.textEffect);
+    if (!normalized) {
+      const { textEffect: _discarded, ...rest } = node;
+      nodes[nodeId] = rest as TextNode;
+      warnings.push(
+        warning(
+          'document.invalid-text-effect',
+          `Lettering preset metadata on node ${nodeId} was invalid and was removed`,
+          'warning',
+          `${nodeId}.textEffect`,
+        ),
+      );
+      changed = true;
+      continue;
+    }
+    const current = node.textEffect;
+    if (
+      current.preset === normalized.preset &&
+      current.restoreFill === normalized.restoreFill &&
+      current.restoreFills === normalized.restoreFills &&
+      Object.keys(current).length === Object.keys(normalized).length
+    ) {
+      continue;
+    }
+    nodes[nodeId] = { ...node, textEffect: normalized };
+    changed = true;
+  }
+  return changed ? { ...doc, nodes } : doc;
+}
+
 function normalizeDocument(doc: Document): DocumentNormalizeResult {
   const warnings = malformedLegacyBackgroundRemovalWarnings(
     doc as unknown as Record<string, unknown>,
@@ -990,7 +1041,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = normalizeImageFillGeometry(document);
   document = normalizeInlineImageFills(document, warnings);
   document = sanitizeStructuralMaskState(document, warnings);
-  document = migrateShapedCalloutFills(document);
+  document = sanitizeTextEffectState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
   document = validatePhotoSourceState(document, warnings);
@@ -1778,6 +1829,7 @@ export const DocumentCodec = {
 
     const normalized = normalizeDocument(migration.document as unknown as Document);
     const warnings = [...normalized.warnings];
+    const withCallouts = migrateShapedCalloutFills(normalized.document, warnings);
     for (const legacyWarning of legacyWarnings) {
       if (
         !warnings.some(
@@ -1802,7 +1854,7 @@ export const DocumentCodec = {
       ),
     );
 
-    const repaired = validateAndRepairDocument(normalized.document);
+    const repaired = validateAndRepairDocument(withCallouts);
     if (repaired.repaired.changed) {
       warnings.unshift(
         warning('document.repaired', 'Document references were repaired at load time', 'warning'),

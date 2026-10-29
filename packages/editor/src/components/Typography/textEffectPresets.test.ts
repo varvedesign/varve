@@ -125,10 +125,25 @@ describe('text effect presets', () => {
   it('clear sound effect lettering restores the prior fill and removes the shadow', () => {
     const original = makeText({ fill: { space: 'rgb', r: 16, g: 21, b: 31, a: 255 } });
     const withSfx = applyTextEffectPreset(original, textEffectPresetById('sfx-impact')!);
+    expect(withSfx.textEffect?.preset).toBe('sfx-impact');
+    expect(withSfx.effects?.[0]).not.toHaveProperty('sfxRestoreFill');
     const cleared = clearTextEffectPreset(withSfx);
     expect(cleared.strokes).toEqual([]);
     expect(cleared.effects?.some((effect) => effect.id === SFX_IMPACT_SHADOW_ID)).toBe(false);
     expect(cleared.fill).toMatchObject({ r: 16, g: 21, b: 31, a: 255 });
+    expect(cleared.textEffect).toBeUndefined();
+  });
+
+  it('clear keeps a fill the author set after applying the sound effect', () => {
+    const original = makeText({ fill: { space: 'rgb', r: 16, g: 21, b: 31, a: 255 } });
+    const withSfx = applyTextEffectPreset(original, textEffectPresetById('sfx-impact')!);
+    const recoloured = {
+      ...withSfx,
+      fill: { space: 'rgb' as const, r: 10, g: 80, b: 200, a: 255 },
+    };
+    const cleared = clearTextEffectPreset(recoloured);
+    expect(cleared.fill).toMatchObject({ r: 10, g: 80, b: 200, a: 255 });
+    expect(cleared.textEffect).toBeUndefined();
   });
 
   it('the clear patch removes only the outline', () => {

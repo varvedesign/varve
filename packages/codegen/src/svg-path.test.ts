@@ -234,4 +234,40 @@ describe('SVG path export', () => {
     expect(svg).toContain('<path d="M 0 0 L 80 0 L 80 60 L 0 60 Z"');
     expect(svg.includes(`clip-path="url(#mask-missing)"`)).toBe(false);
   });
+
+  it('omits mask urls when the source is missing or the mask is hidden', () => {
+    let missing = createDocument('Missing mask source', true);
+    missing = addNode(
+      missing,
+      makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 80, h: 60 }),
+    );
+    missing = addNode(missing, {
+      ...makeGroupNode('clipped', { children: ['content'] }),
+      mask: { type: 'clip', sourceNodeId: 'missing', visible: true },
+    });
+    const missingSvg = exportNodeToSvg(missing.nodes.clipped!, missing, {
+      background: 'transparent',
+    });
+    expect(missingSvg.includes('url(#mask-')).toBe(false);
+
+    let hidden = createDocument('Hidden mask', true);
+    hidden = addNode(hidden, makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 80, h: 60 }));
+    hidden = addNode(hidden, makeShapeNode('clip-src', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }));
+    const clipped = createClippingMask(hidden, 'clip-src', ['content']);
+    const group = clipped.doc.nodes[clipped.groupId]!;
+    const hiddenDoc = {
+      ...clipped.doc,
+      nodes: {
+        ...clipped.doc.nodes,
+        [clipped.groupId]: {
+          ...group,
+          mask: { ...group.mask!, visible: false },
+        },
+      },
+    };
+    const hiddenSvg = exportNodeToSvg(hiddenDoc.nodes[clipped.groupId]!, hiddenDoc, {
+      background: 'transparent',
+    });
+    expect(hiddenSvg.includes('url(#mask-')).toBe(false);
+  });
 });

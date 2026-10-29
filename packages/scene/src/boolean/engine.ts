@@ -6,6 +6,7 @@
 
 import {
   type BooleanOpType,
+  type ClipperOptions,
   type ClipperRegion,
   clipRegions,
   type RegionComponent,
@@ -17,7 +18,7 @@ import type { FillRule, Point2D, Region2D } from './region';
 import { emptyRegion, singleContour } from './region';
 
 export type { RegionComponent } from './polygon-clipper';
-export type { BooleanOpType };
+export type { BooleanOpType, ClipperOptions };
 
 export interface BooleanResult {
   /** Disconnected result components, preserving hole ownership. */
@@ -92,14 +93,18 @@ export function booleanNary(
 }
 
 /** Perform an N-ary Boolean operation on compound input regions. */
-export function booleanRegions(regions: Region2D[], operation: BooleanOpType): BooleanResult {
+export function booleanRegions(
+  regions: Region2D[],
+  operation: BooleanOpType,
+  options?: ClipperOptions,
+): BooleanResult {
   const valid = regions.filter((region) => region.contours.some((contour) => contour.length >= 3));
   if (!valid.length) return emptyResult();
   const tolerance = workingTolerance(
     valid.flatMap((region) => [...region.contours, ...region.holes]),
   );
   const kernelRegions = valid.map((region) => regionFromFlat(region, tolerance));
-  return resultFromRegion(clipRegions(kernelRegions, operation, tolerance));
+  return resultFromRegion(clipRegions(kernelRegions, operation, tolerance, options));
 }
 
 /**
@@ -122,6 +127,7 @@ export function booleanNormalized(
 export function booleanNormalizedRegions(
   regions: Region2D[],
   operation: BooleanOpType,
+  options?: ClipperOptions,
 ): BooleanResult {
   const allContours = regions.flatMap((region) => [...region.contours, ...region.holes]);
   if (!allContours.length) return emptyResult();
@@ -134,7 +140,7 @@ export function booleanNormalizedRegions(
     cursor += region.holes.length;
     return { contours, holes, fillRule: region.fillRule };
   });
-  return translateResult(booleanRegions(normalizedRegions, operation), offset);
+  return translateResult(booleanRegions(normalizedRegions, operation, options), offset);
 }
 
 function translateResult(result: BooleanResult, offset: Point2D): BooleanResult {
