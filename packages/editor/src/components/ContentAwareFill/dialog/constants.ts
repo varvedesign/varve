@@ -1,0 +1,9 @@
+export const MODEL_ID = 'lama-inpainting';
+export const DEFAULT_BRUSH_SIZE = 28;
+export const MAX_BATCH_VARIATIONS = 4;
+export const MAX_RETAINED_VARIATIONS = 8;
+export const MAX_PREVIEW_PIXELS = 2_000_000;
+export const MAX_VARIATION_THUMBNAIL_DIMENSION = 256;
+export const MAX_SOURCE_PROXY_DIMENSION = 1536;
+export const MAX_SOURCE_IDENTITY_PIXELS = 16_777_216;
+export const MAX_SOURCE_MASK_REFINEMENT_PIXELS = 16_777_216;
