@@ -19,7 +19,7 @@ pub struct Updates { pub check: Option<bool> }
 #[derive(Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Ai { pub enabled: Option<AiMode>, pub model_downloads: Option<bool>, pub local_model_dir: Option<PathBuf> }
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AiMode { On, Off, User }
 #[derive(Clone, Debug, Default, Serialize)]
