@@ -1,7 +1,7 @@
 # Varve positioning and discovery brief
 
 **Status:** Current operating brief
-**Last verified:** 2026-10-09
+**Last verified:** 2026-10-28
 **Owner:** Varve project maintainer
 
 This is the source of truth for public-facing positioning, audience priorities,
@@ -44,10 +44,11 @@ locally, and supports offline core editing on Linux, macOS, and Windows.
 4. **Why believe it:** the repository contains the Rust desktop engine, the
    shared document model, implemented feature pages, real application
    screenshots, and a generated release/download manifest.
-5. **Trust qualifier:** Varve is public beta. Collaboration is not implemented,
-   complex-script text support is still in development, and the `.varve` format
-   may change. The website must keep those limitations adjacent to conversion
-   paths.
+5. **Trust qualifier:** Varve is public beta. Real-time collaboration is
+   implemented but beta (self- or loopback-hosted rooms, not end-to-end
+   encrypted — see `docs/architecture/collaboration-system.md`), complex-script
+   text support is still in development, and the `.varve` format may change.
+   The website must keep those limitations adjacent to conversion paths.
 
 ### Website navigation and conversion copy
 
@@ -190,9 +191,12 @@ When a new phrase is proposed, check it against both lists before it ships.
   does not support saying that Affinity, Sketch, or Clip Studio users were
   burned by a reversed “free forever” pledge; see the dated correction in the
   [complaint research](../research/design-tool-failure-modes-2026-10-02.md#pricing-claim-correction-2026-10-09).
-- “Real-time collaboration” as an available capability; current status is
-  single-user with UI scaffolding only. Do not imply peer-to-peer or
-  collaborate-without-the-cloud sync.
+- “Real-time collaboration” without its beta status; it works, but only via a
+  host-run room (desktop loopback or a self-hosted room server), sessions are
+  not end-to-end encrypted, and a loopback session is not an internet invite.
+  Do not imply peer-to-peer, hosted-by-Varve, or
+  collaborate-without-any-server sync; the limits live in
+  [collaboration-system.md](../architecture/collaboration-system.md).
 - “Hosted web app” or “web version” as a download destination; the WASM target
   exists in the repository, but no hosted web editor is available. The `/try`
   demo persists in browser storage, not as a user-visible file.

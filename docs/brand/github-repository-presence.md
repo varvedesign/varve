@@ -12,20 +12,23 @@ set of GitHub settings that cannot be represented in git.
 | Website | <https://varve.studio> |
 | Source repository | <https://github.com/varvedesign/varve> |
 | Application release shortcut | <https://github.com/varvedesign/varve/releases/latest> |
-| Current public status | Public beta; latest published application release is `v0.5.0` (published 2026-10-09) |
+| Current public status | Public beta; latest published application release is `v0.5.1` (published 2026-10-16) |
 | License wording | Source-available under FSL-1.1-MIT; not OSI-approved open source |
 
-The repository description should remain a short product definition rather
-than a slogan:
+The repository description is a short product definition rather than a
+slogan. Keep it keyword-first so GitHub search and link previews index the
+disciplines and platforms (set via Settings → General → description, or
+`gh api -X PATCH repos/varvedesign/varve -f description=...`):
 
-> Local-first, cross-platform design suite for vector graphics, layout, typography, motion, prototyping, and print — no subscription, no cloud account required.
+> Varve · Free local-first design suite: vector, layout, typography, motion, prototyping, comics, photo & print. No account, no subscription. Linux, Windows & Apple Silicon Mac.
 
 The current topic set is intentionally limited to product and implementation
-terms: `cross-platform`, `design-editor`, `design-tool`, `desktop-app`,
-`graphic-design`, `local-first`, `motion-design`, `print-design`,
-`prototyping`, `rust`, `source-available`, `tauri`, `typescript`,
-`typography`, `vector-editor`, `vector-graphics`, `wasm`, `webassembly`, and
-`webgpu`.
+terms (20 topics, the GitHub cap): `cmyk`, `comics`, `cross-platform`,
+`design-editor`, `design-tool`, `desktop-app`, `graphic-design`,
+`illustration`, `linux`, `local-first`, `motion-design`, `photo-editor`,
+`print-design`, `prototyping`, `rust`, `source-available`, `tauri`,
+`typography`, `vector-graphics`, and `webassembly`. `vector-editor` was
+dropped in favor of `cross-platform`.
 
 If the product stage or latest published release changes, update the source
 of truth first (`packages/shared/src/product.ts` and the generated website
@@ -48,6 +51,28 @@ pnpm screenshots:og
 
 It is also the website's Open Graph image, which keeps link previews and the
 repository page visually consistent.
+
+Card layout (redesigned 2026-10-29): the left column carries the full Varve
+lockup (outlined wordmark inlined from `varve-wordmark-dark.svg`, so no
+font is needed for the brand), the "Local-first design suite" eyebrow, the
+"Design across disciplines. / One canvas." headline set in Geist with the
+accent line in brand teal, the discipline line, and two chips (platforms;
+"No account · No subscription"). The right side shows the deterministic
+`docs/screenshots/product/workspace-dark.png` screenshot in window chrome
+(a dots-only title strip — no window title text, because the screenshot's
+own title bar already names the document) that deliberately bleeds past the
+right canvas edge (window left 664, width 600 on a 1200px canvas). A
+teal-outlined "Public beta" pill straddles the window's top-right corner;
+it states `PRODUCT_STATUS.stage`, not a version, so it does not go stale
+between releases. `varve.studio` anchors the bottom-left, "Free &
+source-available" the bottom-right, and a three-band brand ribbon
+(teal/sandstone/terracotta) closes the bottom edge. Inputs are local only
+(the website's Geist font from node_modules plus the tracked screenshot);
+render makes no network requests. When editing the template, keep text
+inside the left column (the screenshot window starts at x=664), keep live
+text at least 40px from the top/bottom edges (GitHub may center-crop the
+social preview toward 2:1, trimming roughly 15px per edge), and re-render
+to verify before uploading.
 
 The square 512×512 repository/owner icon is
 `docs/brand/github-repository-icon.png`. It is generated from the canonical
@@ -84,11 +109,18 @@ Verify these after a repository transfer, domain change, or major release:
      Polls, Q&A, and Show and tell. Link a category only when it is intended
      for that kind of post.
 4. **GitHub → Settings → Code security and analysis**
-   - Keep Dependabot alerts/security updates and private vulnerability
-     reporting enabled.
-   - Verify secret scanning and push protection are enabled when available on
-     the repository plan; the REST surface used by the audit does not expose
-     their state reliably.
+   - State verified 2026-10-28: secret scanning and push protection were
+     disabled and are now enabled; private vulnerability reporting is enabled
+     (a `GET` on
+     `/repos/varvedesign/varve/private-vulnerability-reporting` returns
+     `{"enabled":true}`); Dependabot security updates was already enabled;
+     non-provider patterns and validity checks remain disabled.
+   - REST state reads from `GET /repos/varvedesign/varve` under
+     `security_and_analysis`. Enabling the two scanning flags requires a
+     `PATCH` whose body nests `secret_scanning` and
+     `secret_scanning_push_protection` under a top-level
+     `security_and_analysis` object with `"status": "enabled"` each; flat
+     top-level fields are accepted but silently ignored.
 
 GitHub-generated community health checks may not recognize uncommitted local
 templates. After `.github/ISSUE_TEMPLATE/` and
@@ -99,7 +131,7 @@ view to confirm that GitHub recognizes them.
 
 - Say **public beta**, not stable, until `PRODUCT_STATUS.stage` changes.
 - Call the current license **source-available**, not open source.
-- Treat the latest published application release (currently `v0.5.0`) as the latest
+- Treat the latest published application release (currently `v0.5.1`) as the latest
   until GitHub publishes a newer `vX.Y.Z` release. `varve-models-v1` is an auxiliary
   model-artifact release and must not be presented as an application download.
 - Keep privacy wording scoped to core editing. Model downloads, online

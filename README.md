@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/varvedesign/varve/actions/workflows/ci.yml"><img src="https://github.com/varvedesign/varve/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/K-Arthur/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
+  <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/varvedesign/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-3b82f6" alt="License: FSL-1.1-MIT"></a>
   <a href="#project-status"><img src="https://img.shields.io/badge/status-public%20beta-C54B3A" alt="Status: public beta"></a>
   <!-- Restored when SHOW_SUPPORT_PROJECT is true in apps/website/src/config/features.js:
@@ -19,7 +19,7 @@
   -->
 </p>
 
-> **Public beta.** This repository contains the `0.5.0` update. The
+> **Public beta.** This repository contains the `0.5.1` update. The
 > [download page](https://varve.studio/download) lists verified published
 > application installers for Linux, macOS, and Windows, with their signing
 > status. Core workflows are usable today, but the `.varve` document format
@@ -177,7 +177,7 @@ product page.
 ## Download
 
 Get application installers from the [Varve download page](https://varve.studio/download?ref=gh-readme-download-section)
-or the [Varve v0.5.0 release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0).
+or the [Varve v0.5.1 release](https://github.com/varvedesign/varve/releases/tag/v0.5.1).
 Optional AI models are published as separate releases.
 
 ## Platform support
@@ -307,7 +307,7 @@ scripts/    release, screenshot, and quality-gate tooling
 ## Project status
 
 Varve is in **public beta**. The latest published application release is
-`v0.5.0`, published on 2026-10-09 after the tagged candidate passed the
+`v0.5.1`, published on 2026-10-16 after the tagged candidate passed the
 release and publication gates. Published installers cover Linux, macOS
 (Apple Silicon), and Windows. This checkout
 targets source version `<!-- VARVE_VERSION -->0.5.1<!-- /VARVE_VERSION -->`.
