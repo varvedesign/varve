@@ -5,7 +5,12 @@
  * Renders scripts/screenshots/og-template.html at exactly 1200x630 (the
  * Open Graph share-card size) and writes apps/website/public/og-image.png,
  * so the social preview is regenerable from source instead of a one-off
- * binary. No external assets, no fonts, no network requests.
+ * binary. No network requests: the only assets are the Geist variable font
+ * (website dependency in node_modules) and the deterministic product
+ * screenshot at docs/screenshots/product/workspace-dark.png, both
+ * referenced relatively from the template. The product screenshot is a
+ * tracked file, so the render needs a full checkout (not an export that
+ * omits docs/).
  *
  *   pnpm screenshots:og
  */
