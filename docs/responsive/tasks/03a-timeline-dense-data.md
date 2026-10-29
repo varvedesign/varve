@@ -1,6 +1,6 @@
 # Task 03a — Timeline dense-data targets
 
-Status: not-started | Depends on: 02 (done), 01a (chrome inset) | Rollback: — (not started)
+Status: in-progress — fix landed 2026-10-29, independent re-measurement pending | Depends on: 02 (done), 01a (done) | Rollback: revert the 03a commit (CSS-only)
 Split from: tasks/03-tables-and-dense-data.md on 2026-10-29T15:59:01-07:00
 
 ## Scope

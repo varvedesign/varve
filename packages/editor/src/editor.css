@@ -5551,40 +5551,13 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-sm);
 }
 
-/* ── Track row ──────────────────────────────────────────── */
-.timeline-track-row {
-  display: flex;
-  align-items: center;
-  height: 28px;
-  border-bottom: 1px solid var(--color-border-subtle);
-  cursor: pointer;
-  transition: background var(--duration-quick) var(--ease-standard);
-}
-
-.timeline-track-row:hover {
-  background: var(--color-interactive-hover-surface);
-}
-
-.timeline-track-row--selected {
-  background: var(--color-interactive-selected-surface);
-  box-shadow: inset 2px 0 0 var(--color-interactive-selected-border);
-}
-
-.timeline-track-row--muted {
-  opacity: 0.5;
-}
-
-.timeline-track-row__label {
-  width: 140px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-2);
-  font-size: var(--font-size-xs);
-  overflow: hidden;
-}
-
+/* ── Track row (owned by TimelinePanel.css) ───────────────
+ * The row and its label column are deliberately NOT declared here. The
+ * previous 140px label + centered row lived in this file while the component
+ * declared 120px/column in TimelinePanel.css; equal specificity meant the
+ * later component sheet won the width but this file still supplied
+ * align-items/font-size/gap. The label then measured 37.9px inside a 28px row
+ * and painted over the next track. One file owns the column now. */
 .timeline-track-row__name {
   overflow: hidden;
   text-overflow: ellipsis;
