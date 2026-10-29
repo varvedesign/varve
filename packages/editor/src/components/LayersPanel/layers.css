@@ -131,16 +131,6 @@
   background: var(--color-surface-hover);
 }
 
-.layers-panel__header-btn--active {
-  color: var(--color-interactive-default);
-  border-color: color-mix(in oklab, var(--color-interactive-default) 30%, transparent);
-  background: var(--color-accent-subtle);
-}
-
-.layers-panel__header-btn--active:hover {
-  color: var(--color-interactive-hover);
-}
-
 .layers-panel__header-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
@@ -161,6 +151,35 @@
     min-width: var(--touch-target-min);
     min-height: var(--touch-target-min);
   }
+}
+
+/* Tablet header buttons retain a 44px hit area, with the same 28px painted
+ * surface as Move and the panel collapse/detach controls. */
+html[data-layout-mode="tablet"] .layers-panel__header-btn {
+  position: relative;
+  background: transparent;
+  border-color: transparent;
+}
+
+html[data-layout-mode="tablet"] .layers-panel__header-btn::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 28px;
+  block-size: 28px;
+  transform: translate(-50%, -50%);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control-compact);
+  pointer-events: none;
+}
+
+html[data-layout-mode="tablet"] .layers-panel__header-btn:hover::before {
+  background: var(--color-surface-hover);
+}
+
+html[data-layout-mode="tablet"] .layers-panel__header-btn > * {
+  position: relative;
 }
 
 .layers-panel__isolation-breadcrumb {

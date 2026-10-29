@@ -343,6 +343,44 @@ input[type="number"] {
     2px +
     32px
   );
+  /* One inset recipe for every transient surface pinned to the viewport bottom
+   * or to a side edge — toasts, onboarding tips, the onboarding checklist,
+   * micro-hints.
+   *
+   * Those surfaces are `position: fixed`, so they are placed against the
+   * viewport while the chrome they must not cover lives in this grid. A bare
+   * `bottom: var(--space-4)` is wrong four ways: it sits under the on-screen
+   * keyboard (which covers the layout viewport but not the visual one), it sits
+   * under a standalone PWA's bottom gesture bar, it sits on the status bar's own
+   * 24px targets, and `right: var(--space-4)` drops a right-anchored surface on
+   * top of the docked Inspector rail. That last one is not hypothetical: the
+   * "Did You Know?" tip covered the Inspector's "Snap tolerance" field at 900px,
+   * which `tests/e2e/responsive/dock-panels.spec.ts` reports as an unreachable
+   * control. The canonical `.varve-toast-container` in `@varve/ui` already
+   * derives its own offset this way; these tokens expose the same recipe to the
+   * editor's onboarding and progress surfaces so they cannot drift apart again.
+   *
+   * `--inspector-width` / `--sidebar-width` are the rails' *preferred* widths,
+   * not the widths the dock actually resolves (the dock places panels from
+   * measured bounds, and at an enlarged root text size the token is wider than
+   * the rail turns out to be). Erring wide is the safe direction: the surface
+   * stays clear of the rail and at worst leaves slack between them.
+   *
+   * Compact tiers present both rails as drawers, so a fixed surface must not
+   * reserve a docked-rail gutter there — see the `min-width: 900px` override
+   * below, which is the same boundary the drawers switch on. */
+  --overlay-bottom-inset: calc(
+    var(--statusbar-height) +
+    var(--space-3) +
+    var(--floating-toolbar-height, var(--toolbar-height)) +
+    var(--space-2) +
+    var(--space-6) +
+    var(--space-3) +
+    var(--keyboard-inset-bottom, 0px) +
+    env(safe-area-inset-bottom, 0px)
+  );
+  --overlay-right-inset: var(--space-4);
+  --overlay-left-inset: var(--space-4);
   grid-template-areas:
     "menubar  menubar   menubar   logoarea"
     "tabs     tabs      tabs      logoarea"
@@ -386,6 +424,36 @@ input[type="number"] {
 /* Logo panel open: reserve its column. */
 .editor-shell--logo-open {
   --logo-panel-width: 340px;
+}
+
+/* Docked rails exist only at this width and above, so only there does a
+ * viewport-fixed surface reserve a gutter for them. Below it the same two
+ * panels are drawers and a gutter would only push transient chrome away from
+ * the edge for no reason. This is the boundary the drawers switch on.
+ *
+ * Both gutters are capped at a viewport fraction, and the cap is load-bearing.
+ * `--sidebar-width` / `--inspector-width` are rem-derived *preferred* widths
+ * while the dock resolves the real rails from ratios of its own bounds, so at
+ * an enlarged root text size the token is much wider than the rail it stands
+ * for: at 900x800 with a 200% root text size the tokens reserve 478.92px and
+ * 510.92px for rails that actually measure 198px and 240px. Uncapped, the pair
+ * asks for 989.84px of a 900px viewport, the space between them goes negative,
+ * and a right-anchored surface falls back to its rem floor and is pushed over
+ * the opposite rail — observed as the tip covering the Layers rail's Design
+ * Canvas controls. 38vw each keeps the pair under 76vw and therefore always
+ * leaves at least 24vw for the surface, while never binding at 100% text at
+ * desktop widths (the tokens stay the smaller term there). */
+@media (min-width: 900px) {
+  .editor-shell {
+    --overlay-right-inset: min(
+      max(var(--space-4), calc(var(--inspector-width) + var(--space-4))),
+      38vw
+    );
+    --overlay-left-inset: min(
+      max(var(--space-4), calc(var(--sidebar-width) + var(--space-4))),
+      38vw
+    );
+  }
 }
 
 @media (max-width: 899px) {
@@ -521,6 +589,9 @@ input[type="number"] {
 }
 
 .editor-menubar__item {
+  /* Keep menu labels inside their own hit targets when the tablet rail
+   * narrows. The containing rail scrolls horizontally when needed. */
+  flex-shrink: 0;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control-compact);
   cursor: default;
@@ -2189,6 +2260,20 @@ input[type="number"] {
 
 /* ── Panel overlays (responsive) ── */
 @media (max-width: 899px) {
+  /* The document name is present in the tab strip below. Give its reserved
+   * width back to the menu rail and workspace controls in tablet landscape;
+   * otherwise the last application menu clips while unused space remains. */
+  .editor-menubar__center {
+    display: none;
+  }
+
+  /* At 641–899px the application labels need about 40px more than an equal
+   * split. The document title is already in the tab strip, so assign that
+   * space to the menu rail while retaining the compact workspace controls. */
+  .editor-menubar__side {
+    flex-grow: 1.25;
+  }
+
   .editor-shell {
     grid-template-columns: 0 1fr 0;
   }
@@ -2387,7 +2472,17 @@ input[type="number"] {
 
   .workspace-dock__bar {
     height: auto;
-    min-height: calc(var(--touch-target-min) + 8px);
+    min-height: var(--touch-target-min);
+  }
+
+  .editor-menubar .workspace-dock {
+    --dock-tab-gap: var(--space-1);
+    --dock-inset-inline: var(--space-1);
+    --dock-inset-block: 0px;
+  }
+
+  .editor-menubar .workspace-dock__item--active {
+    padding-inline: var(--space-2);
   }
 
   .workspace-dock__item,
@@ -2410,9 +2505,9 @@ input[type="number"] {
     min-height: 24px;
   }
 
-  /* Keep the whole top chrome on one touch scale. The switcher already grows
-   * to 44px on coarse pointers; menu, home, and history actions should not
-   * remain visually and physically smaller beside it. */
+  /* Keep the whole top chrome on one touch scale. Coarse pointers enlarge
+   * menu, home, and history actions; tablet mode applies a compact measured
+   * switcher geometry below so more modes fit this narrow strip. */
   .editor-menubar .editor-menubar__home,
   .editor-menubar .editor-menubar__item,
   .editor-menubar .editor-menubar__doc-name-text,
@@ -2468,12 +2563,28 @@ html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__item {
   font-size: var(--font-size-xs);
 }
 
-html[data-layout-mode="tablet"] .workspace-dock__bar {
-  min-block-size: calc(var(--touch-target-min) + var(--space-2));
+html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
+  /* Match the desktop dock's 36px icon rhythm (32px control + 4px gap).
+   * The former 44px boxes made the entire segmented control much wider and
+   * taller than its desktop counterpart even after its fill was inset. */
+  --dock-item-size: 32px;
+  --dock-bar-height: 38px;
+  --dock-tab-gap: 4px;
+  --dock-inset-inline: 6px;
+  --dock-inset-block: 2px;
 }
 
-html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
-  --dock-item-size: var(--touch-target-min);
+html[data-layout-mode="tablet"] .workspace-dock__bar {
+  min-block-size: var(--dock-bar-height);
+}
+
+/* A compact 32px target keeps the whole switcher at the desktop visual scale
+ * while exceeding the 24px touch target floor. The 44px rule for toolbar and
+ * panel controls does not fit six adjacent modes inside the menubar. */
+html[data-layout-mode="tablet"] .workspace-dock__item,
+html[data-layout-mode="tablet"] .workspace-dock__more {
+  min-inline-size: var(--dock-item-size);
+  min-block-size: var(--dock-item-size);
 }
 
 /* ── Container queries for panels ── */
@@ -3634,6 +3745,62 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
 .editor__collapse-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
+}
+
+/* Panel header actions share the Move control's compact painted surface.
+ * Their 44px tablet boxes remain available for touch and drag. */
+html[data-layout-mode="tablet"] .editor__collapse-btn,
+html[data-layout-mode="tablet"] .panel-detach-btn {
+  position: relative;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+html[data-layout-mode="tablet"] .editor__collapse-btn::before,
+html[data-layout-mode="tablet"] .panel-detach-btn::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 28px;
+  block-size: 28px;
+  transform: translate(-50%, -50%);
+  background: var(--elevation-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  pointer-events: none;
+}
+
+html[data-layout-mode="tablet"] .editor__collapse-btn:hover,
+html[data-layout-mode="tablet"] .panel-detach-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+html[data-layout-mode="tablet"] .editor__collapse-btn:hover::before,
+html[data-layout-mode="tablet"] .panel-detach-btn:hover:not(:disabled)::before {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+html[data-layout-mode="tablet"] .panel-detach-btn:disabled:not([data-transferring="true"])::before {
+  background: var(--color-interactive-disabled);
+  border-color: var(--color-border-subtle);
+}
+
+html[data-layout-mode="tablet"] .panel-detach-btn[data-transferring="true"]::before {
+  background: var(--color-surface-sunken);
+}
+
+html[data-layout-mode="tablet"] .panel-detach-btn--error::before {
+  border-color: var(--color-feedback-danger);
+}
+
+html[data-layout-mode="tablet"] .editor__collapse-btn > *,
+html[data-layout-mode="tablet"] .panel-detach-btn > * {
+  position: relative;
 }
 
 /* ── Collapsed panel state ── */
@@ -7458,4 +7625,16 @@ dialog.varve-dialog--workspace-customize[open] {
       var(--space-2)
     );
   }
+}
+
+/* A drawer can be opened while its persisted desktop rail is collapsed.
+ * Once it is visible, its launcher and the desktop restore chip are duplicate
+ * controls over the canvas. The drawer's own Close button remains available;
+ * closing it reveals and refocuses the launcher. */
+.editor-shell:has(.editor__layers-panel[data-visible]) .editor__fab--layers,
+.editor-shell:has(.editor__layers-panel[data-visible]) .editor__panel-restore-btn--left,
+.editor-shell:has(.editor__inspector-panel[data-visible]) .editor__fab--inspector,
+.editor-shell:has(.editor__inspector-panel[data-visible]) .editor__panel-restore-btn--right,
+.editor-shell:has(.editor__library-panel[data-visible]) .editor__fab--library {
+  display: none;
 }

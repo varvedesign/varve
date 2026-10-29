@@ -192,9 +192,14 @@ test.describe('Alignment and arrangement workflow', () => {
     // Compare the rendered bounds in the browser. The canvas target and the
     // single root frame share their left edge in this document, so the child
     // overlay must line up with the frame while staying at tree depth two.
-    const autoReveal = page.getByRole('button', { name: 'Auto-reveal canvas selection' });
-    const autoRevealWasEnabled = (await autoReveal.getAttribute('aria-pressed')) === 'true';
+    const navigationButton = page.getByRole('button', { name: 'Layer navigation settings' });
+    await navigationButton.click();
+    const autoReveal = page.getByRole('menuitemcheckbox', {
+      name: /Reveal canvas selection in Layers panel/,
+    });
+    const autoRevealWasEnabled = (await autoReveal.getAttribute('aria-checked')) === 'true';
     if (autoRevealWasEnabled) await autoReveal.click();
+    await page.keyboard.press('Escape');
     try {
       await frame.click();
       await expect(frame).toHaveAttribute('aria-selected', 'true');
@@ -204,8 +209,10 @@ test.describe('Alignment and arrangement workflow', () => {
       const rectangleBounds = await selectedObjectBounds(page);
       expect(Math.abs(rectangleBounds.x - frameBounds.x)).toBeLessThan(2);
     } finally {
-      if (autoRevealWasEnabled && (await autoReveal.getAttribute('aria-pressed')) === 'false') {
-        await autoReveal.click();
+      if (autoRevealWasEnabled) {
+        await navigationButton.click();
+        if ((await autoReveal.getAttribute('aria-checked')) === 'false') await autoReveal.click();
+        await page.keyboard.press('Escape');
       }
     }
 

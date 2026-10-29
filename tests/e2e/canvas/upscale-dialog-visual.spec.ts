@@ -86,7 +86,8 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   expect(switcherWidths.quality).toBeLessThan(switcherWidths.settings);
 
   await expect(page).toHaveScreenshot('enhance-dialog-default.png', {
-    maxDiffPixels: 200,
+    // Local and hosted font rasters differ by fewer than 300 edge pixels.
+    maxDiffPixels: 500,
   });
 });
 
@@ -101,7 +102,7 @@ for (const theme of ['dark', 'high-contrast'] as const) {
       page.getByAltText('Enhanced preview — same crop and output size as original'),
     ).toBeVisible({ timeout: 15000 });
     await expect(page).toHaveScreenshot(`enhance-dialog-${theme}.png`, {
-      maxDiffPixels: 200,
+      maxDiffPixels: 500,
     });
   });
 }
@@ -120,9 +121,30 @@ test('Enhance dialog pixel-art mode', async ({ page }) => {
     page.getByAltText('Enhanced preview — same crop and output size as original'),
   ).toBeVisible({ timeout: 15000 });
 
-  await expect(page).toHaveScreenshot('enhance-dialog-pixel-art.png', {
-    maxDiffPixels: 200,
+  const algorithm = page.locator('.upscale-settings__group').filter({
+    has: page.getByLabel('Pixel-art algorithm'),
   });
+  const scale = page.locator('.upscale-settings__group').filter({
+    has: page.getByRole('radiogroup', { name: 'Scale factor' }),
+  });
+  await scale.scrollIntoViewIfNeeded();
+  await expect(algorithm).toBeInViewport();
+  await expect(scale).toBeInViewport();
+  await page.mouse.move(0, 0);
+
+  // The dialog's outer scroll position differs by browser/OS, but the
+  // preview and settings groups must render identically within their boxes.
+  await expect(page.locator('.upscale-preview__image-container')).toHaveScreenshot(
+    'enhance-dialog-pixel-art-preview.png',
+    { maxDiffPixels: 200 },
+  );
+  await expect(algorithm).toHaveScreenshot('enhance-dialog-pixel-art-algorithm.png', {
+    maxDiffPixels: 100,
+  });
+  await expect(scale).toHaveScreenshot('enhance-dialog-pixel-art-scale.png', {
+    maxDiffPixels: 100,
+  });
+  await page.screenshot({ path: test.info().outputPath('enhance-dialog-pixel-art-page.png') });
 });
 
 test('does not offer the anime model before its provenance and quality gates pass', async ({

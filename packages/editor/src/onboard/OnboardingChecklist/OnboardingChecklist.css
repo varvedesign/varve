@@ -1,7 +1,10 @@
 .onboarding-checklist {
   position: fixed;
-  left: var(--space-4);
-  bottom: var(--space-4);
+  /* Left and bottom come from the shell's shared overlay inset contract: the
+   * checklist must clear the docked Layers rail, the status bar, the virtual
+   * keyboard and a standalone PWA's bottom gesture bar. */
+  left: var(--overlay-left-inset);
+  bottom: var(--overlay-bottom-inset);
   z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
@@ -11,7 +14,16 @@
   border: var(--border-micro);
   border-radius: var(--radius-card);
   box-shadow: var(--elevation-shadow-raised);
-  width: 240px;
+  /* Bounded by the space left between the two rails so an enlarged root text
+   * size cannot push it past the viewport edge. 240px is the resting width at
+   * 100% text. */
+  --onboarding-checklist-available: calc(
+    100vw -
+    var(--overlay-left-inset) -
+    var(--overlay-right-inset)
+  );
+  box-sizing: border-box;
+  width: min(240px, var(--onboarding-checklist-available));
   font-size: var(--font-size-sm);
   opacity: 0;
   transform: translateY(8px);

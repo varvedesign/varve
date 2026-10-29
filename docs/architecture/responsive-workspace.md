@@ -14,7 +14,7 @@ handled.
 | `> 899px` width, tablet presentation | The tablet shell reserves a stable Inspector rail and opens Layers as a dismissible side drawer. User-customized floating docks remain in place. |
 | `<= 899px` width | Compact drawer layout. Layers and Resources use dismissible drawers; the canvas fills the available grid width. Primary panel controls remain separate, at least 44×44 CSS px. |
 | `<= 899px` + portrait | Two-tier top bar: application menus stay on the first line, with the workspace switcher and undo/redo grouped on the second line. The active workspace keeps its name when it fits, then compacts to its icon in the narrowest strips. Menu, home, workspace, and history actions use a consistent 44px target rhythm; the menu strip can scroll rather than clip. The duplicate document title and zoom controls are hidden. Inspector uses a shallow nonmodal lower pane; Resources remains a modal sheet. |
-| `<= 1094px` width | Hide the duplicate menubar document title so the application menu rail and workspace/history controls never compete for the same space; the document tab retains its name. |
+| `<= 899px` width | Hide the duplicate menubar document title so the application menu rail and workspace/history controls do not compete for the same space; the document tab retains its name. In compact landscape, the menu side receives a larger share of the row so Help remains visible and clickable at 820px. |
 | `<= 640px` width | Compact menu labels. Portrait keeps the two-tier navigation/control grouping; landscape retains one row and allows the menu rail to scroll. Zoom has one control, in the status bar. |
 | `html { min-width: 320px }` | Absolute floor only. 320 CSS px is the WCAG 1.4.10 reflow width; the shell must never force horizontal page scrolling at supported viewport sizes, including split-screen. Asserted by the `reflow-floor-320x640` entry of the viewport matrix. |
 
@@ -53,6 +53,73 @@ applies to creation tools and selection-handle resizing. The existing
 Alt-drag duplicate gesture remains unchanged while Select is active. Modifiers
 remain latched until explicitly toggled off.
 
+The Editing controls portal uses the actual `.editor-canvas` as its collision
+boundary. Its height is limited to the space above the floating toolbar and
+its horizontal anchor yields to visible panel launchers, keeping the menu row,
+toolbar, launchers, and side rails reachable. The portal measures its CSS width
+before placement; an inline intrinsic width would expand it and shift it
+across Layers. Docked
+panel Move, collapse, detach, and Layers header controls paint centered 28px surfaces within
+their 44px tablet targets. The tablet workspace switcher uses 32px controls,
+4px gaps, and a 38px card to match the desktop dock's compact rhythm; its
+controls remain above the 24px touch target floor.
+The Layers auto-reveal preference lives in Layer navigation settings. The
+redundant header eye toggle is omitted, including when the panel has content.
+The context menu on a visible Layers row omits the redundant Reveal in Layers
+Panel command; Reveal on Canvas remains available.
+An open responsive drawer hides its own reveal launcher; a Layers or Inspector
+drawer also hides the desktop restore chip. Closing the drawer reveals its
+launcher and returns keyboard focus there.
+At wide tablet sizes the Resources launcher stays on the canvas side of the
+actual Inspector rail, with space for its own 44px target.
+
+The Layers right-click menu uses the editor canvas as its collision region
+when the canvas is present. It opens beside the Layers panel and scrolls within
+the canvas region outside the floating toolbar, preserving the menubar, panel
+controls, and tools. Detached Layers
+windows fall back to their own viewport. Its submenu remains portaled and
+flips at the viewport edge while inheriting the canvas and toolbar bounds.
+
+`tests/e2e/responsive/tablet-toolbar-geometry.spec.ts` forces tablet preference
+with browser touch emulation and checks toolbar bounds, 44px targets, launcher
+collisions, and the open Editing controls popover at 820×520, 899×640,
+900×700, and 1024×768. It also checks that the bounded portal remains inside
+the canvas region, avoids the toolbar, launchers, and visible side panels, and that the gesture guide can
+be scrolled into view and hit-tested on short windows. The test measures the
+panel control paint widths, the switcher bar's height, and each mode button's
+width. `tests/e2e/responsive/context-menu-geometry.spec.ts` checks the
+opened, scrolled, and submenu states at 1280×720. Earlier captures
+of the opened, scrolled, and dismissed states live in
+`docs/screenshots/2026-10-19-tablet-toolbar-review/`. This covers browser
+geometry and interaction, not a physical tablet device.
+
+The 2026-10-20 visual review compares the
+[1536px desktop switcher](../screenshots/2026-10-20-responsive-controls/workspace-switcher-desktop-1536.png)
+with the [tablet switcher](../screenshots/2026-10-20-responsive-controls/workspace-switcher-tablet-1536.png),
+shows the [1024px Editing controls popover](../screenshots/2026-10-20-responsive-controls/tablet-toolbar-controls-open-1024.png),
+the [900px open](../screenshots/2026-10-20-responsive-controls/tablet-toolbar-controls-open-900.png)
+and [scrolled](../screenshots/2026-10-20-responsive-controls/tablet-toolbar-controls-scrolled-900.png)
+popover with a clear Resources launcher,
+and records the [bounded Layers menu](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-after.png)
+and its [Masking](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-submenu.png)
+and [bottom-row Color Tag](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-bottom-submenu.png)
+submenus. The [820px tablet menubar before the final split correction](../screenshots/2026-10-20-responsive-controls/tablet-menubar-labels-820.png)
+shows the labels at full width but clips Help at the rail boundary. The
+[corrected 820px interaction frame](../screenshots/2026-10-20-responsive-controls/tablet-menubar-and-controls-820-after.png)
+shows Help and the compact workspace switcher together while Editing controls
+stay inside the canvas and clear the toolbar.
+The browser regression set also covers full editor captures in light, dark,
+and high-contrast themes, plus Email workspace and Enhance dialog captures
+where the compact panel headers remain visible. These baselines were reviewed
+for the removed Layers eye control and the smaller Move controls. The dark Email
+inspector and full-editor baselines were refreshed after an inspected comparison
+showed that they still depicted the former wide Move labels and Layers eye.
+The Enhance pixel-art check compares its preview, Algorithm, and Scale groups
+as component snapshots and keeps a full-page diagnostic capture. The outer
+dialog's scroll position varied between local and hosted Chromium even when
+those controls rendered and remained reachable; a page-wide golden measured
+that scroll difference instead of the controls.
+
 The former `min-width: 600px` floor predated drawer mode and caused horizontal
 drift in split-screen; it was removed in `f76d98eb1`.
 
@@ -82,13 +149,20 @@ the name stays in the tooltip and the accessible name.
 The application menu rail is constrained at **every** width, not only in the
 compact tiers (`.editor-menubar__left { min-width: 0; flex-shrink: 1;
 overflow-x: auto; scrollbar-width: none }`, hidden scrollbar).
-`.editor-menubar__side` and `.editor-menubar__controls` are both `flex: 1 1 0`
-so the document title sits on the bar's true midpoint; below 900px the title is
-hidden but the symmetry still gives the menus half the bar, which is less than
-their min-content width between 641px and ~750px. Without `min-width: 0` the
+`.editor-menubar__side` and `.editor-menubar__controls` share equal flex growth
+while the document title is visible. At `<= 899px`, the duplicate title is
+hidden; compact landscape gives the menu side 1.25 times the controls' flex
+growth. At 820px the
+resolved menu rail ends at 445.6px, enclosing Help, and the controls end at
+814.7px inside the viewport. Without `min-width: 0` the
 rail painted outside its own box and, because the controls follow it in the DOM,
 the switcher won hit-testing — the last 50px of the Help label activated a
 workspace at 641px (F6). The menu strip scrolls rather than spilling.
+Its individual menu buttons must also retain their intrinsic widths: flex
+shrink gave Object 44px for 46px of content and Arrange 44px for 54px at an
+820px tablet viewport, so their labels painted into the next button. The
+tablet menubar browser regression checks every label's content width, the
+Home-to-rail gap, the initial scroll position, and the reachable Help menu.
 
 The same containment is what keeps the rail honest under **text enlargement**
 (see below): the compact-tier rule alone left `> 899px` unguarded, and at a 200%
@@ -145,6 +219,43 @@ live near the viewport bottom. The FABs must never cover toolbar controls:
   `tests/e2e/interaction/chromeos-device-matrix.spec.ts`
   ("bottom chrome clearance"), which checks Design and Draw modes.
 
+### Bottom-anchored overlay chrome — one inset recipe
+
+Transient editor surfaces pinned to the viewport bottom or a side edge — the
+"Did You Know?" tip, the onboarding checklist, micro-hints, and the import
+progress panel — are `position: fixed`, so they are placed against the viewport
+while the chrome they must not cover lives in the shell grid. `.editor-shell` therefore
+publishes the recipe once:
+
+| Token | Value | Meaning |
+|---|---|---|
+| `--overlay-bottom-inset` | `statusbar-height + space-3 + floating-toolbar-height + space-2 + space-6 + space-3 + keyboard inset + env(safe-area-inset-bottom)` | Distance from the viewport bottom; clears status bar and floating toolbar |
+| `--overlay-left-inset` | `max(space-4, sidebar-width + space-4)` at `> 899px`, else `space-4` | Distance from the left edge |
+| `--overlay-right-inset` | `max(space-4, inspector-width + space-4)` at `> 899px`, else `space-4` | Distance from the right edge |
+
+A bare `bottom: var(--space-4)` on such a surface is wrong four ways: it sits
+under the on-screen keyboard, under a standalone PWA's gesture bar, on the
+status bar's own 24px targets, and — on the inline axis — on top of a docked
+rail. That last failure was observed: the "Did You Know?" tip covered the
+Inspector's "Snap tolerance" field at 900px, which
+`tests/e2e/responsive/dock-panels.spec.ts` reports as an unreachable control.
+
+The side gutter applies only above the `899px` drawer boundary, because below it
+both panels are drawers and a gutter would push transient chrome off the edge for
+no reason. `--inspector-width` / `--sidebar-width` are the rails' *preferred*
+widths, not the widths the dock resolves from its own bounds, so the gutter can
+be wider than the rail: erring wide keeps the surface clear of the rail and at
+worst leaves slack between them.
+
+Consumers must not re-derive these offsets, and a surface whose content floor is
+rem-based must bound its own width by the space actually left between both
+gutters (`calc(100vw - var(--overlay-left-inset) - var(--overlay-right-inset))`),
+or an enlarged root text size can push it across the opposite rail. Enforced by
+`tests/unit/overlay-inset-system.test.ts` (source contract + reasoned exemption
+list) and `tests/e2e/responsive/overlay-inset-occlusion.spec.ts` (resolved
+geometry in the real editor, including actual floating-toolbar clearance,
+rail-clearance checks, and 200% root text sizing).
+
 ## Virtual keyboard / visual viewport
 
 `packages/editor/src/canvas/keyboardInset.ts` publishes viewport and keyboard
@@ -175,8 +286,11 @@ Consumers:
 
 - Dialogs: `max-height` uses `var(--visual-viewport-height, 100dvh)` so the
   sticky footer stays reachable while the keyboard is open.
-- Toasts and drawer FABs subtract `--keyboard-inset-bottom` from their bottom
-  offsets.
+- Onboarding overlays and the import progress panel subtract the inset through
+  `--overlay-bottom-inset` (see
+  [Bottom-anchored overlay chrome](#bottom-anchored-overlay-chrome--one-inset-recipe));
+  drawer FABs use their separate measured-toolbar recipe above. A surface that
+  re-derives its own overlay bottom offset is a defect, not a variation.
 - `FloatingPortal` clamps a placed popover into the visual viewport (unzoomed
   case) and caps its height when the popover is taller than the visible area;
   under pinch zoom it keeps the layout-viewport clamp.
@@ -276,7 +390,9 @@ gesture; ChromeOS hardware behavior remains a device-validation item.
   at that size.
 - `tests/e2e/interaction/tablet-editing-controls.spec.ts` — tablet control
   popover reachability, 44px targets, latched modifier survival across
-  landscape-to-portrait reflow, and popover bounds in both orientations.
+  landscape-to-portrait reflow, visible portal bounds above the toolbar in
+  both orientations, and scroll access to the gesture guide. The inner dialog
+  may extend past the portal's scrollport; the portal is the visible bound.
 - `tests/e2e/interaction/tablet-keyboardless-workflow.spec.ts` — one integrated
   touch-only round trip: tool selection, authoring two shapes, tap-select,
   multi-select, align-left, layer reorder, and undo/redo, asserting the

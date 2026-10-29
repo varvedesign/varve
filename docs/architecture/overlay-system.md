@@ -139,11 +139,22 @@ nonnegative dimensions, and is computed from the owner window. Floating UI's
 order. Long surfaces scroll inside their measured available height; fixed item
 counts are only a legacy compatibility option.
 
+Callers can pass a `collisionBoundary` when a menu belongs to a smaller
+workspace region, and an `avoidElement` for occupied chrome within it. The
+Layers context menu uses the canvas rectangle and excludes the floating
+toolbar's vertical band, so its large command list scrolls beside the panel
+without covering the menubar, panel controls, or tools. Nested submenus inherit
+those same limits; a submenu opened from the last row moves above the toolbar.
+If that
+canvas is absent (such as a detached Layers window),
+the menu uses the owner window's safe viewport.
+
 The portal root is initially `visibility:hidden; pointer-events:none` at
 `left:0; top:0`. It becomes interactive only after a finite placement result
-is committed. Content width is stable (`box-sizing:border-box`, max-content
-outer layer, reserved menu lanes); any dynamic label, font, theme, or item
-change reruns the placement effect.
+is committed. The measuring layer does not impose an inline width: callers may
+set a bounded CSS width, while intrinsic menus retain their natural width.
+`box-sizing:border-box` and reserved menu lanes keep their content stable; any
+dynamic label, font, theme, or item change reruns the placement effect.
 
 Element anchors use Floating UI `autoUpdate` while open. Point anchors remain
 fixed to their invocation point by policy; a contextual element is retained

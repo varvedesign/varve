@@ -1,12 +1,23 @@
 .import-progress {
   position: fixed;
-  bottom: var(--space-3);
-  right: var(--space-3);
+  /* Same bottom-anchored overlay inset contract as the toasts and onboarding
+   * tips (`--overlay-*` in editor.css): this panel is transient viewport chrome
+   * and must clear the docked Inspector rail, the status bar, the virtual
+   * keyboard and a standalone PWA's bottom gesture bar. */
+  bottom: var(--overlay-bottom-inset);
+  right: var(--overlay-right-inset);
   z-index: var(--z-overlay, 500);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-width: 280px;
+  /* Bounded by the space left *between* the rails, not by the right gutter
+   * alone: this panel is right-anchored, so a width that ignored the left
+   * gutter would reach across the Layers rail. 280px is the resting width at
+   * 100% text. */
+  --import-progress-available: calc(100vw - var(--overlay-left-inset) - var(--overlay-right-inset));
+  box-sizing: border-box;
+  width: min(280px, var(--import-progress-available));
+  min-width: min(280px, var(--import-progress-available));
   padding: var(--space-3);
   background: var(--elevation-surface-raised);
   border: var(--border-micro);
