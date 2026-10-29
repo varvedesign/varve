@@ -77,7 +77,13 @@ import { sitePath } from '../../lib/siteUrl';
 
       <section class="license-section">
         <h2 id="user-rights-summary">User Rights Summary</h2>
-        <table class="license-table" aria-labelledby="user-rights-summary">
+        <div
+          class="scroll-x"
+          role="region"
+          aria-label="User rights summary table"
+          tabindex="0"
+        >
+          <table class="license-table" aria-labelledby="user-rights-summary">
           <caption class="sr-only">Summary of permitted and restricted uses under FSL-1.1-MIT</caption>
           <tr>
             <th scope="row">Use for personal projects</th>
@@ -119,7 +125,8 @@ import { sitePath } from '../../lib/siteUrl';
             <th scope="row">Removing Varve branding</th>
             <td class="restricted">Requires license</td>
           </tr>
-        </table>
+          </table>
+        </div>
       </section>
 
       <section class="license-section">

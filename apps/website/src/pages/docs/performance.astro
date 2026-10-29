@@ -38,8 +38,14 @@ import '../../styles/docs-prose.css';
           switch, with a thirty-frame cooldown, so the interface does not oscillate between
           settings.
         </p>
-        <table class="perf-table">
-          <thead>
+        <div
+          class="scroll-x"
+          role="region"
+          aria-label="Adaptive profile tier table"
+          tabindex="0"
+        >
+          <table class="perf-table">
+            <thead>
             <tr>
               <th>Tier</th>
               <th>Interactive preview scale</th>
@@ -53,8 +59,9 @@ import '../../styles/docs-prose.css';
             <tr><td>Balanced</td><td>100%</td><td>1× baseline</td><td>Yes</td><td>Yes</td></tr>
             <tr><td>Performance</td><td>75% while interacting</td><td>0.5× baseline</td><td>No (main thread)</td><td>Yes</td></tr>
             <tr><td>Constrained</td><td>50% while interacting</td><td>0.25× baseline</td><td>No (main thread)</td><td>No</td></tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
         <p>
           The reduced render scale is used during eligible interactions. Pan and zoom may
           also temporarily reproject the latest worker frame while a replacement is in
