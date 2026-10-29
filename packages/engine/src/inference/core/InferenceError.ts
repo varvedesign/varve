@@ -1,4 +1,5 @@
 export type InferenceErrorCode =
+  | 'ai_disabled'
   | 'runtime_unavailable'
   | 'runtime_initialisation_failed'
   | 'runtime_asset_missing'
@@ -34,6 +35,15 @@ export interface InferenceErrorDetails {
 }
 
 const ERROR_MAP: Record<InferenceErrorCode, Omit<InferenceErrorDetails, 'cause'>> = {
+  ai_disabled: {
+    code: 'ai_disabled',
+    message: 'AI features are disabled.',
+    userMessage: 'Turn on AI features in Settings to use this',
+    technical: 'settings.ai.enabled is false; model download and inference are blocked.',
+    recovery: 'Turn on AI features in Settings, then try again.',
+    retrySafe: false,
+    fallbackAvailable: false,
+  },
   runtime_unavailable: {
     code: 'runtime_unavailable',
     message: 'ONNX Runtime is not available in this environment.',

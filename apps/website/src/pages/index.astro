@@ -1,5 +1,6 @@
 ---
 import Button from '../components/Button.astro';
+import ClosingCTA from '../components/ClosingCTA.astro';
 import Layout from '../layouts/Layout.astro';
 import Hero from '../components/Hero.astro';
 import TrustStrip from '../components/TrustStrip.astro';
@@ -8,7 +9,7 @@ import DisciplineTabs from '../components/DisciplineTabs.astro';
 import Reveal from '../components/Reveal.astro';
 import { siteOrigin, sitePath, siteUrl } from '../lib/siteUrl';
 import { PRODUCT_STATUS } from '@varve/shared';
-import release from '../data/release-manifest.json';
+import publishedApp from '../data/app-version.json';
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -19,9 +20,7 @@ const softwareSchema = {
   applicationCategory: 'DesignApplication',
   operatingSystem: 'Linux, macOS, Windows',
   description: `${PRODUCT_STATUS.description} Free and source-available under FSL-1.1-MIT.`,
-  // softwareVersion derives from the release manifest so the schema stays in
-  // step with the published release; omitted entirely when no release exists.
-  ...(release.version ? { softwareVersion: release.version } : {}),
+  softwareVersion: publishedApp.version,
   license: 'FSL-1.1-MIT',
   url: siteUrl('/'),
   downloadUrl: siteUrl('/download'),
@@ -47,7 +46,7 @@ const homepageFaq = {
       name: 'Does Varve require an account or internet?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'No. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features include model downloads, additional font downloads, and update checks — each is explicit and user-controlled.',
+        text: 'No. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features include model downloads, additional font downloads, and update checks. Each is explicit and user-controlled.',
       },
     },
     {
@@ -63,7 +62,7 @@ const homepageFaq = {
       name: 'Does Varve run on Linux?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Varve runs natively on Linux with a Rust rendering engine. Packages are available as AppImage, deb, and rpm for both x86_64 and ARM64 (aarch64).',
+        text: 'Yes. Varve runs natively on Linux. Built in Rust and TypeScript. Packages are available as AppImage, deb, and rpm for both x86_64 and ARM64 (aarch64).',
       },
     },
   ],
@@ -111,7 +110,7 @@ const homepageFaq = {
         </div>
         <div class="interface-card-row">
           <span class="interface-mark interface-mark-sand" aria-hidden="true"></span>
-          <div><strong>Native Linux</strong><span>First-class desktop support with a Rust rendering engine.</span></div>
+          <div><strong>Native Linux</strong><span>First-class desktop support. Built in Rust and TypeScript.</span></div>
         </div>
         <div class="interface-card-row">
           <span class="interface-mark interface-mark-clay" aria-hidden="true"></span>
@@ -218,9 +217,9 @@ const homepageFaq = {
         <p class="section-eyebrow">Where Varve is today</p>
         <h2 id="beta-title" class="beta-title">An honest {PRODUCT_STATUS.stage}.</h2>
         <p class="beta-text">
-          The latest published release, Varve {release.version}, is out for Linux,
+          The latest published release, Varve {publishedApp.version}, is out for Linux,
           macOS, and Windows. Core features work, but you should expect
-          rough edges and evolving file formats &mdash; great for exploring
+          rough edges and evolving file formats: great for exploring
           workflows, not yet for critical production deadlines. Keep
           backups of anything you care about.
         </p>
@@ -232,6 +231,8 @@ const homepageFaq = {
       </Reveal>
     </div>
   </section>
+
+  <ClosingCTA showTryBrowser tryRef="home-closing" />
 
 </Layout>
 

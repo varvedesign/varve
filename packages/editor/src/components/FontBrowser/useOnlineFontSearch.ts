@@ -41,7 +41,6 @@ function toProviderResult(item: CatalogSearchResult): FontProviderResult {
  * local, and never performs a provider request.
  */
 export function useOnlineFontSearch(query: string): {
-  googleFonts: OnlineFontSearchResult;
   fontsource: OnlineFontSearchResult;
 } {
   const catalog = getFontsourceCatalog();
@@ -54,12 +53,6 @@ export function useOnlineFontSearch(query: string): {
   }, [catalog, query, revision]);
 
   return {
-    googleFonts: {
-      results: EMPTY_RESULTS,
-      loading: false,
-      error: null,
-      provider: 'Legacy provider disabled',
-    },
     fontsource: {
       results,
       loading: false,

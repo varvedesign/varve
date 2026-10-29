@@ -41,6 +41,7 @@ import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { extractSubjectToLayer } from '../backgroundRemoval/extractSubjectLayer';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import { setCollapsed } from '../components/Inspector/sectionState';
+import { getAiFeaturesEnabled } from '../features/useAiFeaturesEnabled';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import {
   mergeSam2NormalizedPrompts,
@@ -474,6 +475,10 @@ export function useSam2Segmentation(
     }): Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null> => {
       if (!enabled) {
         announcerRef.current?.announce('Subject selection is available in the main editor window.');
+        return null;
+      }
+      if (!getAiFeaturesEnabled()) {
+        announcerRef.current?.announce('Turn on AI features in Settings to use this');
         return null;
       }
       const generation = ++generationRef.current;

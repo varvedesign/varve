@@ -1192,19 +1192,100 @@ called complete merely because its source issue is closed or a source PR is open
   manipulation, and no speculative handle UI was added in this pass.
 - **Additional Varve-adjacent reports — screened, not reproduced.** PdfCraft
   [#3266](https://github.com/storytold/pdfcraft/issues/3266) reports a page
-  that jumps after zoom settles. Varve's camera keeps the world point under a
-  zoom anchor fixed, with unit coverage in `packages/shared/src/viewport.test.ts`
-  and `packages/editor/src/tools/zoom.test.ts`; the report's page-view settle
-  behavior has not been reproduced in Varve. PdfCraft
+  that jumps after zoom settles. Its later
+  [merged fix, PR #3350](https://github.com/storytold/pdfcraft/pull/3350),
+  confirms the cause: the paginated reader could draw a zoom-anchor scroll
+  beyond the content bounds for one frame before the UI toolkit clamped it.
+  Varve's authoring canvas has no page-scroll boundary; it solves camera pan
+  directly from the world point under the zoom anchor in
+  `packages/shared/src/viewport.ts`, and the wheel path previews that camera
+  without a separate settle animation in `packages/editor/src/canvas/inputPipeline.ts`.
+  Unit coverage checks the anchor through zoom and clamping, and
+  `tests/e2e/canvas/input-navigation.spec.ts` checks repeated cursor-anchored
+  Ctrl-wheel zoom in the browser. The PdfCraft page-boundary failure therefore
+  does not map to Varve's current canvas model; no matching jump was reproduced
+  and no code change is justified. PdfCraft
   [#3284](https://github.com/storytold/pdfcraft/issues/3284) and
-  [#3317](https://github.com/storytold/pdfcraft/issues/3317) request opaque
-  fills and thicker borders for text boxes/callouts. Varve callout bodies are
-  ordinary shapes with the standard fill/stroke inspector; a separate opaque
-  background control for generic text boxes is not established. PdfCraft
+  [#3317](https://github.com/storytold/pdfcraft/issues/3317) requested opaque
+  fills and thicker borders for text boxes/callouts; their merged source fix
+  is reviewed in §4.29. PdfCraft
   [#3399](https://github.com/storytold/pdfcraft/issues/3399) asks for callout
   text sizing, already available through Varve's Typography inspector on the
   ordinary dialogue TextNode. These are recorded as partial workflow matches,
   not as defects found in Varve. No marketing claim follows from them.
+
+### 4.29 Cutoff C follow-up: text-frame fill and border
+
+- **Source behavior is now implemented; Varve still has a distinct gap.**
+  PdfCraft issues [#3284](https://github.com/storytold/pdfcraft/issues/3284)
+  and [#3317](https://github.com/storytold/pdfcraft/issues/3317) describe text
+  placed over busy floor plans becoming hard to read without an opaque backing,
+  and request fill and border-width controls for text boxes and callouts. The
+  merged [PR #3366](https://github.com/storytold/pdfcraft/pull/3366) adds
+  persistent FreeText `/C` fill, callout/text-box border controls including
+  zero width, saved tool defaults, annotation appearance regeneration, and
+  `comment_edit` support. Its own annot, automation, UI, and native checks are
+  source-project evidence, not validation of Varve.
+- In Varve, callout bodies are ordinary `ShapeNode`s and already use the
+  standard Fill and Stroke inspector. Ordinary `TextNode` has shared node
+  fills, but those are used to paint glyphs; `TextNode.strokes` outlines glyphs
+  through the text painter. Neither gives users a backing rectangle or a
+  border around a text frame. The floor-plan readability need therefore
+  remains relevant to Varve's authoring workflow.
+- **Comparable-app complaint (checked 2026-10-19):** an Inkscape report,
+  [Text/Border padding #3705](https://gitlab.com/inkscape/inbox/-/issues/3705),
+  migrated from Launchpad and dated 2006-11-15, asks for a text-box background,
+  border, and inset spacing. The reporter describes composing separate
+  rectangles with flowed text and inset/outset commands as a longer workaround.
+  This supports the value of a first-class box style, while also identifying
+  padding/inset as a separate capability that this batch does not implement.
+  The distinct Inkscape complaint about an outside *glyph* stroke
+  ([Reddit, 2020-04-25](https://www.reddit.com/r/Inkscape/comments/g7v72j/help_trying_to_add_outside_border_to_text/))
+  concerns stroke alignment eating small glyphs; a text-frame border does not
+  solve that glyph-outline problem, so this batch makes no such claim.
+- **Implementation acceptance:** provide an optional text-frame backing and
+  frame border without changing existing text appearance; retain glyph fill
+  and glyph-outline behavior; keep the frame aligned to the same computed text
+  geometry used by selection and hit testing; preserve undo, copy/paste,
+  duplicate, save/reopen, and old-document compatibility; render consistently
+  in Canvas2D, native/WASM, SVG, and PDF export; expose clear inspector controls
+  with an explicit no-fill/zero-border state. Verify point, area, rich, and
+  vertical text, including clipping and text reflow. Do not claim this
+  capability on the marketing site until every supported output path passes.
+- **Implementation status:** an additive `TextNode.textFrame` style is now
+  wired through schema 2.34, the text render primitive, native/WASM bridge,
+  Canvas2D replay, SVG and PDF export, and a dedicated Inspector section. Existing
+  node fill/stroke fields remain glyph styling, and the v2.33 migration does
+  not invent a frame style. Focused persistence, renderer, bridge, PDF, and
+  visual E2E regressions have been added. Targeted Rust tests, changed-crate
+  Clippy, the 12-case SVG suite, and both WASM builds pass. A read-only second-pass review caught
+  an SVG opacity mismatch; SVG now applies opacity to frame and text as
+  separate paint operations, matching Canvas2D and PDF. The PDF probe was
+  rasterized independently with Poppler: the fill masks the
+  diagonal floor-plan lines inside the frame, the border remains crisp, and
+  `pdftotext` extracts the label. See
+  [`text-frame-pdf-render.png`](evidence/text-frame-pdf-render.png) (SHA-256
+  `dbe164ef571e91075deb60abbe483681ec0a58b48a59f60428dcb5593933cabd`). The
+  app visual E2E passes save/reopen and zero-width persistence; desktop and
+  1024×768 captures were inspected. The typography page visual E2E passes at
+  desktop and 390×844, and both captures were inspected. Evidence:
+  [`text-frame-inspector-desktop.png`](evidence/text-frame-inspector-desktop.png)
+  (`eb004f0489f0a6e24856e81b93829d168d27c3c842dce7bab85a2bdccea49159`),
+  [`text-frame-inspector-1024.png`](evidence/text-frame-inspector-1024.png)
+  (`582b0d5bedafad0695bdaf41fa28dfb96ac57d58eba09f947b25f1e400bcb6a8`),
+  [`text-frame-marketing-desktop.png`](evidence/text-frame-marketing-desktop.png)
+  (`6fbb76512fee27e7e7546f536171458db55d74547c72ca315bcd4c329237ff9c`), and
+  [`text-frame-marketing-mobile.png`](evidence/text-frame-marketing-mobile.png)
+  (`fafdad263372fc20d4b2fc92387491a731ef9c121c0fb69d22f36188af26e9d9`).
+  The affected plan selected 75 lanes and escalated to the exact-SHA full gate.
+  The complete affected triage had contention-sensitive failures and remains
+  incomplete; however, the exact-SHA hosted full integration, final-candidate
+  adoption, and local full-gate complement passed on merged master SHA
+  `d2ed5a42694742c2bbbcffe4916e2ae932ad0890`. This certifies the integrated
+  candidate at that SHA; it does not convert the incomplete local triage into a
+  pass or imply a public release. The exact source PR scope
+  and later issue closure are recorded in
+  `issue-ledger-post-cutoff-c-updates.jsonl` and `link-frontier.jsonl`.
 
 The website's Browser Demo guide was updated to explain the download-only save
 state; no other marketing or capability claim needed revision. The menu and

@@ -1,3 +1,5 @@
+import type { Shape } from '@varve/engine';
+import type { ShapeNode } from '@varve/scene';
 import {
   addChild,
   addPage as addPage2,
@@ -25,6 +27,92 @@ function makeDocWithRect(x = 0, y = 0, w = 10, h = 10) {
   doc = { ...doc, nodes: { ...doc.nodes, [rectId]: rect }, rootChildren: [rectId] };
   return { doc, rectId };
 }
+
+const OPAQUE_FILL = { space: 'rgb', r: 200, g: 100, b: 50, a: 255 } as ShapeNode['fill'];
+const TRANSPARENT_FILL = { space: 'rgb', r: 200, g: 100, b: 50, a: 0 } as ShapeNode['fill'];
+/** ~100px inside the bounding box, ~70px from every segment of the outline. */
+const INTERIOR = { x: 150, y: 50 };
+
+/**
+ * An open path: stroke-only for `shapeContains`, so the bounding box is what
+ * decides whether the interior is a target. That makes the paint stack the
+ * only thing standing between a hidden fill and a full-bbox click target.
+ */
+function makeDocWithOpenPath(overrides: Partial<ShapeNode> = {}) {
+  let doc = createDocument('test', true);
+  const { id, doc: next } = nextNodeId(doc);
+  doc = next;
+  const shape: Shape = {
+    kind: 'path',
+    points: [
+      { x: 0, y: 0, handleIn: null, handleOut: null },
+      { x: 200, y: 0, handleIn: null, handleOut: null },
+      { x: 200, y: 200, handleIn: null, handleOut: null },
+    ],
+    closed: false,
+    tolerance: 2,
+  };
+  const base = makeShapeNode(id, shape, { fill: OPAQUE_FILL });
+  const node = { ...base, ...overrides } as ShapeNode;
+  doc = { ...doc, nodes: { ...doc.nodes, [id]: node }, rootChildren: [id] };
+  return { doc, pathId: id };
+}
+
+/**
+ * A click target has to correspond to painted pixels. The bbox fallback is
+ * deliberately generous for shapes whose fill is transparent, but a fill that
+ * is hidden or fully transparent paints nothing, and hidden geometry must not
+ * stay reachable by clicking (GraphiteEditor/Graphite#2554).
+ */
+describe('HitTestEngine paint-aware click targets', () => {
+  it('keeps the generous target for a shape that paints a fill', () => {
+    const { doc, pathId } = makeDocWithOpenPath();
+    expect(new HitTestEngine(doc).hitTest(INTERIOR)?.nodeId).toBe(pathId);
+  });
+
+  it('drops the target when the only fill is hidden', () => {
+    const { doc } = makeDocWithOpenPath({
+      fills: [
+        { type: 'solid', color: OPAQUE_FILL, opacity: 1, blendMode: 'normal', visible: false },
+      ],
+    } as Partial<ShapeNode>);
+    expect(new HitTestEngine(doc).hitTest(INTERIOR)).toBeNull();
+    // The outline itself is still painted, so it stays a target.
+    expect(new HitTestEngine(doc).hitTest({ x: 100, y: 0 })).not.toBeNull();
+  });
+
+  it('drops the target when the fill stack is fully transparent', () => {
+    const { doc } = makeDocWithOpenPath({
+      fills: [
+        { type: 'solid', color: TRANSPARENT_FILL, opacity: 1, blendMode: 'normal', visible: true },
+      ],
+    } as Partial<ShapeNode>);
+    expect(new HitTestEngine(doc).hitTest(INTERIOR)).toBeNull();
+  });
+
+  it('resolves paint references before deciding', () => {
+    const { doc, pathId } = makeDocWithOpenPath({ paintRefs: ['paint-1'] });
+    const hiddenPaint = {
+      id: 'paint-1',
+      name: 'Hidden',
+      fill: {
+        type: 'solid' as const,
+        color: OPAQUE_FILL,
+        opacity: 1,
+        blendMode: 'normal' as const,
+        visible: false,
+      },
+    };
+    const withHidden = { ...doc, paints: { 'paint-1': hiddenPaint } };
+    expect(new HitTestEngine(withHidden).hitTest(INTERIOR)).toBeNull();
+
+    const withVisible = {
+      ...doc,
+      paints: { 'paint-1': { ...hiddenPaint, fill: { ...hiddenPaint.fill, visible: true } } },
+    };
+    expect(new HitTestEngine(withVisible).hitTest(INTERIOR)?.nodeId).toBe(pathId);
+  });
+});
 
 describe('HitTestEngine', () => {
   it('returns null for an empty document', () => {

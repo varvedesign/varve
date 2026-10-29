@@ -25,6 +25,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { isMainModule } from '../is-main-module.mjs';
+import { linuxAppImageCandidates } from './artifact-names.mjs';
 import { assertRepoSlug, repoSlug } from './product.mjs';
 
 function parseArgs(argv) {
@@ -65,13 +66,16 @@ function main() {
   const toResign = [];
 
   for (const arch of ARCHITECTURES) {
-    const filename = `Varve-${tag.slice(1)}-linux-${arch}.AppImage`;
+    const candidates = linuxAppImageCandidates({ version: tag.slice(1), arch });
     try {
       const view = run('gh', ['release', 'view', tag, '--repo', repo, '--json', 'assets']);
       const assets = JSON.parse(view).assets ?? [];
-      if (assets.some((a) => a.name === filename)) toResign.push({ arch, filename });
+      const filename = candidates.find((name) => assets.some((a) => a.name === name));
+      if (filename) toResign.push({ arch, filename });
     } catch (e) {
-      process.stderr.write(`Warning: could not check asset ${filename}: ${e.message}\n`);
+      process.stderr.write(
+        `Warning: could not check assets ${candidates.join(', ')}: ${e.message}\n`,
+      );
     }
   }
 

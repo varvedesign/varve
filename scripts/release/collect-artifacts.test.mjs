@@ -42,12 +42,13 @@ function collect(out, updaterSignatures) {
 
 try {
   collect(unsignedOut, false);
-  assert.equal(existsSync(join(unsignedOut, `Varve-${version}-linux-x86_64.AppImage`)), true);
-  assert.equal(existsSync(join(unsignedOut, `Varve-${version}-linux-x86_64.AppImage.sig`)), false);
+  assert.equal(existsSync(join(unsignedOut, `Varve-${version}-x86_64.AppImage`)), true);
+  assert.equal(existsSync(join(unsignedOut, `Varve-${version}-linux-x86_64.AppImage`)), false);
+  assert.equal(existsSync(join(unsignedOut, `Varve-${version}-x86_64.AppImage.sig`)), false);
 
   writeFileSync(`${source}.sig`, 'synthetic updater signature');
   collect(signedOut, true);
-  assert.equal(existsSync(join(signedOut, `Varve-${version}-linux-x86_64.AppImage.sig`)), true);
+  assert.equal(existsSync(join(signedOut, `Varve-${version}-x86_64.AppImage.sig`)), true);
 
   rmSync(`${source}.sig`);
   assert.throws(

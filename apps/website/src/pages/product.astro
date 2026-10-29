@@ -9,7 +9,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     <div class="product-page">
       <h1 class="page-hero-title">What is Varve?</h1>
       <p class="page-hero-sub">
-        A local-first design suite with six task workspaces — Design, Print, Draw, Photo, Motion, and Email — for vector, layout, typography, animation, print, and email work. Logo tools stay within Design, while Code export is shared. One application, no account, no subscription. It runs natively on Linux, macOS, and Windows on the same Rust engine. Documents are saved as local files on your machine; there is no account-based hosted service, though a bounded <a href={sitePath('/try/')}>browser demo</a> of the editor is available.
+        A local-first design suite with six task workspaces: Design, Print, Draw, Photo, Motion, and Email, for vector, layout, typography, animation, print, and email work. Logo tools stay within Design, while Code export is shared. One application, no account, no subscription. It runs natively on Linux, macOS, and Windows. Built in Rust and TypeScript. Documents are saved as local files on your machine; there is no account-based hosted service, though a bounded <a href={sitePath('/try/')}>browser demo</a> of the editor is available.
       </p>
 
       <section class="product-section">
@@ -154,7 +154,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           visible and offscreen sources may use different cached representations.
         </p>
         <p>
-          AI-assisted operations are optional. Local workflows run on-device without uploading artwork; an enabled cloud background-removal provider sends the image to the endpoint you configure. Core editing never requires a model download, and unsupported acceleration shows an honest unavailable state instead of silently switching to a server.
+          AI features are on by default, run on your device with no Varve AI server, and can be turned off in Settings. Local workflows do not upload artwork; an enabled cloud background-removal provider sends the image to the endpoint you configure. Core editing never requires a model download, and unsupported acceleration shows an honest unavailable state instead of silently switching to a server.
         </p>
         <p>
           On desktop, non-AI image resampling can run on the machine's GPU through a native Vulkan, Metal, or D3D12 path. The native offscreen effect provider is also available to explicit asynchronous consumers; the current interactive preview and export replay remain on the authoritative software path. A device is only used after it is discovered through the OS graphics stack and passes a bounded self-test; software renderers are declined, and every accelerated operation keeps a working CPU fallback. Canvas presentation stays in the webview either way. On-device AI inference can use a verified GPU execution provider when the optional WebGPU runtime component is present and the model has been verified for it; otherwise it runs on the CPU, and every result reports which provider actually ran.
@@ -192,7 +192,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
               </svg>
             </span>
             <h3>Linux users</h3>
-            <p>Creators on Linux who need a native design application with first-class platform support, CMYK print, and a Rust rendering engine.</p>
+            <p>Creators on Linux who need a native design application with first-class platform support and CMYK print. Built in Rust and TypeScript.</p>
           </div>
           <div class="audience-card site-card site-card--surface audience-card-teal">
             <span class="audience-icon" aria-hidden="true">

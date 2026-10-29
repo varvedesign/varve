@@ -45,8 +45,14 @@ import {
   validatePatternDefinitionDependencies,
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
+import { buildClipboardSvg } from './clipboardSvg';
 
 export { clipboardRichTextWarning, parseClipboardRichText } from './clipboardRichText';
+export {
+  buildClipboardSvg,
+  CLIPBOARD_SVG_MAX_BYTES,
+  CLIPBOARD_SVG_MAX_NODES,
+} from './clipboardSvg';
 
 export const VARVE_MIME = 'application/vnd.varve+json';
 export const LEGACY_MIME = 'application/vnd.strata+json';
@@ -1066,6 +1072,12 @@ export function writeClipboardOutcome(
   frameGuideLayouts?: Record<string, LayoutGrid[]>,
   patternDefinitions?: Document['patternDefinitions'],
   sourcePageId?: string,
+  /**
+   * Source document for optional flavours that need scene context (currently
+   * the `image/svg+xml` representation other applications can paste). Omit to
+   * write only the editable payload.
+   */
+  document?: Document,
 ): Promise<ClipboardWriteOutcome> {
   return enqueueClipboardWrite((generation) =>
     writeClipboardOutcomeNow(
@@ -1095,6 +1107,7 @@ export function writeClipboardOutcome(
       frameGuideLayouts,
       patternDefinitions,
       sourcePageId,
+      document,
     ),
   );
 }
@@ -1192,6 +1205,7 @@ async function writeClipboardOutcomeNow(
   frameGuideLayouts?: Record<string, LayoutGrid[]>,
   patternDefinitions?: Document['patternDefinitions'],
   sourcePageId?: string,
+  document?: Document,
 ): Promise<ClipboardWriteOutcome> {
   const isCurrentWrite = (): boolean =>
     generation === undefined || generation === latestClipboardWrite;
@@ -1245,16 +1259,26 @@ async function writeClipboardOutcomeNow(
           .filter((name): name is string => Boolean(name))
           .join('\n')
       : nodes.map((n) => n.name).join('\n');
+  // A second representation for other applications: without it, a copy into
+  // Inkscape/Krita/Figma arrives as node names (GraphiteEditor/Graphite#4499).
+  const svg = document
+    ? buildClipboardSvg(document, rootIds && rootIds.length > 0 ? rootIds : nodes.map((n) => n.id))
+    : null;
+  const svgBlob = svg ? new Blob([svg], { type: 'image/svg+xml' }) : null;
   const textBlob = new Blob([text], { type: 'text/plain' });
   if (platform?.kind === 'tauri') {
     try {
       const written = await platform.writeClipboardData([
         { mimeType: VARVE_MIME, data: new TextEncoder().encode(json) },
         { mimeType: LEGACY_MIME, data: new TextEncoder().encode(json) },
+        ...(svg ? [{ mimeType: 'image/svg+xml', data: new TextEncoder().encode(svg) }] : []),
         { mimeType: 'text/plain', data: new TextEncoder().encode(text) },
       ]);
       if (written && isCurrentWrite()) {
-        return { status: 'editable', mimeTypes: [VARVE_MIME, LEGACY_MIME, 'text/plain'] };
+        return {
+          status: 'editable',
+          mimeTypes: [VARVE_MIME, LEGACY_MIME, ...(svg ? ['image/svg+xml'] : []), 'text/plain'],
+        };
       }
     } catch {
       // Native rich clipboard support is optional; continue through the
@@ -1272,11 +1296,20 @@ async function writeClipboardOutcomeNow(
         new clipboardItemCtor({
           [WEB_VARVE_MIME]: new Blob([json], { type: WEB_VARVE_MIME }),
           [WEB_LEGACY_MIME]: new Blob([json], { type: WEB_LEGACY_MIME }),
+          ...(svgBlob ? { 'image/svg+xml': svgBlob } : {}),
           'text/plain': textBlob,
         }),
       ]);
       if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
-      return { status: 'editable', mimeTypes: [WEB_VARVE_MIME, WEB_LEGACY_MIME, 'text/plain'] };
+      return {
+        status: 'editable',
+        mimeTypes: [
+          WEB_VARVE_MIME,
+          WEB_LEGACY_MIME,
+          ...(svgBlob ? ['image/svg+xml'] : []),
+          'text/plain',
+        ],
+      };
     } catch (firstError) {
       if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
       try {

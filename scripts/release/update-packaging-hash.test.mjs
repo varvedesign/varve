@@ -34,11 +34,11 @@ for (const invocation of curlInvocations) {
   assert.match(invocation, /--max-time\s+\d+/, `missing --max-time: ${invocation}`);
 }
 
-const APPIMAGE = 'Varve-0.5.1-linux-x86_64.AppImage';
+const APPIMAGE = 'Varve-0.5.1-x86_64.AppImage';
 const SIG = `${APPIMAGE}.sig`;
 const APP_HASH = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const SIG_HASH = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-const ARM = 'Varve-0.5.1-linux-aarch64.AppImage';
+const ARM = 'Varve-0.5.1-aarch64.AppImage';
 const ARM_HASH = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
 function runHashFor(sums, name) {

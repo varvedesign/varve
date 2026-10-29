@@ -187,6 +187,12 @@ export interface Stroke {
   arrowEnd?: ArrowheadStyle;
 }
 
+/** Optional frame box appearance; separate from the text glyph fill/strokes. */
+export interface TextFrameStyle {
+  fill?: EngineColor;
+  border?: { color: EngineColor; width: number };
+}
+
 export interface ChannelOffset {
   redX: number;
   redY: number;
@@ -694,6 +700,7 @@ export type Primitive =
       w: number;
       h: number;
       text: string;
+      textFrame?: TextFrameStyle;
       fontSize: number;
       fontFamily: string;
       /** Exact artifact/member identity for this text face. */

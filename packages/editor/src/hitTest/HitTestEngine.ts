@@ -35,6 +35,7 @@ import type {
 } from '@varve/scene';
 import {
   deriveGeometryFromPaints,
+  fillPaintsVisibleArea,
   isLiveBooleanNode,
   isWarpedContainer,
   multipageNodeInstances,
@@ -44,7 +45,6 @@ import {
 } from '@varve/scene';
 import {
   cubicBezierClosestPoint,
-  managedColorToRgba,
   pathPointToBezier,
   pointToSegmentDistSq,
   tryInvertAffine,
@@ -155,9 +155,7 @@ function hitGeometry(node: ShapeNode, doc: Document): ShapeNode['shape'] {
     }
   }
   return node.shapeless === true
-    ? deriveGeometryFromPaints(
-        resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc),
-      )
+    ? deriveGeometryFromPaints(resolveNodePaints(paintInput(node), doc))
     : node.shape;
 }
 
@@ -180,6 +178,15 @@ export interface HitTestOptions {
 export interface HitResult {
   nodeId: NodeId;
   node: SceneNode;
+}
+
+/**
+ * `resolveNodePaints` declares the structural subset it reads; real nodes carry
+ * the full `ManagedColor` union, so the cast is the documented boundary rather
+ * than a per-call-site guess. See the note on `resolveNodePaints`.
+ */
+function paintInput(node: SceneNode): Parameters<typeof resolveNodePaints>[0] {
+  return node as unknown as Parameters<typeof resolveNodePaints>[0];
 }
 
 export class HitTestEngine {
@@ -302,7 +309,7 @@ export class HitTestEngine {
               h: bbox.h + 2 * this.toleranceWorld,
             };
             if (rectContains(expanded, [world.x, world.y])) {
-              if (!this.policy.includeTransparentFill && isTransparentFill(n)) {
+              if (!this.policy.includeTransparentFill && this.paintsNoFill(n)) {
                 continue;
               }
               isHit = true;
@@ -452,7 +459,7 @@ export class HitTestEngine {
         }
 
         if (!isHit && shapeContains(shape, local)) {
-          if (!activePolicy.includeTransparentFill && isTransparentFill(n)) {
+          if (!activePolicy.includeTransparentFill && this.paintsNoFill(n)) {
             continue;
           }
           isHit = true;
@@ -468,7 +475,7 @@ export class HitTestEngine {
               h: bbox.h + 2 * toleranceWorld,
             };
             if (rectContains(expanded, [world.x, world.y])) {
-              if (!activePolicy.includeTransparentFill && isTransparentFill(n)) {
+              if (!activePolicy.includeTransparentFill && this.paintsNoFill(n)) {
                 continue;
               }
               isHit = true;
@@ -680,6 +687,23 @@ export class HitTestEngine {
     return true;
   }
 
+  /**
+   * Does this node paint no fill at all?
+   *
+   * The bbox fallback exists so a shape with a transparent fill can still be
+   * picked by its bounds where the policy allows it. A hidden or fully
+   * transparent fill stack paints nothing, so it has to count as transparent:
+   * otherwise a node whose only fill is hidden keeps a click target across its
+   * whole bounding box — GraphiteEditor/Graphite#2554 reports the same class,
+   * where hidden geometry was still reachable by clicking. Resolving the stack
+   * also covers `paintRefs` nodes, which the previous `fills`/`fill`-only check
+   * treated as transparent.
+   */
+  private paintsNoFill(node: SceneNode): boolean {
+    if (node.kind !== 'shape') return false;
+    return !resolveNodePaints(paintInput(node), this.doc).some(fillPaintsVisibleArea);
+  }
+
   private isInSubtree(nodeId: NodeId, rootId: NodeId): boolean {
     if (nodeId === rootId) return true;
     const node = this.doc.nodes[rootId];
@@ -748,26 +772,4 @@ function isPointNearPath(
     }
   }
   return false;
-}
-
-function isTransparentFill(node: SceneNode): boolean {
-  if (node.kind !== 'shape') return false;
-  if (node.fills && node.fills.length > 0) {
-    return node.fills.every((f: import('@varve/scene').Fill) => {
-      if (f.type === 'solid' && f.color) {
-        const [, , , a] = managedColorToRgba(f.color);
-        return a === 0;
-      }
-      return false;
-    });
-  }
-  if (node.fill) {
-    if (typeof node.fill === 'object' && !Array.isArray(node.fill)) {
-      const [, , , a] = managedColorToRgba(node.fill);
-      return a === 0;
-    }
-    const alpha = Array.isArray(node.fill) ? (node.fill[3] ?? 255) : 255;
-    return alpha === 0;
-  }
-  return true;
 }

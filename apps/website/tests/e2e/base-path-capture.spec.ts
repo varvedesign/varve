@@ -25,7 +25,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await expect(page.getByRole('heading', { level: 1 })).toContainText('Design locally.');
       await expect(page.getByRole('heading', { level: 1 })).toContainText('One canvas.');
-      await expect(page.locator('.hero-subtitle')).toContainText('no account, no subscription');
+      await expect(page.locator('.hero-subtitle')).toContainText('No account, no subscription');
       await page.evaluate(async () => {
         await document.fonts.ready;
         for (const image of document.images) image.loading = 'eager';

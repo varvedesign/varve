@@ -10,6 +10,13 @@ describe('InferenceError', () => {
     expect(err.fallbackAvailable).toBe(true);
   });
 
+  it('creates a typed AI-disabled error', () => {
+    const err = new InferenceError('ai_disabled');
+    expect(err.code).toBe('ai_disabled');
+    expect(err.userMessage).toContain('Turn on AI features in Settings');
+    expect(err.retrySafe).toBe(false);
+  });
+
   it('includes technical details for runtime errors', () => {
     const err = new InferenceError('runtime_unavailable');
     expect(err.technical).toContain('onnxruntime-web');

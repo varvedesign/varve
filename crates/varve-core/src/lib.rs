@@ -26,7 +26,8 @@ pub use expr::evaluate;
 pub use geom::{point_to_segment_dist_sq, rect_contains};
 pub use scene::{
     get_parent, hit_test, walk_nodes, BlendMode, ChannelOffset, CmykFallback, CropRect, Effect,
-    EngineColor, FillIR, GradientFill, GradientStop, NodeId, SceneNode, Stroke,
+    EngineColor, FillIR, GradientFill, GradientStop, NodeId, SceneNode, Stroke, TextFrameBorder,
+    TextFrameStyle,
 };
 pub use shape::{PathPoint, Shape};
 

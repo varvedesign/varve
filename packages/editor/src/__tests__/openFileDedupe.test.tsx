@@ -1,4 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react';
+import { createDocument, DocumentCodec } from '@varve/scene';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
@@ -9,15 +10,13 @@ import { EditorProvider, useEditor } from '../context';
  * `openFile`. The bootstrap session used to carry no file identity, so
  * `openFile`'s dedupe — which matches on file id or path — could not recognise
  * it and opened the same document a second time, leaving two tabs on one file.
+ *
+ * Each helper call encodes a real document with its own id. A shared
+ * placeholder id (or an undecodable schemaVersion: 1 blob) made openFile
+ * refuse the second file, so the "different file" case never opened a tab.
  */
 function docJson(name: string) {
-  return JSON.stringify({
-    schemaVersion: 1,
-    id: 'doc-1',
-    name,
-    nodes: {},
-    rootChildren: [],
-  });
+  return DocumentCodec.encode(createDocument(name));
 }
 
 function Harness({ onReady }: { onReady: (ctx: ReturnType<typeof useEditor>) => void }) {
@@ -77,11 +76,11 @@ describe('opening the bootstrapped file again', () => {
     );
     await waitFor(() => expect(ctx).toBeDefined());
 
-    ctx?.openFile('file-2', 'Other', undefined, docJson('Other'));
     await act(async () => {
-      await Promise.resolve();
+      ctx?.openFile('file-2', 'Other', '/tmp/other.varve', docJson('Other'));
     });
 
     expect(ctx?.state.sessions).toHaveLength(2);
+    expect(ctx?.state.sessions.map((s) => s.fileId)).toEqual(['file-1', 'file-2']);
   });
 });

@@ -388,6 +388,63 @@ describe('blend (unified)', () => {
   });
 });
 
+// ── Transparent-backdrop pinning (PDFCraft #2970) ────────────────────────────
+
+/**
+ * A separable blend mode is defined between two colours, and a page area with
+ * nothing painted on it has no colour: its alpha is 0. Blending the source
+ * with "white paper" instead makes `screen` return white and `difference`
+ * return magenta for artwork the user can see is green. The backdrop that is
+ * genuinely white — an opaque matte or the pasteboard — is a different case
+ * and keeps the white result.
+ */
+describe('separable modes over a transparent backdrop', () => {
+  const SEPARABLE = [
+    'multiply',
+    'screen',
+    'overlay',
+    'darken',
+    'lighten',
+    'colorDodge',
+    'colorBurn',
+    'hardLight',
+    'softLight',
+    'difference',
+    'exclusion',
+  ] as const;
+
+  it.each(SEPARABLE)('%s keeps the source colour when nothing is painted behind it', (mode) => {
+    const actual = blend([1, 1, 1, 0], [0.2, 0.8, 0.4, 1], mode, 1);
+    expect(actual[0]).toBeCloseTo(0.2, 8);
+    expect(actual[1]).toBeCloseTo(0.8, 8);
+    expect(actual[2]).toBeCloseTo(0.4, 8);
+    expect(actual[3]).toBeCloseTo(1, 8);
+  });
+
+  it('keeps the source alpha when the backdrop is transparent', () => {
+    const actual = blend([0, 0, 0, 0], [0.2, 0.8, 0.4, 0.4], 'screen', 1);
+    expect(actual[0]).toBeCloseTo(0.2, 8);
+    expect(actual[3]).toBeCloseTo(0.4, 8);
+  });
+
+  it('still blends against an opaque white matte, which is a real backdrop', () => {
+    // The contrast case: screen over painted white is white. This is what
+    // proves the pinning test above is discriminating rather than vacuous.
+    const [r, g, b] = blend([1, 1, 1, 1], [0.2, 0.8, 0.4, 1], 'screen', 1);
+    expect(r).toBeCloseTo(1, 8);
+    expect(g).toBeCloseTo(1, 8);
+    expect(b).toBeCloseTo(1, 8);
+  });
+
+  it('does not blend a transparent source into the backdrop', () => {
+    const actual = blend([0.2, 0.8, 0.4, 1], [1, 0, 0, 0], 'difference', 1);
+    expect(actual[0]).toBeCloseTo(0.2, 8);
+    expect(actual[1]).toBeCloseTo(0.8, 8);
+    expect(actual[2]).toBeCloseTo(0.4, 8);
+    expect(actual[3]).toBeCloseTo(1, 8);
+  });
+});
+
 // ── Linear-light blending (physically correct) ───────────────────────────────
 
 describe('blend evaluation space', () => {

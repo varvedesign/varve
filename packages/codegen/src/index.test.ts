@@ -77,7 +77,8 @@ describe('exportDocumentToSvg', () => {
     const svg = exportDocumentToSvg(doc);
     expect(svg).toContain('<text');
     expect(svg).toContain('Hello');
-    expect(svg).toContain(`font-family="${DEFAULT_ARTWORK_FONT_FAMILY}"`);
+    // Exported text always names a generic fallback beside the design face.
+    expect(svg).toContain(`font-family="'${DEFAULT_ARTWORK_FONT_FAMILY}', sans-serif"`);
   });
 
   it('exports a shape with image fill as an SVG <image> element', () => {

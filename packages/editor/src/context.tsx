@@ -49,7 +49,6 @@ export function invalidateNodeThumbnail(nodeId: string): void {
   invalidateThumbnailHandler?.(nodeId);
 }
 
-import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import {
@@ -372,7 +371,9 @@ import {
 } from '@varve/shared';
 import {
   type Context,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
   useCallback,
   useContext,
   useEffect,
@@ -652,8 +653,12 @@ function guardInference<A extends unknown[]>(
 ): (...args: A) => Promise<void> {
   return async (...args: A) => {
     if (sessionGlobals.isCapabilityRestricted('inference')) return;
-    const { checkAiFeaturesEnabled } = await import('./features/useAiFeaturesEnabled');
-    if (!checkAiFeaturesEnabled(toastHandler, 'Background removal')) return;
+    // Heuristic Quick cutout is not on-device inference. Match Rust:
+    // require_ai_for_background_method lets method === "quick" through.
+    if (args[0] !== 'quick') {
+      const { checkAiFeaturesEnabled } = await import('./features/useAiFeaturesEnabled');
+      if (!checkAiFeaturesEnabled(toastHandler, 'Background removal')) return;
+    }
     return action(...args);
   };
 }
@@ -2445,6 +2450,34 @@ function nextAutoName(doc: Document, typeName: string): string {
 
 const INITIAL_SESSION_ID = 'session-0';
 
+/**
+ * Mark the edited document as having unsaved work.
+ *
+ * Two flags describe one fact and they are read by different surfaces:
+ * `state.dirty` drives autosave revision capture for the visible tab and the
+ * save-status affordance, while `sessions[].dirty` is what the tab close guard
+ * (`closeTab`) and the termination coordinator (`collectUnsavedDocuments`,
+ * `hasUnsavedDocuments`) consult. A mutation that sets only `state.dirty`
+ * therefore looks unsaved in the tab strip but saved to the close path: the tab
+ * closes (or the app quits) with no prompt, and the recovery point is discarded
+ * on the resulting clean shutdown.
+ *
+ * Every document mutation must mark dirtiness through this helper so there is
+ * one authority rather than one call site per mutation. It is idempotent and
+ * never clears a flag — clearing is the save path's job.
+ */
+export function markDocumentDirty(state: EditorState): EditorState {
+  const active = state.sessions.find((session) => session.id === state.activeId);
+  if (state.dirty && (active?.dirty ?? true)) return state;
+  return {
+    ...state,
+    dirty: true,
+    sessions: state.sessions.map((session) =>
+      session.id === state.activeId && !session.dirty ? { ...session, dirty: true } : session,
+    ),
+  };
+}
+
 // ─── standalone helpers ─────────────────────────────────────────────────
 
 /**
@@ -2903,6 +2936,31 @@ export function EditorProvider({
   /** Ref keeping the latest state for async callbacks (auto-save, recovery). */
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  /**
+   * `setState` for document mutations: any updater that changes the document
+   * also marks unsaved work through the single authority. Extracted mutation
+   * hooks that receive a setter must be given this one, not `setState`, so they
+   * cannot mark `state.dirty` and leave the session flag behind.
+   */
+  const setDocumentState = useCallback<Dispatch<SetStateAction<EditorState>>>((action) => {
+    setState((current) => {
+      const next = typeof action === 'function' ? action(current) : action;
+      if (next === current || next.document === current.document) return next;
+      return markDocumentDirty(next);
+    });
+  }, []);
+
+  // Safety net for the sites that still assign `dirty: true` by hand: the
+  // active session flag and the mirrored state flag must never disagree, or a
+  // close/quit decision is made from the stale one. This only ever adds
+  // dirtiness the state already claims, so it cannot mark a saved document
+  // dirty.
+  const activeSessionDirty = state.sessions.find((session) => session.id === state.activeId)?.dirty;
+  useEffect(() => {
+    if (!state.dirty || activeSessionDirty) return;
+    setState((current) => markDocumentDirty(current));
+  }, [state.dirty, activeSessionDirty]);
   /** Transform cache — invalidated whenever document reference changes. */
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
   const prevDocRef = useRef(state.document);
@@ -3048,7 +3106,6 @@ export function EditorProvider({
   const newDocument = useCallback(() => {
     const created = createNewDocument({});
     openInNewSession(created.ok ? created.result.document : createDocument('Untitled', true));
-    getDesktopAnalytics().track('document_created', { source: 'blank' });
   }, [openInNewSession]);
 
   // After each render, sync canUndo/canRedo/undoLabel/redoLabel if they
@@ -3875,7 +3932,7 @@ export function EditorProvider({
   );
 
   const logoGeometry = useLogoGeometry(
-    setState,
+    setDocumentState,
     stateRef,
     announcerRef,
     undoStackRef,
@@ -4133,12 +4190,11 @@ export function EditorProvider({
             }
           }
           if (committedIds.length === 0) committedIds = [...prepared.rootIds];
-          return {
+          return markDocumentDirty({
             ...s,
             document: mergeImportedResources(nextDoc, resourceImports),
             selection: committedIds,
-            dirty: true,
-          };
+          });
         });
       });
       return committedIds;
@@ -7089,8 +7145,7 @@ export function EditorProvider({
         const settings = loadSettings();
         if (!settings.ai.enabled) {
           toastHandler?.({
-            message: 'AI features are disabled',
-            description: 'Enable AI features in Settings to use Generative Edit.',
+            message: 'Turn on AI features in Settings to use this',
             type: 'info',
             duration: 4000,
           });
@@ -7420,7 +7475,7 @@ export function EditorProvider({
             const { id: gId, doc: d2 } = nextNodeId(s.document);
             const group = makeGroupNode(gId, { name: 'Group' });
             const newDoc = groupNodesDoc(d2, sel, group);
-            return { ...s, document: newDoc, selection: [gId], dirty: true };
+            return markDocumentDirty({ ...s, document: newDoc, selection: [gId] });
           });
         });
       },
@@ -7436,12 +7491,16 @@ export function EditorProvider({
             if (isLiveBooleanNode(node)) {
               const expanded = expandLiveBooleanDoc(s.document, id);
               return expanded
-                ? { ...s, document: expanded.doc, selection: [expanded.nodeId], dirty: true }
+                ? markDocumentDirty({
+                    ...s,
+                    document: expanded.doc,
+                    selection: [expanded.nodeId],
+                  })
                 : s;
             }
             const childIds = [...node.children];
             const newDoc = ungroupNodeDoc(s.document, id);
-            return { ...s, document: newDoc, selection: childIds, dirty: true };
+            return markDocumentDirty({ ...s, document: newDoc, selection: childIds });
           });
         });
       },
@@ -7610,12 +7669,11 @@ export function EditorProvider({
               hideMaskSource: true,
               linked: true,
             });
-            return {
+            return markDocumentDirty({
               ...s,
               document: result.doc,
               selection: [result.groupId],
-              dirty: true,
-            };
+            });
           } catch (err) {
             announcerRef.current?.announce(
               err instanceof Error ? err.message : 'Failed to create clipping mask',
@@ -7647,12 +7705,11 @@ export function EditorProvider({
           }
           const childIds = [...groupNode.children];
           const newDoc = releaseClippingMaskDoc(s.document, id);
-          return {
+          return markDocumentDirty({
             ...s,
             document: newDoc,
             selection: childIds,
-            dirty: true,
-          };
+          });
         });
       },
 
@@ -8447,6 +8504,9 @@ export function EditorProvider({
           frameGuideLayouts,
           closure.patternDefinitions,
           snapshot.workspaceMode === 'print' ? snapshot.document.activePageId : undefined,
+          // Optional `image/svg+xml` flavour so other applications can paste
+          // the selection as vectors, not just node names.
+          snapshot.document,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -8523,6 +8583,7 @@ export function EditorProvider({
           frameGuideLayouts,
           closure.patternDefinitions,
           snapshot.workspaceMode === 'print' ? sourceDocument.activePageId : undefined,
+          sourceDocument,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -9408,28 +9469,47 @@ export function EditorProvider({
         libraryStorage?: boolean,
         binding?: OpenFileBinding,
       ) => {
-        // Parse up front; null/invalid json = fresh blank document (new file).
+        // Parse up front. A null json means "new document" and legitimately
+        // starts blank. A non-null json that fails to decode must NOT fall back
+        // to a blank document: the tab would be rebound to the requested file's
+        // name while holding nothing, and the next save would overwrite the
+        // real file. Refuse, say so, and leave the current artboard alone.
         let doc: Document;
-        try {
-          if (json) {
-            const decoded = DocumentCodec.decode(json);
-            doc = decoded.ok ? decoded.document : createDocument(name || 'Untitled');
-          } else {
-            doc = createDocument(name || 'Untitled');
+        if (json) {
+          let decoded: ReturnType<typeof DocumentCodec.decode> | null = null;
+          try {
+            decoded = DocumentCodec.decode(json);
+          } catch {
+            decoded = null;
           }
+          if (!decoded?.ok) {
+            const reason =
+              'This file is not a Varve document, or it is damaged. Nothing was changed.';
+            toastHandler?.({
+              message: `Couldn't open "${name}"`,
+              description: reason,
+              type: 'error',
+              duration: 15000,
+            });
+            announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
+            return;
+          }
+          doc = decoded.document;
           const result = validateDocument(doc);
           if (!result.valid) {
+            // Validation problems are surfaced by preflight; the document still
+            // opens so a recoverable file is never refused outright.
             if (typeof console !== 'undefined') {
               console.warn('[Strata] openFile: validation warnings:', result.errors);
             }
           }
-          // Re-resolve fonts against this device's catalog, as loadDocument
-          // does — a document authored elsewhere arrives with a manifest
-          // pointing at fonts this machine may not have.
-          doc = resolveFontManifest(doc);
-        } catch {
+        } else {
           doc = createDocument(name || 'Untitled');
         }
+        // Re-resolve fonts against this device's catalog, as loadDocument
+        // does — a document authored elsewhere arrives with a manifest
+        // pointing at fonts this machine may not have.
+        doc = resolveFontManifest(doc);
         interactionState.cancelCanvasInteraction(stateRef.current.activeId);
         setState((s) => {
           // Dedupe: if this file is already open in a tab, switch to it
@@ -9695,7 +9775,11 @@ export function EditorProvider({
             redoStackRef.current = [];
             redoSelStackRef.current = [];
           }
-          return { ...s, document: created.doc, selection: [created.nodeId], dirty: true };
+          return markDocumentDirty({
+            ...s,
+            document: created.doc,
+            selection: [created.nodeId],
+          });
         });
       },
 
@@ -9787,7 +9871,11 @@ export function EditorProvider({
             for (const id of allIds) d = removeNode(d, id);
             const placed = placeBooleanResult(d, result, anchor);
             announcerRef.current?.announce('Boolean operation complete');
-            return { ...s, document: placed.doc, selection: [placed.nodeId], dirty: true };
+            return markDocumentDirty({
+              ...s,
+              document: placed.doc,
+              selection: [placed.nodeId],
+            });
           });
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Unknown error';
@@ -10098,7 +10186,6 @@ export function EditorProvider({
           announcerRef.current?.announce(
             `Image ${operationLabel} to ${outputImage.width} by ${outputImage.height} pixels`,
           );
-          getDesktopAnalytics().track('feature_used', { feature: 'upscale' });
         } catch (error) {
           if (controller.signal.aborted) throw new Error('cancelled');
           // Tauri rejects with a bare string, so preserve it as an Error rather
@@ -11017,7 +11104,31 @@ export function EditorProvider({
       newDocument: value.newDocument,
       serializeDocument: value.serializeDocument,
       updateDoc: value.updateDoc,
-      loadDocument: value.loadDocument,
+      loadDocument: (json, meta) => {
+        // Same contract as openFile: a document that cannot be decoded is
+        // reported, not silently ignored (vectorcraft#861). `loadDocument` is a
+        // public API leaving room for callers other than the open flow, so the
+        // guard belongs here as well as in openFile.
+        let decodable = false;
+        try {
+          decodable = DocumentCodec.decode(json).ok;
+        } catch {
+          decodable = false;
+        }
+        if (!decodable) {
+          const name = meta?.name ?? 'This file';
+          toastHandler?.({
+            message: `Couldn't open "${name}"`,
+            description:
+              'This file is not a Varve document, or it is damaged. Nothing was changed.',
+            type: 'error',
+            duration: 15000,
+          });
+          announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
+          return;
+        }
+        value.loadDocument(json, meta);
+      },
       save: value.save,
       saveAs: value.saveAs,
       saveCopy: value.saveCopy,

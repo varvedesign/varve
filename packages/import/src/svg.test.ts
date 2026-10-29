@@ -28,6 +28,24 @@ describe('parseSvg', () => {
     expect(() => parseSvg(`<svg>${nested}</svg>`)).not.toThrow();
   });
 
+  it('discloses artwork refused by the nesting ceiling instead of importing nothing silently', () => {
+    let nested = '<rect width="1" height="1" />';
+    for (let index = 0; index < 300; index += 1) nested = `<g>${nested}</g>`;
+    const result = parseSvg(`<svg>${nested}</svg>`);
+    expect(result.nodeIds).toHaveLength(0);
+    expect(result.warnings.join(' ')).toMatch(
+      /nested deeper than 256 levels were not imported; artwork inside them is missing/,
+    );
+  });
+
+  it('imports nesting within the ceiling', () => {
+    let nested = '<rect width="1" height="1" />';
+    for (let index = 0; index < 250; index += 1) nested = `<g>${nested}</g>`;
+    const result = parseSvg(`<svg>${nested}</svg>`);
+    expect(result.nodeIds.length).toBeGreaterThan(0);
+    expect(result.warnings.join(' ')).not.toMatch(/nested deeper than/i);
+  });
+
   it('parses a rect element', () => {
     const result = parseSvg('<svg><rect x="10" y="20" width="100" height="50" fill="red" /></svg>');
     expect(result.nodeIds.length).toBe(1);
@@ -41,6 +59,80 @@ describe('parseSvg', () => {
         expect(node.shape.h).toBe(50);
       }
     }
+  });
+
+  it('keeps hidden SVG groups invisible and omits display-none content', () => {
+    const result = parseSvg(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+        <g visibility="hidden">
+          <path d="M0 0 L50 0 L50 50 Z" fill="#ff0000"/>
+          <path d="M10 10 L30 10 L30 30 Z" visibility="visible" fill="#ffff00"/>
+        </g>
+        <g style="display:none"><path d="M60 0 L90 0 L90 30 Z" fill="#00ff00"/></g>
+        <path d="M0 60 L30 60 L30 90 Z" fill="#0000ff"/>
+      </svg>
+    `);
+
+    expect(result.nodeIds).toHaveLength(2);
+    const importedNodes = result.nodeIds.map((id) => result.document.nodes[id]!);
+    const visibilityGroup = importedNodes.find((node) => node.kind === 'frame');
+    const visiblePath = importedNodes.find((node) => node.kind === 'shape');
+    if (visibilityGroup?.kind !== 'frame') throw new Error('Expected visibility group frame');
+    expect(visibilityGroup.children.map((id) => result.document.nodes[id]?.visible)).toEqual([
+      false,
+      true,
+    ]);
+    expect(visibilityGroup.visible).toBe(true);
+    expect(visiblePath?.visible).toBe(true);
+    expect(Object.values(result.document.nodes).some((node) => node.name.includes('green'))).toBe(
+      false,
+    );
+  });
+
+  it('inherits visibility from the SVG root while honoring visible overrides', () => {
+    const hiddenRoot = parseSvg(`
+      <svg xmlns="http://www.w3.org/2000/svg" visibility="hidden">
+        <rect width="10" height="10" fill="#ff0000"/>
+        <rect x="20" width="10" height="10" visibility="visible" fill="#00ff00"/>
+      </svg>
+    `);
+    const rootChildren = hiddenRoot.nodeIds.map((id) => hiddenRoot.document.nodes[id]!);
+    expect(rootChildren.map((node) => node.visible)).toEqual([false, true]);
+
+    const omittedRoot = parseSvg(
+      '<svg xmlns="http://www.w3.org/2000/svg" style="display:none"><rect width="10" height="10" /></svg>',
+    );
+    expect(omittedRoot.nodeIds).toEqual([]);
+  });
+
+  it('preserves child visibility when singular transforms prevent SVG grouping', () => {
+    const result = parseSvg(`
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <g visibility="hidden" transform="scale(0)">
+          <rect width="10" height="10" fill="#ff0000"/>
+          <rect x="20" width="10" height="10" visibility="visible" fill="#00ff00"/>
+        </g>
+      </svg>
+    `);
+
+    expect(result.nodeIds.map((id) => result.document.nodes[id]?.visible)).toEqual([false, true]);
+    expect(result.warnings).toContain(
+      'SVG group transform is non-invertible; grouping was omitted',
+    );
+  });
+
+  it('preserves nested child visibility when a singular group transform is omitted', () => {
+    const result = parseSvg(`
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <g visibility="hidden" transform="scale(0)">
+          <g visibility="visible">
+            <rect width="10" height="10" visibility="hidden" fill="#ff0000"/>
+            <rect x="20" width="10" height="10" fill="#00ff00"/>
+          </g>
+        </g>
+      </svg>
+    `);
+    expect(result.nodeIds.map((id) => result.document.nodes[id]?.visible)).toEqual([false, true]);
   });
 
   it('preserves shorthand fill color and fractional opacity on repeated use instances', () => {
@@ -129,6 +221,19 @@ describe('parseSvg', () => {
       expect(node.shape.holes?.[0]).toHaveLength(4);
       expect(node.shape.contours).toHaveLength(2);
       expect(node.shape.fillRule).toBe('evenodd');
+    }
+  });
+
+  it('preserves holes formed by open and closed SVG subpaths', () => {
+    const result = parseSvg(
+      '<svg viewBox="0 0 24 24"><path d="M0 0h24v24H0M6 6v12h12V6z" /></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind === 'shape' && node.shape.kind === 'path') {
+      expect(node.shape.closed).toBe(true);
+      expect(node.shape.holes).toHaveLength(1);
+      expect(node.shape.contours).toHaveLength(2);
     }
   });
 

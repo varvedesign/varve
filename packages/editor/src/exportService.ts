@@ -366,6 +366,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         mimeType: 'application/pdf',
         warnings: [
           ...fontWarnings,
+          ...result.warnings,
           ...collectGradientMapFlattenWarnings(node, context.document, 'pdf'),
         ],
       };
@@ -388,7 +389,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       return {
         bytes: result.bytes,
         mimeType: 'application/pdf',
-        warnings: collectMissingFontWarnings(node),
+        warnings: [...collectMissingFontWarnings(node), ...result.warnings],
       };
     }
     case 'avif': {

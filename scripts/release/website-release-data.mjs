@@ -15,8 +15,15 @@
  * America/Vancouver calendar day of generatedAt — never the UTC prefix of a
  * late-evening Pacific timestamp.
  */
+import {
+  appImageShipsBundledWebKit,
+  compareReleaseVersion,
+  FIRST_BUNDLED_WEBKIT_APPIMAGE,
+} from '../../apps/website/src/data/release-version.mjs';
 import { productSlug } from './product.mjs';
 import { ARCHITECTURES, normalizeArchitecture, targetFor } from './targets.mjs';
+
+export { appImageShipsBundledWebKit, compareReleaseVersion, FIRST_BUNDLED_WEBKIT_APPIMAGE };
 
 /** Availability belongs to the selected release and a feed verified in this fetch. */
 export function releaseUpdaterAvailability(release, verifiedFeeds = {}) {
@@ -115,16 +122,28 @@ export function windowsUnsignedCaveat() {
 /** Copy for each installer format, keyed by the manifest `format` field. */
 export function formatCopy(product, version) {
   return {
-    appimage: {
-      title: 'AppImage',
-      blurb:
-        'Portable file for Linux — no install, no root. Uses the system WebKitGTK ' +
-        'libraries (same requirement as the .deb).',
-      caveat:
-        'Requires FUSE2 and a system WebKitGTK (libwebkit2gtk-4.1). On systems without ' +
-        'FUSE2, run with --appimage-extract-and-run.',
-      install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
-    },
+    appimage: appImageShipsBundledWebKit(version)
+      ? {
+          title: 'AppImage',
+          blurb:
+            'Portable file for Linux: no install, no root. Ships its own WebKitGTK, so it ' +
+            'launches without installing libwebkit2gtk.',
+          caveat:
+            'Requires FUSE2 and glibc 2.35+. On systems without FUSE2, run with ' +
+            '--appimage-extract-and-run. GPU/EGL come from the host Mesa stack. ' +
+            'GStreamer plugins are not bundled.',
+          install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
+        }
+      : {
+          title: 'AppImage',
+          blurb:
+            'Portable file for Linux: no install, no root. Uses the system WebKitGTK ' +
+            'libraries (same requirement as the .deb).',
+          caveat:
+            'Requires FUSE2 and a system WebKitGTK (libwebkit2gtk-4.1). On systems without ' +
+            'FUSE2, run with --appimage-extract-and-run.',
+          install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
+        },
     deb: {
       title: 'Debian package',
       blurb: 'For Debian 12+ and Ubuntu 22.04+.',

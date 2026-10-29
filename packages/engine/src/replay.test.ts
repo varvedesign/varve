@@ -284,6 +284,30 @@ describe('drawClusters (kerning-off and glyph adjustments)', () => {
     h: 20,
   };
 
+  it('paints the optional frame box before glyphs without using glyph strokes', () => {
+    const rec = recorderTarget();
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 1, g: 2, b: 3, a: 255 },
+      strokes: [],
+      primitive: {
+        ...basePrimitive,
+        textFrame: {
+          fill: { space: 'rgb', r: 250, g: 249, b: 240, a: 255 },
+          border: { color: { space: 'rgb', r: 20, g: 30, b: 40, a: 255 }, width: 0 },
+        },
+      },
+    };
+
+    replayIr(rec, [item]);
+
+    expect(rec.calls.filter((call) => call.startsWith('fillRect'))).toHaveLength(1);
+    expect(rec.calls.filter((call) => call.startsWith('strokeRect'))).toHaveLength(0);
+    expect(rec.calls.indexOf('fillRect(4)')).toBeLessThan(
+      rec.calls.findIndex((call) => call.startsWith('fillText(')),
+    );
+  });
+
   function recorderTarget(): Recorder {
     const rec = new Recorder();
     rec.textBaseline = 'top';

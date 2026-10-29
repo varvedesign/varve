@@ -177,7 +177,7 @@ const THEMES = [
 async function expectCurrentHomepageCopy(page: import('@playwright/test').Page) {
   await expect(page.locator('.hero-title')).toContainText('Design locally.');
   await expect(page.locator('.hero-title')).toContainText('One canvas.');
-  await expect(page.locator('.hero-subtitle')).toContainText('no account, no subscription');
+  await expect(page.locator('.hero-subtitle')).toContainText('No account, no subscription');
 }
 
 const HERO_EYEBROW_VIEWPORTS = [320, 360, 375, 390, 414, 640, 641, 768, 1024, 1280, 1440];
@@ -296,6 +296,25 @@ async function getPageHorizontalOverflow(page: import('@playwright/test').Page) 
       }),
     };
   });
+}
+
+async function expectHeroSubtitleClearsDecorativeCards(page: import('@playwright/test').Page) {
+  const overlap = await page.evaluate(() => {
+    const subtitle = document.querySelector('.hero-subtitle')?.getBoundingClientRect();
+    if (!subtitle) throw new Error('Homepage hero is missing .hero-subtitle.');
+    return [...document.querySelectorAll('.hc-card')].some((card) => {
+      const bounds = card.getBoundingClientRect();
+      return (
+        bounds.width > 1 &&
+        bounds.height > 1 &&
+        subtitle.right > bounds.left + 8 &&
+        subtitle.left < bounds.right - 8 &&
+        subtitle.bottom > bounds.top + 8 &&
+        subtitle.top < bounds.bottom - 8
+      );
+    });
+  });
+  expect(overlap, 'hero subtitle must not run under decorative cards').toBe(false);
 }
 
 function expectHeroEyebrowContained(geometry: Awaited<ReturnType<typeof getHeroEyebrowGeometry>>) {
@@ -510,6 +529,7 @@ for (const theme of THEMES) {
       }
       expectHeroEyebrowContained(await getHeroEyebrowGeometry(page));
       if (width <= 640) expectMobileHeroGutter(await getMobileHeroContentGeometry(page));
+      if (width >= 1100) await expectHeroSubtitleClearsDecorativeCards(page);
     }
 
     if (theme.name === 'light') {
@@ -618,7 +638,9 @@ test('download page dark', async ({ page }) => {
   await dismissAnalyticsBanner(page);
   await warmFullPage(page);
   await waitForStableDocument(page);
-  await expect(page.locator('#main-content')).toHaveScreenshot('download-dark.png', {
+  await expect(page).toHaveScreenshot('download-dark.png', {
+    fullPage: true,
+    clip: await articleClip(page, '#main-content'),
     maxDiffPixelRatio: 0.02,
   });
 });
@@ -680,7 +702,17 @@ test('workspaces docs page light', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
   await dismissAnalyticsBanner(page);
   await warmFullPage(page);
-  await expect(page.locator('#main-content')).toHaveScreenshot('workspaces-docs-light.png', {
+  await waitForStableDocument(page);
+  await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 0);
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  });
+  await expect(page).toHaveScreenshot('workspaces-docs-light.png', {
+    fullPage: true,
+    clip: await articleClip(page, '#main-content'),
     maxDiffPixelRatio: 0.02,
   });
 });
@@ -804,10 +836,20 @@ test('typography page light', async ({ page }) => {
   await waitForImages(page);
   await expect(page.getByRole('heading', { name: 'Typography', exact: true })).toBeVisible();
   await warmFullPage(page);
+  await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 0);
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  });
   // Chromium alternates the document's stitched height by one footer pixel on
-  // this long route. Keep the typography article as the visual oracle; header
-  // and footer have their own snapshots and route checks.
-  await expect(page.locator('#main-content')).toHaveScreenshot('typography-light.png', {
+  // this long route. Clip the full-page image to the main content's integer
+  // document bounds so half-pixel layout edges cannot change the image size.
+  // Header and footer have their own snapshots and route checks.
+  await expect(page).toHaveScreenshot('typography-light.png', {
+    fullPage: true,
+    clip: await articleClip(page, '#main-content'),
     maxDiffPixelRatio: 0.02,
   });
 });

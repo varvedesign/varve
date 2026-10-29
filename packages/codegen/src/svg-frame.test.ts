@@ -6,6 +6,7 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTextNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { exportNodeToSvg } from './svg';
@@ -108,5 +109,96 @@ describe('exportNodeToSvg — frame paint and clipping', () => {
     const svg = exportNodeToSvg(doc.nodes['group-1']!, doc);
     expect(svg).not.toContain('<rect x="0" y="0" width="200"');
     expect(svg).not.toContain('<rect x="0" y="0" width="160"');
+  });
+
+  it('exports text-frame fill and border behind glyphs using the text bounds', () => {
+    const label = makeTextNode('label', 'Readable over a busy page', {
+      w: 240,
+      h: 64,
+      textResizing: 'fixed',
+      textFrame: {
+        fill: { space: 'rgb', r: 221, g: 246, b: 243, a: 255 },
+        border: {
+          color: { space: 'rgb', r: 18, g: 91, b: 91, a: 255 },
+          width: 2,
+        },
+      },
+    });
+    const doc = {
+      ...createDocument('Text frame SVG'),
+      rootChildren: [label.id],
+      nodes: { [label.id]: label },
+    };
+
+    const svg = exportNodeToSvg(label, doc);
+
+    expect(svg).toContain('<rect x="0" y="0" width="240" height="64"');
+    expect(svg).toContain('fill="rgba(221,246,243,1.000)"');
+    expect(svg).toContain('stroke="rgba(18,91,91,1.000)" stroke-width="2"');
+    expect(svg.indexOf('<rect')).toBeLessThan(svg.indexOf('<text'));
+    expect(svg).toContain('<text x="0" y="0" fill="rgba(16,21,31,1.000)"');
+  });
+
+  it('applies text-frame opacity to the frame and text like Canvas2D and PDF', () => {
+    const label = {
+      ...makeTextNode('translucent-label', 'Alpha remains per object', {
+        w: 240,
+        h: 64,
+        textResizing: 'fixed',
+        opacity: 0.5,
+      }),
+      textFrame: { fill: { space: 'rgb' as const, r: 221, g: 246, b: 243, a: 255 } },
+    };
+    const doc = {
+      ...createDocument('Translucent text frame'),
+      rootChildren: [label.id],
+      nodes: { [label.id]: label },
+    };
+
+    const svg = exportNodeToSvg(label, doc);
+
+    expect(svg).toContain('<rect x="0" y="0" width="240" height="64"');
+    expect(svg).toContain('height="64" fill="rgba(221,246,243,1.000)" opacity="0.5"');
+    expect(svg).toContain('<text x="0" y="0"');
+    expect(svg.match(/opacity="0\.5"/g)).toHaveLength(2);
+  });
+
+  it('does not add an SVG rectangle when text has no frame style', () => {
+    const label = makeTextNode('plain-label', 'Legacy text', { w: 240, h: 64 });
+    const doc = {
+      ...createDocument('Legacy text'),
+      rootChildren: [label.id],
+      nodes: { [label.id]: label },
+    };
+
+    const svg = exportNodeToSvg(label, doc);
+
+    expect(svg).not.toContain('<rect x=');
+    expect(svg).toContain('<text');
+  });
+
+  it('does not paint a zero-width text-frame border in SVG', () => {
+    const label = makeTextNode('zero-border-label', 'No visible border', {
+      w: 240,
+      h: 64,
+      textResizing: 'fixed',
+      textFrame: {
+        border: {
+          color: { space: 'rgb', r: 18, g: 91, b: 91, a: 255 },
+          width: 0,
+        },
+      },
+    });
+    const doc = {
+      ...createDocument('Zero-width text border'),
+      rootChildren: [label.id],
+      nodes: { [label.id]: label },
+    };
+
+    const svg = exportNodeToSvg(label, doc);
+
+    expect(svg).not.toContain('<rect x=');
+    expect(svg).not.toContain('stroke="rgba(18,91,91,1.000)"');
+    expect(svg).toContain('<text');
   });
 });

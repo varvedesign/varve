@@ -73,6 +73,46 @@ const AI_ENTRY_POINTS = [
     function: 'guardInference',
     description: 'Editor inference choke point (background removal)',
   },
+  {
+    file: 'packages/engine/src/inference/SessionManager.ts',
+    function: 'createSession',
+    description: 'ONNX session creation choke point',
+  },
+  {
+    file: 'packages/engine/src/inference/SessionManager.ts',
+    function: 'getSession',
+    description: 'ONNX session load choke point',
+  },
+  {
+    file: 'packages/engine/src/backgroundRemoval/modelLoader.ts',
+    function: 'downloadModel',
+    description: 'Unified model download choke point',
+  },
+  {
+    file: 'packages/engine/src/inference/core/DownloadManager.ts',
+    function: 'startDownload',
+    description: 'Catalog download-manager choke point',
+  },
+  {
+    file: 'packages/editor/src/context/useSam2Segmentation.ts',
+    function: 'applySam2Segmentation',
+    description: 'SAM2 object selection',
+  },
+  {
+    file: 'packages/engine/src/generativeEdit/pipeline.ts',
+    function: 'runGenerativeEdit',
+    description: 'Generative edit pipeline',
+  },
+  {
+    file: 'packages/engine/src/generativeEdit/nativeModel.ts',
+    function: 'downloadNativeGenerativeModel',
+    description: 'Native generative model download',
+  },
+  {
+    file: 'packages/engine/src/upscaleProviders/aiUpscale.ts',
+    function: 'createSession',
+    description: 'Real-ESRGAN ONNX session',
+  },
 ] as const;
 
 /** Take the source from `start` through the matching closing brace. */
@@ -118,6 +158,7 @@ const USER_SWITCH_PATTERNS = [
   /getAiFeaturesEnabled/,
   /aiEnabled/, // From useAiFeaturesEnabled hook
   /aiFeaturesEnabled/, // Alternative naming
+  /assertAiFeaturesEnabled/,
 ] as const;
 
 describe('AI Entry Point Gating Audit', () => {
@@ -136,13 +177,23 @@ describe('AI Entry Point Gating Audit', () => {
       }
 
       const functionBody = extractEntryBody(content, entryPoint.function);
-      if (!functionBody) {
+      const implIndex = [
+        `async ${entryPoint.function}`,
+        `const ${entryPoint.function}`,
+        `function ${entryPoint.function}`,
+      ]
+        .map((marker) => content.indexOf(marker))
+        .find((index) => index !== -1);
+      const nearby = implIndex === undefined ? null : content.slice(implIndex, implIndex + 4000);
+      if (!functionBody && !nearby) {
         // Function not found - might have been refactored
         ungated.push(entryPoint);
         continue;
       }
 
-      const hasUserSwitch = USER_SWITCH_PATTERNS.some((pattern) => pattern.test(functionBody));
+      const hasUserSwitch = USER_SWITCH_PATTERNS.some(
+        (pattern) => pattern.test(functionBody ?? '') || pattern.test(nearby ?? ''),
+      );
 
       if (!hasUserSwitch) {
         ungated.push(entryPoint);
@@ -196,6 +247,24 @@ describe('AI Entry Point Gating Audit', () => {
         );
       }
     }
+  });
+
+  it('uses the standard AI-disabled hint at leftover toast and announce sites', () => {
+    const hint = 'Turn on AI features in Settings to use this';
+    const context = readFileSync(join(process.cwd(), 'packages/editor/src/context.tsx'), 'utf-8');
+    const bgRemoval = readFileSync(
+      join(
+        process.cwd(),
+        'packages/editor/src/components/Inspector/sections/BackgroundRemovalSection.tsx',
+      ),
+      'utf-8',
+    );
+    const cafBody = extractEntryBody(context, 'openCafDialog');
+    const objectBody = extractEntryBody(bgRemoval, 'startObjectSelection');
+    expect(cafBody).toContain(hint);
+    expect(cafBody).not.toContain('Enable AI features in Settings to use Generative Edit.');
+    expect(objectBody).toContain('AI_DISABLED_HINT');
+    expect(objectBody).not.toContain('Object Selection requires AI features');
   });
 
   it('verifies the gating helper functions exist', () => {

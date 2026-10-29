@@ -108,7 +108,7 @@ test('an explicit override converts a block into block-overridden and records th
 });
 
 test('artifacts without a baseline entry are reported without a gate', () => {
-  withTempFile(1024, 'Varve-0.1.3-linux-x86_64.AppImage', (path) => {
+  withTempFile(1024, 'Varve-0.1.3-x86_64.rpm', (path) => {
     const r = analyzeInstaller({
       installerPath: path,
       baseline: DEFAULT_BASELINE,

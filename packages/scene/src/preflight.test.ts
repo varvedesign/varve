@@ -110,3 +110,39 @@ describe('runCombinedPreflight', () => {
     expect(result.ready).toBe(false);
   });
 });
+
+describe('runCombinedPreflight — overset text', () => {
+  it('reports a measured overset frame and marks the check verified', () => {
+    const doc = makePrintDoc({ nodes: { t1: textNode() } });
+    const result = runCombinedPreflight(doc, {
+      oversetMap: new Map([['t1', { frameId: 't1', oversetChars: 12, isLastFrame: true }]]),
+      oversetUnmeasured: 0,
+    });
+
+    const issue = result.issues.find((i) => i.category === 'overflow');
+    expect(issue).toBeDefined();
+    expect(issue?.nodeId).toBe('t1');
+    expect(issue?.severity).toBe('warning');
+    const check = result.checks.find((c) => c.id === 'overset-text');
+    expect(check?.status).toBe('verified');
+  });
+
+  it('stays unavailable while any frame could not be measured', () => {
+    const doc = makePrintDoc({ nodes: { t1: textNode() } });
+    const result = runCombinedPreflight(doc, {
+      oversetMap: new Map(),
+      oversetUnmeasured: 2,
+    });
+
+    const check = result.checks.find((c) => c.id === 'overset-text');
+    expect(check?.status).toBe('unavailable');
+    expect(check?.reason).toContain('2 text frames');
+  });
+
+  it('is unavailable when no measurement was supplied', () => {
+    const doc = makePrintDoc({ nodes: { t1: textNode() } });
+    const result = runCombinedPreflight(doc);
+    const check = result.checks.find((c) => c.id === 'overset-text');
+    expect(check?.status).toBe('unavailable');
+  });
+});

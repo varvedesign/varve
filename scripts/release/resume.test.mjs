@@ -114,7 +114,10 @@ try {
 const multiFormatDir = mkdtempSync(join(tmpdir(), 'varve-release-resume-formats-'));
 try {
   const artifacts = ['AppImage', 'deb', 'rpm'].map((extension) => {
-    const filename = `Varve-${expected.version}-linux-x86_64.${extension}`;
+    const filename =
+      extension === 'AppImage'
+        ? `Varve-${expected.version}-x86_64.${extension}`
+        : `Varve-${expected.version}-linux-x86_64.${extension}`;
     const bytes = Buffer.alloc(1_000_000, extension);
     writeFileSync(join(multiFormatDir, filename), bytes);
     return {

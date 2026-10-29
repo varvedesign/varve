@@ -17,7 +17,7 @@ const expected = {
 };
 
 try {
-  const filename = 'Varve-0.3.0-linux-x86_64.AppImage';
+  const filename = 'Varve-0.3.0-x86_64.AppImage';
   const bytes = Buffer.from('exact release bytes');
   writeFileSync(join(dir, filename), bytes);
   writeFileSync(

@@ -58,6 +58,18 @@ export interface CombinedPreflightResult {
 export interface CombinedPreflightOptions {
   /** Installed/available font family names, e.g. from the app's FontRegistry. */
   availableFonts?: Set<string>;
+  /**
+   * Measured overset for area text, keyed by node id. Supplied by the caller
+   * that owns a text-measurement context (the editor); omitted when no
+   * measurement was taken.
+   */
+  oversetMap?: Map<string, import('./typography').OversetInfo>;
+  /**
+   * Area frames the caller could not measure (contour wrapping, vertical
+   * writing). The overset check stays `unavailable` while any exist, so it
+   * never claims a document is clear when part of it was not inspected.
+   */
+  oversetUnmeasured?: number;
 }
 
 export function runCombinedPreflight(
@@ -80,6 +92,7 @@ export function runCombinedPreflight(
     availableFonts: options.availableFonts,
     chains,
     stories,
+    oversetMap: options.oversetMap,
   });
 
   const issues: CombinedPreflightIssue[] = [
@@ -118,8 +131,13 @@ export function runCombinedPreflight(
     {
       id: 'overset-text',
       label: 'Overset text',
-      status: 'unavailable',
-      reason: 'Live text-layout measurement is not yet connected to preflight.',
+      status:
+        options.oversetMap && (options.oversetUnmeasured ?? 0) === 0 ? 'verified' : 'unavailable',
+      reason: options.oversetMap
+        ? (options.oversetUnmeasured ?? 0) === 0
+          ? undefined
+          : `${options.oversetUnmeasured} text frames use contour or vertical layout and were not measured.`
+        : 'Live text-layout measurement is not yet connected to preflight.',
     },
     {
       id: 'safe-area',

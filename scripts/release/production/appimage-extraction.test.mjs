@@ -28,7 +28,7 @@ try {
     const receipt = join(cwd, 'extraction-receipt.txt');
     mkdirSync(stage, { recursive: true });
     mkdirSync(runnerTemp);
-    const image = join(stage, `Varve-0.5.0-linux-${arch}.AppImage`);
+    const image = join(stage, `Varve-0.5.0-${arch}.AppImage`);
     writeFileSync(
       image,
       '#!/usr/bin/env bash\nset -euo pipefail\nprintf "%s\\n" "$0" "$PWD" "$1" > "$VARVE_TEST_APPIMAGE_RECEIPT"\nmkdir -p squashfs-root/usr/lib/Varve\n',
