@@ -22,7 +22,8 @@ overrides:
   # / GHSA-xhq7-xmqj-769h / GHSA-333x-w4r6-6crp.
   "fast-uri": 3.1.9
   # qs advisories affect typed-rest-client in the Stryker tool chain.
-  "qs": 6.16.0
+  # GHSA-6pq8-jhm2-2vcw: comma-array stringify TypeError DoS. Fixed in 6.16.1.
+  "qs": 6.16.1
   # GHSA-5c6j-r48x-rmvq / GHSA-qj8w-gfj5-8c6v / GHSA-m5mm-p8h7-m29v:
   # serialize-javascript RCE/DoS/XSS in mocha (wdio) worker-pool serializer.
   # 7.x output remains valid for mocha's eval-based deserialization of options

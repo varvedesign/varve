@@ -62,3 +62,8 @@ reason = "postcss-selector-parser 6.1.4 is Tailwind 3 / website build tooling on
 id = "GHSA-r4xh-jqrq-34v2"
 ignoreUntil = 2027-01-21
 reason = "smol-toml 1.7.1 is Knip/WDIO tooling parsing repo-controlled config. Production Astro already uses 1.9.0. See SECURITY.md."
+
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+ignoreUntil = 2027-01-21
+reason = "block-buffer 0.10.4 has no 0.10.x patch. GHSA-qwgh-2vcv-g2f7 is EagerBuffer/ReadBuffer (0.11+), fixed only in 0.12.1. Pulled by sha2 0.10 via tauri-codegen/wry; digest 0.10 cannot take 0.12. cargo-audit does not flag 0.10.4."

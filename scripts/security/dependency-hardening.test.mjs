@@ -23,11 +23,16 @@ const extractPatch = readFileSync(
   path.join(repoRoot, 'patches', 'extract-zip@2.0.1.patch'),
   'utf8',
 );
+const desktopCargoLock = readFileSync(
+  path.join(repoRoot, 'apps/desktop/src-tauri/Cargo.lock'),
+  'utf8',
+);
 
 assert.match(workspace, /"adm-zip": 0\.6\.1/);
 assert.match(workspace, /"brace-expansion@5": 5\.0\.12/);
 assert.match(workspace, /"fast-uri": 3\.1\.9/);
 assert.match(workspace, /"js-yaml@4": 4\.3\.2/);
+assert.match(workspace, /"qs": 6\.16\.1/);
 assert.match(workspace, /"serialize-javascript": 7\.1\.3/);
 assert.match(workspace, /"sharp": 0\.35\.5/);
 assert.match(workspace, /"svgo@4": 4\.1\.0/);
@@ -41,6 +46,9 @@ assert.match(lockfile, /adm-zip: 0\.6\.1/);
 assert.match(lockfile, /brace-expansion@5: 5\.0\.12/);
 assert.match(lockfile, /deepmerge-ts@8\.0\.0/);
 assert.doesNotMatch(lockfile, /deepmerge-ts@7\.1\.5/);
+assert.match(lockfile, /qs: 6\.16\.1/);
+assert.match(lockfile, /qs@6\.16\.1:/);
+assert.doesNotMatch(lockfile, /qs@6\.16\.0/);
 assert.match(lockfile, /serialize-javascript: 7\.1\.3/);
 assert.match(lockfile, /serialize-javascript@7\.1\.3:/);
 assert.doesNotMatch(lockfile, /serialize-javascript@7\.1\.0/);
@@ -55,6 +63,9 @@ assert.doesNotMatch(lockfile, /undici@7\.30\.0/);
 assert.doesNotMatch(lockfile, /undici@8\.11\.2/);
 assert.match(lockfile, /onnxruntime-node@[\s\S]*?adm-zip: 0\.6\.1/);
 assert.match(lockfile, /extract-zip: 2\.0\.1\(patch_hash=[0-9a-f]{64}\)/);
+
+assert.match(desktopCargoLock, /name = "zip"\nversion = "9\.0\.5"/);
+assert.doesNotMatch(desktopCargoLock, /name = "zip"\nversion = "9\.0\.4"/);
 
 assert.match(flatpakSources, /deepmerge-ts-8\.0\.0\.tgz/);
 assert.match(
