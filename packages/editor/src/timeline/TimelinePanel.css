@@ -219,7 +219,10 @@
   overscroll-behavior: contain;
 }
 
-.timeline-playback-controls > * {
+/* Buttons and readouts keep their size; the two .varve-select controls are
+ * width:100% and shrink to fit (as they did before the scroller), otherwise
+ * each select expands to the full panel width and inflates the row 2.9x. */
+.timeline-playback-controls > *:not(.varve-select) {
   flex-shrink: 0;
 }
 
