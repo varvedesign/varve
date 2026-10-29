@@ -22,4 +22,11 @@ paths = [
   # Canary sources: the scanner regression tests contain fragment-built fake
   # credentials by design (see scripts/secret-scan.mjs + secret-scan.test.mjs).
   '''scripts/secret-scan.test.mjs''',
+  # Public SHA-256 of the pinned SigLIP tokenizer.json, not a credential.
+  '''packages/engine/src/inference/models/siglipText.ts''',
+  # Audit crawl checksum field named raw_api_sha256.
+  '''docs/audits/photocraft/issue-ledger-follow-on-b.summary.json''',
+  # Public GitHub notification URLs with email_token query params from a
+  # third-party issue crawl. Not a Varve credential.
+  '''docs/audits/graphite/link-frontier.jsonl''',
 ]

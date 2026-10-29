@@ -426,12 +426,12 @@ export class IconProviderRegistry {
   }
 
   /** List packs from all providers that support browsing. */
-  async getPacks(): Promise<IconPackInfo[]> {
+  async getPacks(options?: IconProviderSearchOptions): Promise<IconPackInfo[]> {
     const enabled = this.getEnabled();
     const results = await Promise.allSettled(
       enabled
         .filter((p) => p.getPacks && p.capabilities.includes('browse-collections'))
-        .map((p) => p.getPacks!()),
+        .map((p) => p.getPacks!(options)),
     );
     const packs: IconPackInfo[] = [];
     for (const result of results) {
