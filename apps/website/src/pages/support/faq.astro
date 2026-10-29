@@ -16,7 +16,9 @@ const releaseDateStr = release.releaseDate
 //
 // Note: Google retired FAQ rich results from Search on 2026-05-07, so this is
 // not a results-dropdown mechanism anymore. It is retained for answer engines
-// and AI citation, and `faqParity.test.ts` guards question-level drift.
+// and AI citation. `faqDisclosure.test.ts` guards the question set and the
+// approved pricing sentence at source level; the built-page E2E test
+// (`tests/e2e/faq-disclosure.spec.ts`) guards exact answer parity.
 const faqSchema = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -34,7 +36,7 @@ const faqSchema = {
       name: 'Does Varve work offline?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Core editing works fully offline with no account required. Optional network features include model downloads, online font/icon search, consented update checks, and user-configured cloud providers — each is explicit and user-controlled. In the browser demo, offline operation requires one complete online visit first, after which the demo opens from the browser’s saved copy.',
+        text: 'Yes. Core editing works fully offline with no account required. Optional network features — model downloads, additional font downloads, update checks, and user-configured cloud providers — are each explicit and user-controlled. See the privacy policy for details. In the browser demo, offline operation requires one complete online visit first.',
       },
     },
     {
@@ -42,7 +44,25 @@ const faqSchema = {
       name: 'Can I use Varve in a browser?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes — a bounded browser demo runs the real editor on the WASM engine at varve.studio/try/, with everything processing locally and no account. It exposes Design, Draw, and Photo; Logo tools are part of Design and Code export is a shared panel, not another workspace. Print production, on-device model features, and Motion and Email authoring are outside this demo. See the Browser Demo & Offline guide for saving, storage, and offline details, and Varve on Chromebook for the browser, installed-app, and optional Linux routes.',
+        text: 'Yes — a bounded browser demo runs the real editor on the WASM engine at varve.studio/try/, with everything processing locally and no account. It exposes Design, Draw, and Photo and can be installed as an app in Chrome or Edge. Logo tools live in Design, and Code export is a shared panel. Print production, on-device model features, and Motion and Email authoring are outside this demo. See the Browser Demo & Offline guide for saving, storage, and offline details, and Varve on Chromebook for the browser, installed-app, and optional Linux routes.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How do updates work?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: release.updater
+          ? `Updates are consent-first and cryptographically verified. The current release (v${releaseVersion}) includes an in-app updater. On first launch you can choose to allow automatic update checks. Updates are verified before installation and never overwrite unsaved work. Package-specific limitations apply. See the Updates guide for details.`
+          : `Updates are designed to be consent-first. The current release (v${releaseVersion}) does not include an in-app updater, so manual updates through the download page or GitHub Releases are the dependable path. Future feed-enabled builds can offer automatic checks, notifications, or verified downloads in Settings > Updates. See the Updates guide for details.`,
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does checking for updates send my documents anywhere?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No. An update check sends only your current version, platform, architecture and release channel to Varve\'s release endpoint. No account, document data, machine identifier or device fingerprint is transmitted, and update consent is separate from any analytics or diagnostics consent.',
       },
     },
     {
@@ -58,7 +78,7 @@ const faqSchema = {
       name: 'Has Varve shipped a release yet?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: `Yes. The latest published application release is Varve ${releaseVersion}, released in ${releaseDateStr}. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64 and ARM64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the download page for checksums and the release notes for what changed.`,
+        text: `Yes. The latest published application release is Varve ${releaseVersion}, released in ${releaseDateStr}. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64 and ARM64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the download page for checksums and the release notes for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.`,
       },
     },
     {
@@ -66,7 +86,7 @@ const faqSchema = {
       name: 'What does FSL-1.1-MIT mean?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license.',
+        text: 'FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license. See the license page for details.',
       },
     },
     {
@@ -74,7 +94,7 @@ const faqSchema = {
       name: 'Is Varve open source?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license.',
+        text: 'The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license. See the license page for the reasoning behind this choice.',
       },
     },
     {
@@ -90,7 +110,7 @@ const faqSchema = {
       name: 'Can I use Varve for professional print work?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using it for critical print production.',
+        text: 'Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using for critical print production. See the Color & Effects page for current status.',
       },
     },
     {
@@ -106,25 +126,7 @@ const faqSchema = {
       name: 'What export formats does Varve support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve exports raster images (PNG, JPEG, and WebP), SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and print PDF with CMYK support. Format support and fallback behavior depend on the artwork and workspace.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'How do updates work?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: release.updater
-          ? `Varve updates are consent-first and cryptographically verified. The current release (v${releaseVersion}) includes an in-app updater. On first launch you can choose to allow automatic update checks. Updates are verified before installation and never overwrite unsaved work. Package-specific limitations apply — see the Updates guide.`
-          : `Varve updates are designed to be consent-first. The current release (v${releaseVersion}) does not include an in-app updater, so manual updates through the download page or GitHub Releases are the dependable path. Future feed-enabled builds can offer automatic checks, notifications, or verified downloads in Settings > Updates.`,
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Does checking for updates send my documents anywhere?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'No. An update check sends only your current version, platform, architecture and release channel to Varve\'s release endpoint. No account, document data, machine identifier or device fingerprint is transmitted, and update consent is separate from any analytics or diagnostics consent.',
+        text: 'Varve exports raster images (PNG, JPEG, and WebP), SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and print PDF with CMYK support. Format support and fallback behavior depend on the artwork and workspace. See the Export & Code Generation page for details.',
       },
     },
     {
@@ -132,7 +134,7 @@ const faqSchema = {
       name: 'Who develops Varve?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve is built by one designer-developer independently. Development is transparent, with architecture decisions and known limitations documented publicly.',
+        text: 'Varve is built by one designer-developer independently. See the About page for the full story.',
       },
     },
     {
@@ -140,7 +142,7 @@ const faqSchema = {
       name: 'How can I contribute to Varve?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'You can contribute code, documentation, testing, or design. Non-financial contributions are equally valuable to financial support.',
+        text: 'You can contribute code, documentation, testing, or design. See the contribution guidelines for details. Non-financial contributions are equally valuable to financial support.',
       },
     },
     ...(SHOW_SUPPORT_PROJECT ? [{
@@ -148,7 +150,7 @@ const faqSchema = {
       name: 'How can I support the project financially?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve accepts financial support via GitHub Sponsors. Sponsorship tiers and what support enables are described on the Support Project page.',
+        text: 'Varve accepts financial support via GitHub Sponsors. See the Support Project page for sponsorship tiers and what support enables.',
       },
     }] : []),
   ],

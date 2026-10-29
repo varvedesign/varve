@@ -5,11 +5,13 @@ import { describe, expect, it } from 'vitest';
 /**
  * FAQ disclosure guards.
  *
- * The support FAQ keeps its questions twice on purpose: once as visible
- * `<h3>` markup and once in FAQPage structured data for answer engines. The
+ * The support FAQ keeps its questions and answers twice on purpose: once as
+ * visible markup and once in FAQPage structured data for answer engines. The
  * duplication had drifted silently (a question had already diverged in
- * wording). These are source-level guards for the question set; rendered
- * keyboard/print behaviour is covered by the website E2E suite.
+ * wording). These are source-level guards for the question set and answer
+ * shape; exact answer parity is checked against the built DOM in
+ * `tests/e2e/faq-disclosure.spec.ts`, and rendered keyboard/print behaviour
+ * is covered by the same website E2E suite.
  *
  * Google retired FAQ rich results from Search on 2026-05-07, so structured
  * data is retained for answer engines, not for a results dropdown.
@@ -39,12 +41,17 @@ function visibleQuestions(source: string): string[] {
     .filter((q) => q !== '{q}');
 }
 
-function schemaQuestions(source: string): string[] {
+function faqSchemaBlock(source: string): string {
   const start = source.indexOf('mainEntity: [');
   expect(start, 'FAQ schema block present').toBeGreaterThan(-1);
   const end = source.indexOf('],\n};', start);
-  const block = source.slice(start, end === -1 ? undefined : end);
-  return [...block.matchAll(/name: '((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]!.replace(/\\'/g, "'"));
+  return source.slice(start, end === -1 ? undefined : end);
+}
+
+function schemaQuestions(source: string): string[] {
+  return [...faqSchemaBlock(source).matchAll(/name: '((?:[^'\\]|\\.)*)'/g)].map((m) =>
+    m[1]!.replace(/\\'/g, "'"),
+  );
 }
 
 function firstSchemaAnswer(source: string): string {
@@ -97,6 +104,14 @@ describe('FAQ disclosure contract', () => {
   it('keeps the support FAQ questions in sync between schema and markup', () => {
     const source = read('pages/support/faq.astro');
     expectQuestionParity(visibleQuestions(source), schemaQuestions(source), 'faq.astro');
+  });
+
+  it('keeps one non-empty FAQPage answer per question', () => {
+    const source = read('pages/support/faq.astro');
+    const block = faqSchemaBlock(source);
+    const answers = [...block.matchAll(/acceptedAnswer:\s*\{/g)].length;
+    expect(answers, 'FAQPage answer count').toBe(schemaQuestions(source).length);
+    expect(block, 'no empty FAQPage answer').not.toMatch(/text:\s*(?:''|"")/);
   });
 
   it('uses the approved free-today answer in both schema and visible copy', () => {

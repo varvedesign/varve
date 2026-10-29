@@ -130,4 +130,51 @@ test.describe('FAQ disclosure surfaces', () => {
       expect(schemaQuestions).toContain(question);
     }
   });
+
+  test('FAQ structured data answers mirror the visible answers', async ({ page }) => {
+    await page.goto('/support/faq');
+    const normalize = (value: string) => value.replace(/\s+/g, ' ').trim();
+
+    const visible = await page.locator('details.faq-item').evaluateAll((items) =>
+      items.map((item) => ({
+        question: item.querySelector('.faq-item__question-text')?.textContent ?? '',
+        answer: item.querySelector('.faq-item__answer')?.textContent ?? '',
+      })),
+    );
+
+    const schema = await page.evaluate(() => {
+      const scripts = [...document.querySelectorAll('script[type="application/ld+json"]')];
+      const entries: Record<string, unknown>[] = [];
+      for (const script of scripts) {
+        const data = JSON.parse(script.textContent ?? '{}') as unknown;
+        if (Array.isArray(data)) entries.push(...(data as Record<string, unknown>[]));
+        else entries.push(data as Record<string, unknown>);
+      }
+      const faqPage = entries.find((entry) => entry['@type'] === 'FAQPage');
+      const main = faqPage?.mainEntity;
+      return Array.isArray(main)
+        ? main.map((entry) => {
+            const question = entry as {
+              name?: string;
+              acceptedAnswer?: { text?: string };
+            };
+            return {
+              question: question.name ?? '',
+              answer: question.acceptedAnswer?.text ?? '',
+            };
+          })
+        : [];
+    });
+
+    expect(schema).toHaveLength(SUPPORT_FAQ_QUESTION_COUNT);
+    expect(visible).toHaveLength(SUPPORT_FAQ_QUESTION_COUNT);
+    expect(schema.map((entry) => normalize(entry.question))).toEqual(
+      visible.map((entry) => normalize(entry.question)),
+    );
+    for (const [index, entry] of schema.entries()) {
+      expect(normalize(entry.answer), `FAQPage answer ${index + 1}: ${entry.question}`).toBe(
+        normalize(visible[index]!.answer),
+      );
+    }
+  });
 });
