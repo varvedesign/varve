@@ -16,7 +16,7 @@ import ContactChannel from '../components/ContactChannel.astro';
 import Layout from '../layouts/Layout.astro';
 import { CONTACTS, PRODUCT_STATUS } from '@varve/shared';
 import release from '../data/release-manifest.json';
-import { sitePath, siteUrl } from '../lib/siteUrl';
+import { sitePath } from '../lib/siteUrl';
 
 const version = release.hasRelease && release.version ? release.version : null;
 const releaseUrl = (release as Record<string, unknown>).releaseUrl as string | undefined;
@@ -24,33 +24,14 @@ const releaseUrl = (release as Record<string, unknown>).releaseUrl as string | u
 const shortDescription =
   'Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print production, running natively on Linux, macOS, and Windows.';
 
-const pressSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'WebPage',
-  '@id': `${siteUrl('/press')}#webpage`,
-  url: siteUrl('/press'),
-  name: 'Varve press and brand assets',
-  description:
-    'Press kit for Varve: media contact, product description, release facts, and downloadable logo and wordmark assets.',
-  inLanguage: 'en',
-  mainEntity: {
-    '@type': 'Organization',
-    name: 'Varve',
-    url: siteUrl('/'),
-    contactPoint: {
-      '@type': 'ContactPoint',
-      contactType: 'media inquiries',
-      email: CONTACTS.press,
-      availableLanguage: 'English',
-    },
-  },
-};
+// Layout owns the page WebPage and the sitewide Organization already carries
+// the media-inquiries contactPoint. Do not add a page-level WebPage with the
+// same `#webpage` @id here; it would duplicate the canonical object.
 ---
 
 <Layout
   title="Press and brand assets"
   description="Varve press kit: media contact, an accurate product description, current release facts, and the approved Varve logo and wordmark assets."
-  structuredData={pressSchema}
 >
   <div class="container-custom">
     <div class="press-page">

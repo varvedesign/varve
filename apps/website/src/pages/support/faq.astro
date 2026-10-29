@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { sitePath, siteUrl } from '../../lib/siteUrl';
+import { sitePath } from '../../lib/siteUrl';
 import { SHOW_SUPPORT_PROJECT } from '../../config/features.js';
 import release from '../../data/release-manifest.json';
 
@@ -154,29 +154,14 @@ const faqSchema = {
   ],
 };
 
-const breadcrumbSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    {
-      '@type': 'ListItem',
-      position: 1,
-      name: 'Support',
-      item: siteUrl('/support'),
-    },
-    {
-      '@type': 'ListItem',
-      position: 2,
-      name: 'FAQ',
-    },
-  ],
-};
+// The visible breadcrumb is mirrored by Layout's route-derived BreadcrumbList.
+// Keep one BreadcrumbList; a page-level copy duplicates the same hierarchy.
 ---
 
 <Layout
   title="FAQ"
   description="Frequently asked questions about Varve: pricing, platforms, licensing (FSL-1.1-MIT), features, print work, ARM support, and contribution."
-  structuredData={[faqSchema, breadcrumbSchema]}
+  structuredData={faqSchema}
 >
   <div class="container-custom">
     <div class="support-page">
@@ -290,7 +275,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">Has Varve shipped a release yet?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>Yes. The latest published application release is Varve {releaseVersion}, released in {releaseDateStr}. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64 and ARM64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
+            <p>Yes. The latest published application release is Varve {releaseVersion}, released in {releaseDateStr}. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64 and ARM64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/changelog')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
             </p>
           </div>
         </details>
