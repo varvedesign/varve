@@ -62,6 +62,26 @@ describe('useIconSearch remote consent', () => {
     expect(search).toHaveBeenCalled();
   });
 
+  it('aborts an in-flight provider request when remote search is revoked', async () => {
+    vi.useFakeTimers();
+    const search = stubRegistrySearch();
+    const { result, rerender } = renderHook(({ allowed }) => useIconSearch(allowed), {
+      initialProps: { allowed: true },
+    });
+
+    await act(async () => {
+      result.current.search('home');
+    });
+    expect(search).not.toHaveBeenCalled();
+
+    rerender({ allowed: false });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    });
+    expect(search).not.toHaveBeenCalled();
+    expect(result.current.results).toEqual([]);
+  });
+
   it('clears previous results when the query is shortened below two characters', async () => {
     vi.useFakeTimers();
     stubRegistrySearch().mockResolvedValue({
