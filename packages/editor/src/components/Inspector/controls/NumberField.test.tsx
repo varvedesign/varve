@@ -7,6 +7,7 @@ import {
   FieldSizingContext,
   formatRestingValue,
   NumberField,
+  parseField,
   stripFloatResidue,
 } from './NumberField';
 
@@ -626,5 +627,19 @@ describe('stripFloatResidue', () => {
     expect(stripFloatResidue(Number('0.13345000000000002'))).toBeCloseTo(0.13345, 9);
     expect(Object.is(stripFloatResidue(-0), 0)).toBe(true);
     expect(stripFloatResidue(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe('parseField — non-finite expressions', () => {
+  it('refuses a result the document cannot store', () => {
+    // A huge literal parses to Infinity, which the save canonicalizer rejects;
+    // the field must keep the previous value instead of committing it.
+    expect(parseField('9'.repeat(400), {})).toBeNull();
+    expect(parseField('1/0', {})).toBeNull();
+  });
+
+  it('accepts a finite expression and a plain number', () => {
+    expect(parseField('10/4', {})).toBe(2.5);
+    expect(parseField('-3.5', {})).toBe(-3.5);
   });
 });
