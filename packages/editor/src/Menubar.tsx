@@ -33,7 +33,7 @@ import { handleMenubarKey } from './menu/menubarKeynav';
 import { MenubarSubmenu, menubarItemAriaChecked, menubarItemRole } from './menu/menubarSubmenu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
-import { formatShortcut, getEffectiveBinding, isMac } from './shortcuts';
+import { bindingToAriaKeyshortcuts, formatShortcut, getEffectiveBinding, isMac } from './shortcuts';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
 import { resolveToolbarPlacement, type WorkspaceMode } from './workspace/workspaceTypes';
 
@@ -2516,6 +2516,7 @@ export function Menubar({
               type="button"
               className="editor-menubar__home"
               aria-label="Home"
+              aria-keyshortcuts={bindingToAriaKeyshortcuts(getEffectiveBinding('home'))}
               onClick={() => onBackToHome?.()}
             >
               <VarveLogo size={16} />

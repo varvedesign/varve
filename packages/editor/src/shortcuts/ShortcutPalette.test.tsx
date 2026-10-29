@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getOverrides, setOverride } from './ShortcutManager';
@@ -97,6 +97,31 @@ describe('ShortcutPalette', () => {
 });
 
 describe('remap flow', () => {
+  it('keeps browser-reserved chords out of remapped shortcuts', async () => {
+    renderPalette();
+    const search = screen.getAllByRole('combobox', { name: /search/i })[0];
+    if (!search) throw new Error('shortcut search field not found');
+    await userEvent.type(search, 'Home');
+
+    const homeRow = screen.getByRole('option', { name: 'Home' });
+    const remapButton = within(homeRow).getByRole('button', { name: 'Remap shortcut' });
+    await userEvent.click(remapButton);
+
+    const captureArea = screen.getByRole('dialog');
+    fireEvent.keyDown(captureArea, {
+      key: 'h',
+      ctrlKey: true,
+      metaKey: true,
+      shiftKey: true,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('reserved by your browser');
+    });
+    expect(getOverrides().home).toBeUndefined();
+    expect(screen.getByText(/Press new shortcut for.*Home/i)).toBeTruthy();
+  });
+
   it('enters capture mode and shows indicator', async () => {
     renderPalette();
     const remapButtons = screen.getAllByRole('button', { name: 'Remap shortcut' });

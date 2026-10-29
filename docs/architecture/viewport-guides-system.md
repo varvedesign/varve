@@ -1,6 +1,6 @@
 # Viewport and Guides System
 
-**Updated:** 2026-09-29
+**Updated:** 2026-10-20
 
 ## Target Model
 
@@ -107,8 +107,18 @@ Current behavior:
   guide during the drag.
 - Dragging from the left ruler creates one horizontal guide and moves that same
   guide during the drag.
+- Dragging an unlocked vertical guide back onto the top ruler, or a horizontal
+  guide back onto the left ruler, removes it. Releasing elsewhere keeps and
+  moves the guide; a cancelled pointer drag does not count as a ruler drop.
+- Ruler-drop removal is an ordinary document edit and can be undone/redone.
 - Alt/Option while dragging a guide duplicates it (Figma convention).
 - Right-clicking a guide opens the guide context menu for lock/unlock and delete.
+- Middle-button dragging pans the canvas even when the pointer starts over a
+  guide or another interactive canvas overlay. `CanvasArea` forwards those
+  gesture-start events into the canvas input pipeline in the capture phase, so
+  one pan implementation owns pointer capture, cancellation, and release; the
+  overlay's own primary-button handler never sees the gesture. Only the primary
+  button moves or selects a guide.
 - Locked guides cannot be dragged, but they remain visible and snap targets.
 - `Ctrl+;` toggles guide visibility (`guidesVisible`); guides remain in the
   document and continue to snap when hidden.
@@ -127,6 +137,17 @@ Current behavior:
 Guide creation returns the created guide id from `editor.addGuide(...)`. This is
 used by the ruler so a drag can create once, then call `moveGuide(id, position)`
 for subsequent pointer movement.
+
+The left ruler occupies the first 20 CSS pixels at the canvas-dock origin. The
+vertical dock splitter's pointer band must not straddle the divider: it is
+`SPLITTER_HIT_EXTENT` (12) CSS pixels deep and ends exactly at the divider, so
+it lives inside the leading panel. A band centred on the divider takes the
+ruler's first 12 pixels and turns a ruler drag into a panel resize; moving the
+whole band into the panel instead covers the controls that sit flush against
+the panel's trailing edge (Add Design Canvas, Save Selection, Detach). Keep the
+band inside the leading panel, keep it narrower than the gap to those controls,
+and pin its grip to the divider's edge rather than centring the grip in the
+band.
 
 Layout guides, snap overlays, and ruler ticks use rotation-aware projection via
 `guideGeometry.ts` / `rulerGeometry.ts`.

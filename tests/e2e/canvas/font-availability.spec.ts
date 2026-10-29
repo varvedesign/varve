@@ -66,6 +66,23 @@ function textFixture(fontFamily: string) {
   };
 }
 
+/**
+ * Wait for the import to publish its final state, then close the Import Results
+ * report. File preparation now yields to the event loop so progress and Cancel
+ * stay responsive, which means the report can appear later than a fixed 1s
+ * probe; the canvas announcer is the durable completion signal.
+ */
+async function awaitImportSettled(page: import('@playwright/test').Page) {
+  await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(/Imported \d+ file/, {
+    timeout: 30000,
+  });
+  const report = page.getByRole('dialog', { name: 'Import Results', exact: true });
+  if (await report.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await report.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(report).toHaveCount(0);
+  }
+}
+
 test.describe('Host font availability', () => {
   test('a seed family the host lacks is reported as a missing font', async ({ page }, testInfo) => {
     await navigateToEditor(page);
@@ -81,11 +98,7 @@ test.describe('Host font availability', () => {
       buffer: Buffer.from(JSON.stringify(textFixture(ABSENT_SEED_FAMILY)), 'utf8'),
     });
 
-    const report = page.getByRole('dialog', { name: 'Import Results', exact: true });
-    if (await report.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await report.getByRole('button', { name: 'Close', exact: true }).click();
-      await expect(report).toHaveCount(0);
-    }
+    await awaitImportSettled(page);
 
     // The user is told the typography is not faithful, and which family.
     const dialog = page.getByRole('dialog', { name: 'Missing Fonts' });
@@ -108,12 +121,12 @@ test.describe('Host font availability', () => {
       buffer: Buffer.from(JSON.stringify(textFixture('IBM Plex Sans Variable')), 'utf8'),
     });
 
-    const report = page.getByRole('dialog', { name: 'Import Results', exact: true });
-    if (await report.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await report.getByRole('button', { name: 'Close', exact: true }).click();
-      await expect(report).toHaveCount(0);
-    }
+    await awaitImportSettled(page);
 
-    await expect(page.getByRole('dialog', { name: 'Missing Fonts' })).toHaveCount(0);
+    // A bundled face resolves without a prompt; give any late prompt a real
+    // window to appear before asserting its absence.
+    await expect(page.getByRole('dialog', { name: 'Missing Fonts' })).toHaveCount(0, {
+      timeout: 2000,
+    });
   });
 });

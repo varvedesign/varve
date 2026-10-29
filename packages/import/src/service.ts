@@ -92,6 +92,7 @@ export interface ImportReport {
 }
 
 export interface ImportServiceOptions extends Partial<ImportOptions> {
+  onFileStart?: (file: ImportFileInput, index: number) => void;
   onProgress?: (completed: number, total: number, file: ImportFileReport) => void;
 }
 
@@ -120,6 +121,10 @@ function abortError(): Error {
 
 function assertNotAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw abortError();
+}
+
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 function extension(name: string): string {
@@ -434,6 +439,12 @@ export const ImportService = {
         const index = nextIndex++;
         const input = inputs[index];
         if (!input) return;
+        options.onFileStart?.(input, index);
+        // Give the caller a paint/input turn after publishing the active-file
+        // state, so progress is visible before a synchronous parser occupies
+        // the main thread and cancellation can still stop work at this edge.
+        if (signal) await yieldToEventLoop();
+        assertNotAborted(signal);
         const fileReport = await importOne(input, options, signal);
         // A cancellation can arrive while the parser is finishing a file.
         // Do not publish a progress event for work that the caller has already
@@ -443,6 +454,10 @@ export const ImportService = {
         files[index] = fileReport;
         completed += 1;
         options.onProgress?.(completed, inputs.length, fileReport);
+        // Parsers that run synchronously cannot be interrupted while they own
+        // the main thread. Yield between files so the UI can paint progress
+        // and deliver cancellation before this worker claims another input.
+        if (signal) await yieldToEventLoop();
       }
     };
     await Promise.all(Array.from({ length: Math.min(2, inputs.length) }, () => worker()));

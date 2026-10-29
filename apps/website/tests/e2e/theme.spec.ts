@@ -80,9 +80,10 @@ test.describe('theme resolution', () => {
       pos: m.index ?? 0,
       tag: m[0],
     }));
-    const themeScript = scriptTags.find((s) =>
-      html.slice(s.pos, s.pos + 2000).includes('window.__varveTheme'),
-    );
+    const themeScript = scriptTags.find((s) => {
+      const end = html.indexOf('</script>', s.pos);
+      return html.slice(s.pos, end < 0 ? undefined : end).includes('window.__varveTheme');
+    });
     expect(themeScript, 'the inline theme script must exist').toBeTruthy();
     expect(themeScript!.tag).not.toMatch(/src=|defer/);
     expect(themeScript!.pos).toBeLessThan(cssPos);

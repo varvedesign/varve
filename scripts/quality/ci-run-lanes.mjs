@@ -149,8 +149,17 @@ function lanesForCategory(plan, category) {
 
 export function commandsForCategory(plan, category, { shard = null } = {}) {
   const lanes = lanesForCategory(plan, category);
+  // A sharded cell that runs the complete suite already covers every ordinary
+  // spec: `e2e:all` uses the same `--project=chromium` and the config's
+  // chromium project excludes only the replay visual specs and the
+  // production-demo owners. Re-running the per-file and domain lanes beside it
+  // duplicates work and fails certification in every cell whose slice of a
+  // small lane is empty ("missing or empty case history"), because a lane with
+  // fewer cases than shards has nothing to report in most cells.
+  const runsCompleteSuite = shard !== null && lanes.includes('e2e:all');
   const commands = [];
   for (const lane of lanes) {
+    if (runsCompleteSuite && lane !== 'e2e:all' && lane !== 'e2e:demo-dist') continue;
     // The production-demo owners form one complete unsharded inventory. Run
     // that full lane once in the first cell of a broad matrix; other cells
     // still certify their assigned e2e:all cases.

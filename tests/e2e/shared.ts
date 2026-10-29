@@ -233,6 +233,17 @@ export async function switchWorkspace(page: Page, label: string) {
 }
 
 /**
+ * Return to the Home surface through the menubar's Home button and wait for the
+ * interactive home shell. The button is the real user route, so specs do not
+ * hard-code a shortcut chord that the registry is free to change.
+ */
+export async function returnToHome(page: Page) {
+  await page.locator('.editor-menubar__home').click();
+  await page.waitForSelector('.varve-home', { timeout: 45000 });
+  await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 45000 });
+}
+
+/**
  * Navigate to the home screen and wait for it to render.
  */
 export async function navigateToHome(page: Page) {

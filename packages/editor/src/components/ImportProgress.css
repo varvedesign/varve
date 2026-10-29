@@ -43,6 +43,17 @@
   border-radius: var(--radius-pill);
   transition: width var(--duration-base) var(--ease-out);
 }
+.import-progress__bar--indeterminate .import-progress__fill {
+  animation: import-progress-indeterminate 1.1s var(--ease-default) infinite alternate;
+}
+@keyframes import-progress-indeterminate {
+  from {
+    transform: translateX(-35%);
+  }
+  to {
+    transform: translateX(220%);
+  }
+}
 .import-progress__cancel {
   align-self: flex-end;
   padding: var(--space-1) var(--space-2);
@@ -68,6 +79,8 @@
 @media (prefers-reduced-motion: reduce) {
   .import-progress__fill {
     transition: none;
+    animation: none;
+    transform: none;
   }
 }
 

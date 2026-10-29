@@ -131,6 +131,40 @@ describe('createActionHandlers — document export', () => {
 });
 
 describe('createActionHandlers — clipboard dialogs', () => {
+  it('explains when browser clipboard access is unavailable on an insecure origin', async () => {
+    const originalClipboard = navigator.clipboard;
+    const originalSecureContext = window.isSecureContext;
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    const editor = makeEditorMock({
+      state: {
+        document: { id: 'document', activePageId: null },
+        activeId: 'session',
+        workspaceMode: 'print',
+        revision: 0,
+        selectionRevision: 0,
+        selection: [],
+      } as unknown as EditorContextValue['state'],
+    });
+    try {
+      createActionHandlers(editor).pastePlainText?.();
+      await vi.waitFor(() =>
+        expect(editor.announce).toHaveBeenCalledWith(
+          'Clipboard access requires HTTPS or localhost; try Ctrl+V or open Varve securely',
+        ),
+      );
+    } finally {
+      Object.defineProperty(window, 'isSecureContext', {
+        configurable: true,
+        value: originalSecureContext,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

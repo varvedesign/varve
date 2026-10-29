@@ -264,6 +264,144 @@ describe('parseSvg', () => {
     }
   });
 
+  it('applies inline SVG font and anchor styles to text nodes', () => {
+    const result = parseSvg(
+      '<svg><text x="10" y="20" style="font-size:18px;font-family:Arial, sans-serif;font-weight:bold;text-anchor:end">Styled</text></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('text');
+    if (node?.kind === 'text') {
+      expect(node.fontSize).toBe(18);
+      expect(node.fontFamily).toBe('Arial');
+      expect(node.fontWeight).toBe(700);
+      expect(node.textAlign).toBe('right');
+    }
+  });
+
+  it('reads case-insensitive inline CSS property names', () => {
+    const result = parseSvg(
+      '<svg><text style="FONT-SIZE:24px;FONT-FAMILY:Arial;FONT-WEIGHT:bold;TEXT-ANCHOR:middle">Styled</text></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('text');
+    if (node?.kind === 'text') {
+      expect(node.fontSize).toBe(24);
+      expect(node.fontFamily).toBe('Arial');
+      expect(node.fontWeight).toBe(700);
+      expect(node.textAlign).toBe('center');
+    }
+  });
+
+  it('resolves currentColor to the default SVG color', () => {
+    const result = parseSvg('<svg><path d="M0 0h10v10z" fill="currentColor" /></svg>');
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind === 'shape') expect(node.fill).toMatchObject({ r: 0, g: 0, b: 0, a: 255 });
+  });
+
+  it('inherits root SVG color and resolves the full CSS named-color set', () => {
+    const result = parseSvg(
+      '<svg color="rebeccapurple"><path d="M0 0h10v10z" fill="currentColor" /></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind === 'shape') expect(node.fill).toMatchObject({ r: 102, g: 51, b: 153, a: 255 });
+  });
+
+  it('reports unsupported computed SVG color syntax instead of silently claiming fidelity', () => {
+    const result = parseSvg(
+      '<svg color="color(display-p3 1 0 0)"><path d="M0 0h10v10z" fill="currentColor" /></svg>',
+    );
+    expect(result.unsupportedFeatures).toContain(
+      'SVG color value is unsupported: color(display-p3 1 0 0)',
+    );
+  });
+
+  it('inherits explicit SVG color through groups for currentColor paints', () => {
+    const result = parseSvg(
+      '<svg><g color="#123456"><path d="M0 0h10v10z" style="fill:currentColor" /></g></svg>',
+    );
+    const group = result.document.nodes[result.nodeIds[0]!];
+    expect(group?.kind).toBe('frame');
+    if (group?.kind === 'frame') {
+      const node = result.document.nodes[group.children[0]!];
+      expect(node?.kind).toBe('shape');
+      if (node?.kind === 'shape') expect(node.fill).toMatchObject({ r: 18, g: 52, b: 86, a: 255 });
+    }
+  });
+
+  it('resolves currentColor strokes and gradient stops from inline color styles', () => {
+    const result = parseSvg(
+      '<svg><g style="color:#123456"><path d="M0 0h10" stroke="currentColor"/><defs><linearGradient id="g"><stop offset="0" stop-color="currentColor"/><stop offset="1" stop-color="white"/></linearGradient></defs><rect width="10" height="10" fill="url(#g)"/></g></svg>',
+    );
+    const group = result.document.nodes[result.nodeIds[0]!];
+    expect(group?.kind).toBe('frame');
+    if (group?.kind !== 'frame') return;
+    const stroke = result.document.nodes[group.children[0]!];
+    expect(stroke?.kind).toBe('shape');
+    if (stroke?.kind === 'shape') {
+      expect(stroke.strokes[0]?.color).toMatchObject({ r: 18, g: 52, b: 86, a: 255 });
+    }
+    const gradientShape = result.document.nodes[group.children[1]!];
+    expect(gradientShape?.kind).toBe('shape');
+    if (gradientShape?.kind === 'shape') {
+      const fill = gradientShape.fills?.[0];
+      expect(fill?.type).toBe('gradient');
+      if (fill?.type === 'gradient') {
+        expect(fill.gradient?.stops[0]?.color).toMatchObject({
+          r: 18,
+          g: 52,
+          b: 86,
+          a: 255,
+        });
+      }
+    }
+  });
+
+  it('uses gradient-stop color inherited from its definition tree, not the referencing shape', () => {
+    const result = parseSvg(
+      '<svg><defs><linearGradient id="g"><stop offset="0" stop-color="currentColor"/><stop offset="1" stop-color="white"/></linearGradient></defs><g color="#123456"><rect width="10" height="10" fill="url(#g)"/></g></svg>',
+    );
+    const group = result.document.nodes[result.nodeIds[0]!];
+    expect(group?.kind).toBe('frame');
+    if (group?.kind !== 'frame') return;
+    const shape = result.document.nodes[group.children[0]!];
+    expect(shape?.kind).toBe('shape');
+    if (shape?.kind === 'shape') {
+      expect(shape.fills?.[0]?.gradient?.stops[0]?.color).toMatchObject({
+        r: 0,
+        g: 0,
+        b: 0,
+        a: 255,
+      });
+    }
+  });
+
+  it('unquotes the first family in a quoted SVG font fallback list', () => {
+    const result = parseSvg(
+      `<svg><text style='font-family:"Family, Name", sans-serif'>Styled</text></svg>`,
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('text');
+    if (node?.kind === 'text') expect(node.fontFamily).toBe('Family, Name');
+  });
+
+  it('keeps relative font sizes from being misread as absolute pixels', () => {
+    const result = parseSvg('<svg><text style="font-size:2em">Relative</text></svg>');
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('text');
+    if (node?.kind === 'text') expect(node.fontSize).toBe(16);
+    expect(result.unsupportedFeatures).toContain('SVG text font size is unsupported: 2em');
+  });
+
+  it('accepts case-insensitive SVG font-size units', () => {
+    const result = parseSvg('<svg><text style="font-size:24PT">Uppercase units</text></svg>');
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('text');
+    if (node?.kind === 'text') expect(node.fontSize).toBe(24 * 1.333);
+    expect(result.unsupportedFeatures).toBeUndefined();
+  });
+
   it('parses transform attribute (translate)', () => {
     const result = parseSvg(
       '<svg><rect x="0" y="0" width="100" height="50" transform="translate(30,40)" fill="red" /></svg>',

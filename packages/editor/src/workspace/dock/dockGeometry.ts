@@ -18,6 +18,21 @@ export interface DockRect {
   height: number;
 }
 
+/**
+ * Depth of the splitter's pointer band, measured from the divider inward.
+ *
+ * The band lives entirely inside the first (leading) panel rather than
+ * straddling the divider. A straddling 24px band took the left ruler's first
+ * 12px on the layers/canvas split — the ruler occupies the first 20 CSS pixels
+ * of the canvas, so ruler drags there started a panel resize instead of a
+ * guide. Shifting the whole band into the panel fixed the ruler but covered
+ * flush-right panel controls (Add Design Canvas, Save Selection, Detach), which
+ * sit roughly 20px from the panel edge. A 12px band inside the panel keeps the
+ * full ruler strip and every panel control reachable while retaining a
+ * full-height resize target.
+ */
+const SPLITTER_HIT_EXTENT = 12;
+
 export interface DockPanelPlacement {
   panelTypeId: PanelTypeId;
   panelInstanceId: PanelInstanceId;
@@ -169,9 +184,9 @@ export function resolveDockTreeGeometry(
         maxRatio: canFit ? Math.min(0.95, maxFirst / rect.width) : 0.95,
         extent: rect.width,
         rect: {
-          x: rect.x + firstWidth - 12,
+          x: rect.x + firstWidth - SPLITTER_HIT_EXTENT,
           y: rect.y,
-          width: 24,
+          width: SPLITTER_HIT_EXTENT,
           height: rect.height,
         },
       });
@@ -198,9 +213,9 @@ export function resolveDockTreeGeometry(
         extent: rect.height,
         rect: {
           x: rect.x,
-          y: rect.y + firstHeight - 12,
+          y: rect.y + firstHeight - SPLITTER_HIT_EXTENT,
           width: rect.width,
-          height: 24,
+          height: SPLITTER_HIT_EXTENT,
         },
       });
       visit(node.first, { ...rect, height: firstHeight });

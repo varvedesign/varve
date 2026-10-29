@@ -427,6 +427,24 @@ export function setVariantForInstance(
   if (node?.kind !== 'frame') return doc;
   const frame = node as FrameNode;
   if (!frame.componentId) return doc;
+  const component = doc.components[frame.componentId];
+  if (
+    !Array.isArray(component?.variants) ||
+    !component.variants.some(
+      (variant) =>
+        variant &&
+        typeof variant.id === 'string' &&
+        typeof variant.name === 'string' &&
+        variant.propertyValues !== null &&
+        typeof variant.propertyValues === 'object' &&
+        !Array.isArray(variant.propertyValues) &&
+        Object.values(variant.propertyValues).every(
+          (entry) => typeof entry === 'string' || typeof entry === 'boolean',
+        ) &&
+        variant.id === variantId,
+    )
+  )
+    return doc;
 
   return {
     ...doc,

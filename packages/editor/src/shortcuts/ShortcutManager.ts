@@ -1,6 +1,7 @@
 import { isMac as isMacPlatform } from '@varve/platform';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import { canonicalShortcutKey, physicalKeyFromEvent } from '../input/physicalKey';
+import { isBrowserReservedBinding, isTauriRuntime } from './reservedShortcuts';
 import type { KeymapExport, ShortcutBinding, ShortcutDef } from './types';
 
 const STORAGE_KEY = 'strata-shortcut-overrides';
@@ -506,7 +507,7 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   home: {
-    binding: { key: 'h', ctrl: true, shift: true },
+    binding: { key: 'f', ctrl: true, alt: true, shift: true },
     label: 'Home',
     category: 'View',
   },
@@ -521,7 +522,7 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   canvasModeOutline: {
-    binding: { key: 'o', ctrl: true, shift: true },
+    binding: { key: 'o', ctrl: true, alt: true, shift: true },
     label: 'Outline Mode',
     category: 'View',
   },
@@ -776,6 +777,7 @@ export function getOverrides(): Record<string, ShortcutBinding> {
 }
 
 export function setOverride(id: string, binding: ShortcutBinding): void {
+  if (!isTauriRuntime() && isBrowserReservedBinding(binding)) return;
   const overrides = getOverrides();
   overrides[id] = binding;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
@@ -793,8 +795,11 @@ export function clearAllOverrides(): void {
 
 export function getEffectiveBinding(id: string): ShortcutBinding {
   const overrides = getOverrides();
-  if (overrides[id]) return overrides[id];
   const def = SHORTCUT_DEFS[id as keyof typeof SHORTCUT_DEFS];
+  if (overrides[id]) {
+    if (isTauriRuntime() || !isBrowserReservedBinding(overrides[id])) return overrides[id];
+    if (def?.binding) return def.binding;
+  }
   if (def?.binding) return def.binding;
   // Commands with a documented menu accelerator but no SHORTCUT_DEFS entry
   // (for example Find and Replace) carry their binding on the action registry,
@@ -834,7 +839,10 @@ export function exportKeymap(): KeymapExport {
   const shortcuts: KeymapExport['shortcuts'] = {};
   for (const [id, def] of Object.entries(SHORTCUT_DEFS)) {
     shortcuts[id] = {
-      binding: overrides[id] ?? def.binding,
+      binding:
+        overrides[id] && (isTauriRuntime() || !isBrowserReservedBinding(overrides[id]))
+          ? overrides[id]
+          : def.binding,
       label: def.label,
     };
   }
@@ -850,7 +858,9 @@ export function importKeymap(data: KeymapExport): number {
   if (!data.shortcuts || typeof data.shortcuts !== 'object') return 0;
   for (const [id, entry] of Object.entries(data.shortcuts)) {
     if (entry && typeof entry === 'object' && 'binding' in entry) {
-      setOverride(id, entry.binding as ShortcutBinding);
+      const binding = entry.binding as ShortcutBinding;
+      if (!isTauriRuntime() && isBrowserReservedBinding(binding)) continue;
+      setOverride(id, binding);
       count++;
     }
   }
@@ -1065,6 +1075,26 @@ export function bindingMatchesEvent(e: KeyboardEvent, binding: ShortcutBinding):
   if (Boolean(ev.shift) !== Boolean(binding.shift)) return false;
   if (Boolean(ev.alt) !== Boolean(binding.alt)) return false;
   return true;
+}
+
+/**
+ * Express a binding in `aria-keyshortcuts` grammar: modifiers are spelled out
+ * ("Control+Shift+H"), never display glyphs or abbreviations. Mirrors
+ * `formatShortcut`, which produces the human-facing label.
+ */
+export function bindingToAriaKeyshortcuts(binding: ShortcutBinding): string {
+  const parts: string[] = [];
+  if (binding.ctrl) parts.push('Control');
+  if (binding.shift) parts.push('Shift');
+  if (binding.alt) parts.push('Alt');
+  const key =
+    binding.key.length === 1
+      ? binding.key.toUpperCase()
+      : binding.key === 'Backspace'
+        ? 'Backspace'
+        : binding.key;
+  parts.push(key);
+  return parts.join('+');
 }
 
 export function formatShortcut(binding: ShortcutBinding): string {

@@ -5,6 +5,7 @@ import { getActionRegistry } from '../actions/ActionRegistry';
 import { getRegisteredTools, type ToolId } from '../tools/toolRegistry';
 import { useEffectiveWorkspaceConfig } from '../workspace/useWorkspaceConfig';
 import { getToolbarToolIds, type WorkspaceMode } from '../workspace/workspaceTypes';
+import { isBrowserReservedBinding, isTauriRuntime } from './reservedShortcuts';
 import {
   captureKeyCombo,
   clearAllOverrides,
@@ -291,6 +292,10 @@ export function ShortcutPalette({
         e.stopPropagation();
         const binding = captureKeyCombo(e.nativeEvent);
         if (binding?.key) {
+          if (!isTauriRuntime() && isBrowserReservedBinding(binding)) {
+            showFeedback('That shortcut is reserved by your browser');
+            return;
+          }
           clearOverride(remappingId);
           setOverride(remappingId, binding);
           setRemappingId(null);

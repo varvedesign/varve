@@ -14,6 +14,7 @@
 import { isImageShape, isLiveBooleanNode, isVisualMaskTarget } from '@varve/scene';
 import type { MenuEntry } from '@varve/ui';
 import { getActionRegistry } from '../actions/ActionRegistry';
+import { isComponentDefinition } from '../components/LayersPanel/layerPresentation';
 import type { EditorContextValue } from '../context';
 import { menuShortcutForAction } from './contextMenuShortcuts';
 
@@ -63,6 +64,11 @@ export function buildCanvasContextMenuItems({
     selectedNode.traceMetadata !== undefined;
   const isSingleFrame =
     hasSelection && editor.state.selection.length === 1 && selectedNode?.kind === 'frame';
+  const isSingleComponentCandidate =
+    isSingleFrame &&
+    selectedNode?.kind === 'frame' &&
+    selectedNode.componentId === undefined &&
+    !isComponentDefinition(selectedNode, editor.state.document);
   const isSingleVisualMaskTarget =
     hasSelection &&
     editor.state.selection.length === 1 &&
@@ -83,6 +89,12 @@ export function buildCanvasContextMenuItems({
       };
     });
     record(`boolean-${operation}`);
+    closeMenu();
+  };
+  const createComponentFromFrame = () => {
+    if (selectedNode?.kind !== 'frame') return;
+    record('create-component');
+    editor.createComponentFromFrame(selectedNode.name, selectedNode.id, []);
     closeMenu();
   };
   // ── Section: Clipboard ────────────────────────────────────────────────
@@ -193,6 +205,15 @@ export function buildCanvasContextMenuItems({
               editor.groupSelected();
               closeMenu();
             },
+          } satisfies MenuEntry,
+        ]
+      : []),
+    ...(isSingleComponentCandidate
+      ? [
+          {
+            id: 'ctx-create-component',
+            label: 'Create Component',
+            onAction: createComponentFromFrame,
           } satisfies MenuEntry,
         ]
       : []),

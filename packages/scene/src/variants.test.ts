@@ -163,9 +163,37 @@ describe('Variants', () => {
     });
     doc = addNode(doc, instance);
 
+    expect(setVariantForInstance(doc, 'inst1', 'missing')).toBe(doc);
     doc = setVariantForInstance(doc, 'inst1', variant.id);
     const updated = doc.nodes.inst1 as FrameNode;
     expect(updated.variant).toBe(variant.id);
+  });
+
+  it('does not select a malformed variant entry', () => {
+    const { doc: initial, component } = setupDocWithComponent();
+    const doc = {
+      ...initial,
+      components: {
+        ...initial.components,
+        [component.id]: {
+          ...component,
+          variants: [
+            { id: 'incomplete' } as unknown as NonNullable<ComponentDefinition['variants']>[number],
+          ],
+        },
+      },
+    };
+    const withInstance = addNode(
+      doc,
+      makeFrameNode('instance', {
+        name: 'Instance',
+        w: 120,
+        h: 40,
+        componentId: component.id,
+      }),
+    );
+
+    expect(setVariantForInstance(withInstance, 'instance', 'incomplete')).toBe(withInstance);
   });
 });
 

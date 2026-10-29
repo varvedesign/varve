@@ -32,6 +32,7 @@ import {
   getClipboardSnapshot,
   orderClipboardRoots,
   readClipboardUnifiedWithFallback,
+  type UnifiedClipboardResult,
   writeClipboardRepresentation,
 } from '../clipboard';
 import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
@@ -729,7 +730,7 @@ export function createActionHandlers(
       // browser capability. Some engines do not expose `read()` at all; a
       // direct invocation preserves the gesture's permission grant and keeps
       // the request bound to this menu action.
-      const clipboardRead =
+      const clipboardRead: Promise<UnifiedClipboardResult> =
         !hasCapturedEvent &&
         e.platform?.kind !== 'tauri' &&
         typeof navigator.clipboard?.read !== 'function' &&
@@ -756,6 +757,20 @@ export function createActionHandlers(
           }
           const value = text.slice(0, MAX_DIRECT_CLIPBOARD_TEXT);
           if (!value) {
+            if (clipboard.clipboardReadIssue === 'insecure-context') {
+              e.announce(
+                'Clipboard access requires HTTPS or localhost; try Ctrl+V or open Varve securely',
+              );
+              return;
+            }
+            if (clipboard.clipboardReadIssue === 'permission-denied') {
+              e.announce('Clipboard access was denied; allow clipboard permission and try again');
+              return;
+            }
+            if (clipboard.clipboardReadIssue === 'unavailable') {
+              e.announce('This browser cannot read the clipboard here; try Ctrl+V instead');
+              return;
+            }
             e.announce('The clipboard has no text');
             return;
           }

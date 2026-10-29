@@ -119,7 +119,7 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
     }
   }
 
-  const defs = collectDefs(root);
+  const defs = collectDefs(root, unsupported);
 
   // The converter assembles in place: it owns `nodes` and `rootChildren` for the
   // duration of the walk and mutates them rather than copying the whole node map

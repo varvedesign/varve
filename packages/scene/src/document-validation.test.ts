@@ -12,6 +12,16 @@ function leaf(id: NodeId): SceneNode {
   return { kind: 'shape', id, name: id, visible: true } as unknown as SceneNode;
 }
 
+function frame(id: NodeId): SceneNode {
+  return {
+    kind: 'frame',
+    id,
+    name: id,
+    visible: true,
+    children: [],
+  } as unknown as SceneNode;
+}
+
 function baseDoc(): DocumentLike {
   return {
     rootChildren: ['a', 'b'],
@@ -88,6 +98,108 @@ describe('validateDocument — reference integrity (section 8/128)', () => {
     expect(result.errors.some((e) => e.includes('component instance') && e.includes('ghost'))).toBe(
       true,
     );
+  });
+
+  it('flags and repairs a component instance that references a missing variant', () => {
+    const doc = baseDoc();
+    doc.nodes.master = frame('master');
+    doc.rootChildren.push('master');
+    doc.components = {
+      component: {
+        masterRootId: 'master' as NodeId,
+        variants: [{ id: 'valid', name: 'Valid', propertyValues: {} }],
+      },
+    };
+    doc.nodes.instance = {
+      kind: 'frame',
+      id: 'instance' as NodeId,
+      name: 'Instance',
+      visible: true,
+      children: [],
+      componentId: 'component' as NodeId,
+      variant: 'missing',
+    } as unknown as SceneNode;
+    doc.rootChildren.push('instance' as NodeId);
+
+    const result = validateDocument(doc);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((error) => error.includes('missing variant'))).toBe(true);
+
+    const repaired = repairDocument(doc);
+    expect(repaired.changed).toBe(true);
+    expect((repaired.doc.nodes.instance as { variant?: string }).variant).toBeUndefined();
+    expect(validateDocument(repaired.doc).valid).toBe(true);
+  });
+
+  it('validates an ordinary frame without looking up component variants', () => {
+    const doc = baseDoc();
+    doc.nodes.frame = {
+      kind: 'frame',
+      id: 'frame',
+      name: 'Frame',
+      visible: true,
+      children: [],
+    } as unknown as SceneNode;
+    doc.rootChildren.push('frame');
+
+    expect(() => validateDocument(doc)).not.toThrow();
+    expect(validateDocument(doc).valid).toBe(true);
+    expect(repairDocument(doc).changed).toBe(false);
+  });
+
+  it('repairs a component variant when the serialized variant entry is malformed', () => {
+    const doc = baseDoc();
+    doc.nodes.master = frame('master');
+    doc.rootChildren.push('master');
+    doc.components = {
+      component: {
+        masterRootId: 'master',
+        variants: [null, { id: 'partial' }] as unknown as import('./types').Variant[],
+      },
+    };
+    doc.nodes.instance = {
+      kind: 'frame',
+      id: 'instance',
+      name: 'Instance',
+      visible: true,
+      children: [],
+      componentId: 'component',
+      variant: 'variant-1',
+    } as unknown as SceneNode;
+    doc.rootChildren.push('instance');
+
+    expect(() => validateDocument(doc)).not.toThrow();
+    expect(validateDocument(doc).valid).toBe(false);
+    const repaired = repairDocument(doc);
+    expect(repaired.changed).toBe(true);
+    expect(repaired.doc.nodes.instance).not.toHaveProperty('variant');
+    expect(repaired.doc.components?.component?.variants).toEqual([]);
+  });
+
+  it('flags a component whose master root is missing and removes the dangling instance link', () => {
+    const doc = baseDoc();
+    doc.components = { component: { masterRootId: 'missing-master' } };
+    doc.nodes.instance = {
+      kind: 'frame',
+      id: 'instance',
+      name: 'Instance',
+      visible: true,
+      children: [],
+      componentId: 'component',
+    } as unknown as SceneNode;
+    doc.rootChildren.push('instance');
+
+    const validation = validateDocument(doc);
+    expect(validation.valid).toBe(false);
+    expect(
+      validation.errors.some(
+        (error) => error.includes('component master') && error.includes('missing-master'),
+      ),
+    ).toBe(true);
+    const repaired = repairDocument(doc);
+    expect(repaired.changed).toBe(true);
+    expect(repaired.doc.components?.component).toBeUndefined();
+    expect(repaired.doc.nodes.instance).not.toHaveProperty('componentId');
   });
 
   it('validates deeply nested trees without using the call stack', () => {
@@ -209,7 +321,9 @@ describe('repairDocument — safe neutralization of dangling references', () => 
 
   it('uses component definitions rather than treating component ids as node ids', () => {
     const doc = baseDoc();
-    doc.components = { button: { masterRootId: 'a' } };
+    doc.nodes.master = frame('master');
+    doc.rootChildren.push('master');
+    doc.components = { button: { masterRootId: 'master' } };
     doc.nodes.b = {
       ...doc.nodes.b,
       kind: 'frame',

@@ -647,9 +647,11 @@ function ShellInner({
         <AuditOverlayHost canvasRef={canvasContainerRef} />
         {fileImport.progress && (
           <ImportProgress
+            stage={fileImport.progress.stage}
             current={fileImport.progress.current}
             total={fileImport.progress.total}
             fileName={fileImport.progress.fileName}
+            activeFileNames={fileImport.progress.activeFileNames}
             onCancel={fileImport.cancel}
           />
         )}

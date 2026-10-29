@@ -19,6 +19,12 @@ The shortcut fallback is delayed only for engines that do not deliver a paste
 event to a non-editable canvas; arrival of the real event cancels that
 request's fallback, so repeated gestures remain distinct.
 
+Browser async clipboard reads require a secure context and may be denied by
+the browser. When no event or native fallback supplies content, an explicit
+Paste as Plain Text command reports whether access needs HTTPS/localhost, was
+denied, is unavailable, or the clipboard is simply empty. A genuine keyboard
+paste event and the Tauri OS clipboard route remain independent fallback paths.
+
 The command and context-menu routes use the same editor actions:
 
 | Command | Owner | System clipboard | Document history |

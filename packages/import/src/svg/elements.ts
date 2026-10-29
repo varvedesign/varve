@@ -30,9 +30,44 @@ import {
   parsePathData,
   parsePoints,
   parseSvgColor,
+  parseUnit,
   parseUrlReference,
   svgLayerName,
 } from './shared';
+
+const DEFAULT_SVG_CURRENT_COLOR: ManagedColor = {
+  space: 'rgb',
+  r: 0,
+  g: 0,
+  b: 0,
+  a: 255,
+};
+
+export function resolveSvgCurrentColor(
+  el: ParsedElement,
+  inherited: ManagedColor = DEFAULT_SVG_CURRENT_COLOR,
+  unsupported?: string[],
+): ManagedColor {
+  const styleColor = parseCssStyle(el.attrs.style ?? '').color;
+  const specified = styleColor ?? el.attrs.color;
+  if (!specified || specified.trim().toLowerCase() === 'currentcolor') return inherited;
+  const parsed = parseSvgColor(specified);
+  if (parsed) return parsed;
+  unsupported?.push(`SVG color value is unsupported: ${specified}`);
+  return inherited;
+}
+
+function parseSvgPaintColor(
+  value: string,
+  currentColor: ManagedColor,
+  unsupported?: string[],
+): ManagedColor | null {
+  if (value.trim().toLowerCase() === 'currentcolor') return currentColor;
+  const parsed = parseSvgColor(value);
+  if (!parsed && value.trim().toLowerCase() !== 'none')
+    unsupported?.push(`SVG paint color is unsupported: ${value}`);
+  return parsed;
+}
 
 function convertRect(
   el: ParsedElement,
@@ -244,22 +279,73 @@ function convertPath(
   return { node, warnings: [] };
 }
 
+function firstCssFontFamily(value: string): string {
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  let end = value.length;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === ',') {
+      end = index;
+      break;
+    }
+  }
+
+  const family = value.slice(0, end).trim();
+  const wrapped = family.match(/^(['"])(.*)\1$/u);
+  return wrapped?.[2]?.replace(/\\([\\'";,])/gu, '$1').trim() || family || 'sans-serif';
+}
+
+function parseSvgTextFontSize(value: string): number | null {
+  const normalized = value.trim();
+  if (/(?:%|em|rem|ex|ch)$/iu.test(normalized)) return null;
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)(?:px|pt|cm|mm|in)?$/iu.test(normalized)) return null;
+  const size = parseUnit(normalized.toLowerCase());
+  return size !== null && Number.isFinite(size) && size > 0 ? size : null;
+}
+
 function convertText(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
+  unsupported: string[],
 ): { node: SceneNode; warnings: string[] } {
   const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
   const y = parseFloat(el.attrs.y ?? '0') * opts.scale;
-  const fontSize = parseFloat(el.attrs['font-size'] ?? '16') * opts.scale;
-  const fontFamily = el.attrs['font-family'] ?? 'sans-serif';
-  const fontWeight = parseInt(el.attrs['font-weight'] ?? '400', 10);
-  const textAlign =
-    el.attrs['text-anchor'] === 'middle'
-      ? 'center'
-      : el.attrs['text-anchor'] === 'end'
-        ? 'right'
-        : 'left';
+  const style = parseCssStyle(el.attrs.style ?? '');
+  const rawFontSize = style['font-size'] ?? el.attrs['font-size'] ?? '16';
+  const parsedFontSize = parseSvgTextFontSize(rawFontSize);
+  const fallbackFontSize = parseSvgTextFontSize(el.attrs['font-size'] ?? '16') ?? 16;
+  if (parsedFontSize === null)
+    unsupported.push(`SVG text font size is unsupported: ${rawFontSize}`);
+  const fontSize = (parsedFontSize ?? fallbackFontSize) * opts.scale;
+  const rawFontFamily = style['font-family'] ?? el.attrs['font-family'] ?? 'sans-serif';
+  const fontFamily = firstCssFontFamily(rawFontFamily);
+  const rawFontWeight = style['font-weight'] ?? el.attrs['font-weight'] ?? '400';
+  const fontWeight =
+    rawFontWeight === 'bold' || rawFontWeight === 'bolder'
+      ? 700
+      : rawFontWeight === 'normal' || rawFontWeight === 'lighter'
+        ? 400
+        : Number.parseInt(rawFontWeight, 10) || 400;
+  const textAnchor = style['text-anchor'] ?? el.attrs['text-anchor'];
+  const textAlign = textAnchor === 'middle' ? 'center' : textAnchor === 'end' ? 'right' : 'left';
   const text = el.textContent || '';
 
   const transform = composeTransforms(transforms);
@@ -326,10 +412,15 @@ function svgStopOffset(value: string | undefined): number {
   return Math.max(0, Math.min(1, raw.endsWith('%') ? parsed / 100 : parsed));
 }
 
-function svgStopColor(stop: ParsedElement): ManagedColor | null {
+function svgStopColor(
+  stop: ParsedElement,
+  inheritedColor: ManagedColor,
+  unsupported: string[],
+): ManagedColor | null {
   const style = parseCssStyle(stop.attrs.style ?? '');
+  const currentColor = resolveSvgCurrentColor(stop, inheritedColor, unsupported);
   const color = stop.attrs['stop-color'] ?? style['stop-color'] ?? 'transparent';
-  const parsed = parseSvgColor(color);
+  const parsed = parseSvgPaintColor(color, currentColor, unsupported);
   if (!parsed) return null;
   const opacity = Number.parseFloat(stop.attrs['stop-opacity'] ?? style['stop-opacity'] ?? '1');
   const alpha = Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1;
@@ -451,11 +542,17 @@ function gradientFillFromSvg(
   node: SceneNode,
   scale: number,
   warnings: string[],
+  inheritedColor: ManagedColor,
+  unsupported: string[],
 ): Fill | null {
+  // A paint server inherits `color` from its definition tree. The referencing
+  // shape's computed color does not replace the gradient stop inheritance.
+  const gradientColor =
+    def.computedSvgColor ?? resolveSvgCurrentColor(def, inheritedColor, unsupported);
   const stops = def.children
     .filter((child) => child.tag === 'stop')
     .map((stop) => {
-      const color = svgStopColor(stop);
+      const color = svgStopColor(stop, gradientColor, unsupported);
       return color ? { position: svgStopOffset(stop.attrs.offset), color } : null;
     })
     .filter((stop): stop is { position: number; color: ManagedColor } => stop !== null)
@@ -493,8 +590,10 @@ function applyStylesToNode(
   defs: Map<string, ParsedElement>,
   scale: number,
   warnings: string[],
+  currentColor: ManagedColor,
+  unsupported: string[],
 ): SceneNode {
-  let fill = el.attrs.fill ?? el.attrs.style;
+  let fill = el.attrs.fill;
   let stroke = el.attrs.stroke;
   let strokeWidth = el.attrs['stroke-width'];
   let opacity = el.attrs.opacity;
@@ -520,11 +619,18 @@ function applyStylesToNode(
       gradientDef &&
       (gradientDef.tag === 'linearGradient' || gradientDef.tag === 'radialGradient')
     ) {
-      const gradientFill = gradientFillFromSvg(gradientDef, result, scale, warnings);
+      const gradientFill = gradientFillFromSvg(
+        gradientDef,
+        result,
+        scale,
+        warnings,
+        currentColor,
+        unsupported,
+      );
       if (gradientFill) result = { ...result, fills: [gradientFill] };
     } else {
       if (gradientId) warnings.push(`SVG fill references unsupported resource: #${gradientId}`);
-      const parsedColor = parseSvgColor(fill);
+      const parsedColor = parseSvgPaintColor(fill, currentColor, unsupported);
       if (parsedColor) {
         result = { ...result, fill: parsedColor };
       }
@@ -559,7 +665,7 @@ function applyStylesToNode(
   }
 
   if (stroke && stroke !== 'none') {
-    const parsedStrokeColor = parseSvgColor(stroke);
+    const parsedStrokeColor = parseSvgPaintColor(stroke, currentColor, unsupported);
     const sw = strokeWidth ? parseFloat(strokeWidth) : 1;
     const strokeOpacityVal = strokeOpacity ? parseFloat(strokeOpacity) : 1;
     if (parsedStrokeColor && parsedStrokeColor.space === 'rgb') {
@@ -794,6 +900,7 @@ export function convertElement(
   warnings: string[],
   unsupported: string[],
   visitedIds = new Set<string>(),
+  inheritedColor: ManagedColor = DEFAULT_SVG_CURRENT_COLOR,
   inheritedVisibility = true,
 ): { doc: Document; ids: string[] } {
   const styles = parseCssStyle(el.attrs.style ?? '');
@@ -813,6 +920,7 @@ export function convertElement(
     unsupported,
     visitedIds,
     effectiveVisibility,
+    inheritedColor,
   );
   if (el.tag === 'g' && result.preserveChildVisibility) return result;
   if (result.ids.length === 0 || el.tag === 'svg') return result;
@@ -847,6 +955,7 @@ function convertElementContents(
   unsupported: string[],
   visitedIds: Set<string>,
   inheritedVisibility: boolean,
+  inheritedColor: ManagedColor,
 ): { doc: Document; ids: string[]; preserveChildVisibility?: boolean } {
   const dropped = droppedElementFeature(el.tag);
   if (dropped) {
@@ -857,6 +966,7 @@ function convertElementContents(
   }
 
   const ids: string[] = [];
+  const currentColor = resolveSvgCurrentColor(el, inheritedColor, unsupported);
 
   if (el.tag === 'defs') return { doc, ids };
 
@@ -871,6 +981,7 @@ function convertElementContents(
         warnings,
         unsupported,
         visitedIds,
+        currentColor,
         inheritedVisibility,
       );
       doc = r.doc;
@@ -895,6 +1006,7 @@ function convertElementContents(
         warnings,
         unsupported,
         visitedIds,
+        currentColor,
         inheritedVisibility,
       );
       gDoc = r.doc;
@@ -985,6 +1097,7 @@ function convertElementContents(
           warnings,
           unsupported,
           visitedIds,
+          currentColor,
           inheritedVisibility,
         );
         visitedIds.delete(refId);
@@ -1020,7 +1133,7 @@ function convertElementContents(
       result = convertPath(el, transforms, opts);
       break;
     case 'text':
-      result = convertText(el, transforms, opts);
+      result = convertText(el, transforms, opts, unsupported);
       break;
     case 'image':
       result = convertImage(el, transforms, opts, unsupported);
@@ -1031,7 +1144,15 @@ function convertElementContents(
 
   if (result) {
     const { id, doc: d2 } = nextNodeId(doc);
-    const styled = applyStylesToNode(result.node, el, defs, opts.scale, warnings);
+    const styled = applyStylesToNode(
+      result.node,
+      el,
+      defs,
+      opts.scale,
+      warnings,
+      currentColor,
+      unsupported,
+    );
     const node = { ...styled, id } as SceneNode;
     // The converter owns `doc` for the whole walk (svg.ts clones `nodes` and
     // `rootChildren` once), so appending in place is equivalent and avoids an

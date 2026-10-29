@@ -87,12 +87,33 @@ and dimension checks before decode. Native desktop drops use the platform
 bridge when the webview cannot deliver an operating-system path as a regular
 DOM `File`.
 
-Every asynchronous import reports progress or a useful terminal state. A
+Every asynchronous import reports progress or a useful terminal state. The
+editor separates file-byte preparation from parser progress, shows up to two
+files currently being parsed, and identifies the latest completed file. A
 partial batch may succeed, and the UI identifies the failed item and reason.
 Home uses the canonical `ToastProvider` for one aggregate terminal summary;
 the queue or dialog remains the detailed, per-file recovery surface. Object
 URLs created for temporary previews are revoked by their owner; data URLs that
 are written into document state are intentionally retained.
+
+The File > Import picker reports byte preparation separately from parser
+progress. Preparation counts selected files after each browser read completes;
+it does not estimate remaining time or treat differently sized files as equal
+amounts of work. Parser progress then identifies the current filename and
+completed file count. When an abort signal is present, the service yields once
+after announcing each active file and again between completed files. The first
+yield lets the browser paint the active filename and accept cancellation before
+that parser starts; synchronous parser work itself cannot be interrupted. If the
+user cancels during preparation or between files, the picker discards the
+uncommitted batch instead of inserting a partial document change.
+
+SVG `<text>` nodes honor inline `font-family`, `font-size`, `font-weight`, and
+`text-anchor` declarations when those values fit Varve's text node model.
+SVG `currentColor` paints resolve from the element's inherited `color` value,
+including root/group styles and the gradient definition tree; standard CSS
+named colors are supported. Varve uses black when no color is specified.
+Inline `color` declarations are supported, while stylesheet selectors and
+rich per-run `<tspan>` formatting remain separate capabilities.
 
 ## Accessibility and visual states
 

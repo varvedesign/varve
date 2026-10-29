@@ -1099,6 +1099,67 @@ export function CanvasArea({
     canvasFocusedRef,
   });
 
+  // Interactive overlays sit above the canvas in the stacking order: the guide
+  // hit areas, the selection outline and its handles, and the other handle
+  // overlays all receive the pointer first. A middle-button drag is a camera
+  // pan wherever it starts, so route those gestures into the regular canvas
+  // input pipeline. That keeps one pan implementation (pointer capture,
+  // cancellation, and release) instead of teaching each overlay to pan.
+  const overlayPanPointerIdRef = useRef<number | null>(null);
+  const handleOverlayPointerDownCapture = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      // Any new pointerdown ends a stale forwarded gesture: a pan released
+      // outside this section never delivers its pointerup here, and the mouse
+      // pointer id is reused for the session.
+      overlayPanPointerIdRef.current = null;
+      if (event.button !== 1 || !(event.target instanceof Element)) return;
+      // A pointerdown that lands on the content canvas already reaches the
+      // canvas's own handler; only gestures consumed by an overlay need
+      // forwarding, or the pan would start twice.
+      if (event.target.closest('.editor-canvas__content-layer')) return;
+      const pointerId = event.pointerId;
+      overlayPanPointerIdRef.current = pointerId;
+      const release = (endEvent: PointerEvent) => {
+        if (endEvent.pointerId !== pointerId) return;
+        window.removeEventListener('pointerup', release);
+        window.removeEventListener('pointercancel', release);
+        overlayPanPointerIdRef.current = null;
+      };
+      // Bubble phase on window runs after the section's own handlers, so a
+      // release inside the canvas still completes the pan first.
+      window.addEventListener('pointerup', release);
+      window.addEventListener('pointercancel', release);
+      // Stop the overlay's own pointerdown (for example a handle drag) from
+      // also acting on this gesture.
+      event.stopPropagation();
+      input.handlePointerDown(event as unknown as React.PointerEvent<HTMLCanvasElement>);
+    },
+    [input.handlePointerDown],
+  );
+  const handleOverlayPointerMoveCapture = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      if (overlayPanPointerIdRef.current !== event.pointerId) return;
+      input.handlePointerMove(event as unknown as React.PointerEvent<HTMLCanvasElement>);
+    },
+    [input.handlePointerMove],
+  );
+  const handleOverlayPointerUpCapture = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      if (overlayPanPointerIdRef.current !== event.pointerId) return;
+      overlayPanPointerIdRef.current = null;
+      input.handlePointerUp(event as unknown as React.PointerEvent<HTMLCanvasElement>);
+    },
+    [input.handlePointerUp],
+  );
+  const handleOverlayPointerCancelCapture = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      if (overlayPanPointerIdRef.current !== event.pointerId) return;
+      overlayPanPointerIdRef.current = null;
+      input.handlePointerCancel(event as unknown as React.PointerEvent<HTMLCanvasElement>);
+    },
+    [input.handlePointerCancel],
+  );
+
   // ─── Cursor ───────────────────────────────────────────────────────────────
 
   const cursor =
@@ -1514,6 +1575,10 @@ export function CanvasArea({
       tabIndex={-1}
       className={`editor-canvas gpu-layer${isDragOver ? ' editor-canvas--drag-over' : ''}${canvasDropClass}`}
       aria-label="Canvas"
+      onPointerDownCapture={handleOverlayPointerDownCapture}
+      onPointerMoveCapture={handleOverlayPointerMoveCapture}
+      onPointerUpCapture={handleOverlayPointerUpCapture}
+      onPointerCancelCapture={handleOverlayPointerCancelCapture}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

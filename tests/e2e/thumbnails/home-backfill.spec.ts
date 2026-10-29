@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { navigateToEditor, returnToHome } from '../shared';
 
 async function installSavePickerStub(page: import('@playwright/test').Page): Promise<void> {
   await page.addInitScript(() => {
@@ -52,8 +52,7 @@ test('Home repairs a missing thumbnail from the saved document', async ({ page }
   await page.waitForTimeout(2000);
   await clearThumbnailCache(page);
 
-  await page.keyboard.press('Control+Shift+H');
-  await page.locator('.varve-home').waitFor({ timeout: 20000 });
+  await returnToHome(page);
   const card = page.locator('.file-card').first();
   await card.waitFor({ timeout: 20000 });
   const image = card.locator('.varve-thumbnail__img');
