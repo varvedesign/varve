@@ -575,6 +575,24 @@ The following dated files were moved from `docs/architecture/` to
 | `quality/cycles.md` / `quality/scene-cycle-report.md` / `quality/section-registry-cycle-report.md` / `quality/wasm-engine-cycle.md` | Dependency cycle reports (dated records, 2026-07) |
 | `quality/report-audit.md` | Audit report quality review (dated record, 2026-07-25) |
 
+## Responsive adaptation (in progress)
+
+Long-horizon small-viewport/13in campaign. Start at `docs/responsive/STATE.md`
+(ledger + handoff); the completion doc intentionally does not exist until every
+non-deferred task is done.
+
+| Doc | Purpose |
+|-----|---------|
+| `responsive/STATE.md` | Authoritative task ledger, environment facts, blockers, handoff |
+| `responsive/research-2026-10-29.md` | Phase 0 online research (31 sources) with Varve implications |
+| `responsive/inventory.md` | Phase 0.5 bounded discovery: scored file inventory, read list, backlog |
+| `responsive/audit-raw.md` | Phase 1 raw evidence rows (292) |
+| `responsive/audit.md` | Phase 1 synthesis: measured defects D1–D9, prior open items |
+| `responsive/plan.md` | Phase 2 ordering, working rules, validation protocol |
+| `responsive/tasks/` | Numbered, independently executable task files 01–09 |
+| `responsive/screenshots/` | Committed validation artifacts per short SHA |
+
+
 ## Testing
 
 | Doc | Purpose |
