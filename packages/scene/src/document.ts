@@ -97,6 +97,7 @@ export {
 export {
   addChild,
   addNode,
+  addNodeInPlace,
   arrangeNode,
   arrangeNodes,
   detachInstance,
@@ -617,6 +618,7 @@ export function makeTextNode(
       | 'fontSize'
       | 'fontFamily'
       | 'fontReference'
+      | 'textFrame'
       | 'styleId'
       | 'fontWeight'
       | 'fontStyle'
@@ -669,6 +671,7 @@ export function makeTextNode(
     fontSize: opts.fontSize ?? 16,
     fontFamily: opts.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
     fontReference: opts.fontReference,
+    textFrame: opts.textFrame,
     styleId: opts.styleId,
     fontWeight: opts.fontWeight ?? 400,
     fontStyle: opts.fontStyle ?? 'normal',

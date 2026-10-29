@@ -1,9 +1,7 @@
 import {
   afterFirstVisiblePaint,
   CrashCenter,
-  configureDesktopAnalytics,
   currentDocumentSchemaVersion,
-  getDesktopAnalytics,
   installCrashTestHooks,
   installPageLifecycleAdmission,
   KeyboardInsetPublisher,
@@ -13,8 +11,6 @@ import {
   SettingsDialog,
   SettingsProvider,
   Shell,
-  startDesktopFlushTimer,
-  stopDesktopFlushTimer,
   TabletBackDismiss,
   UpdateCoordinatorProvider,
   useStartup,
@@ -42,21 +38,6 @@ import { armOsFileOpen } from './startup/osFileOpen';
 import { revealMainWindow } from './startup/revealMainWindow';
 import { TauriUpdateProvider } from './updates/tauriUpdateProvider';
 
-const viteEnv = (
-  import.meta as ImportMeta & {
-    env?: {
-      VITE_VARVE_ANALYTICS_ENDPOINT?: string;
-      VITE_VARVE_ANALYTICS_DOMAIN?: string;
-    };
-  }
-).env;
-
-const desktopAnalytics = configureDesktopAnalytics({
-  platform: 'unknown',
-  endpoint: viteEnv?.VITE_VARVE_ANALYTICS_ENDPOINT ?? null,
-  domain: viteEnv?.VITE_VARVE_ANALYTICS_DOMAIN ?? null,
-});
-
 const bootPlatform = detectPlatform();
 
 export function App() {
@@ -70,16 +51,6 @@ export function App() {
   const pendingEditorMilestone = useRef<(() => void) | null>(null);
 
   useEffect(() => installPageLifecycleAdmission(), []);
-
-  useEffect(() => {
-    desktopAnalytics.track('app_launched', { surface: 'desktop' });
-    void desktopAnalytics.flush();
-    startDesktopFlushTimer();
-    return () => {
-      stopDesktopFlushTimer();
-      void getDesktopAnalytics().shutdown();
-    };
-  }, []);
 
   // In a plain browser the synchronous boot platform is the in-memory
   // fallback; upgrade to the real IndexedDB + File System Access backend as

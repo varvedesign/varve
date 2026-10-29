@@ -1,0 +1,3084 @@
+# Preliminary Inkscape findings
+
+This page records evidence reviewed so far. A body-screened report is not a
+confirmed Varve defect. Discussion review and linked implementation history
+remain pending unless stated otherwise in the issue ledger.
+
+## Screening update: #4801–5478, #5304, and #5479–5790
+
+## Discussion and implementation check: #5939
+
+Inkscape #5939 reports that an SVG 2 `<feDropShadow>` followed by a gradient
+fill can render invisible. The issue has no human comments; system history
+shows it closed by merged MR !7506, which implements the primitive. Related
+duplicates #5638 and #5902 are consistent with a missing-primitive support
+gap. The [SVG Filter Effects specification](https://www.w3.org/TR/filter-effects-1/#feDropShadowElement)
+defines the primitive as a blurred, offset shadow composited beneath its input.
+
+Varve's SVG importer previously ignored `filter` references, while its scene
+model already supports editable drop shadows. The importer now maps exactly
+one local `<feDropShadow>` primitive to that effect and retains a gradient
+fill. It reports unsupported filter graphs and the fidelity gaps that remain:
+SVG filter-region clipping and SVG Gaussian `stdDeviation` versus Varve's
+Canvas `shadowBlur`. The SVG specification defaults `primitiveUnits` to
+`userSpaceOnUse`; explicit `objectBoundingBox` values depend on each target's
+bounds, so the importer reports that filter as unsupported instead of using
+mis-scaled shadow offsets. Unequal blur axes and unsupported primitive inputs
+are not approximated. The parser uses the SVG defaults when shadow parameters
+are omitted; this is covered separately from explicit-value cases. The parser
+tests cover a shadow with a gradient fill, anisotropic blur, object-bounding-box
+units, and defaulted offsets/blur. A Chromium web-editor E2E imports the effect,
+checks editable Layer Effects, asserts blue fill and shadow pixels on the canvas,
+and captures desktop/mobile light and dark screenshots. This exercised the
+TypeScript fallback renderer because WASM did not load; native Tauri rendering
+remains unverified. No production claim of pixel-equivalent SVG filter support
+is made. Website copy was checked and contains no specific
+claim about SVG filter import, so no marketing claim needs changing. The public
+File Formats guide now documents the supported single-primitive subset and its
+visible fidelity limits. [Filter Effects specification](https://www.w3.org/TR/filter-effects/)
+
+Cross-app reports reinforce the user-facing failure mode: an Illustrator
+community thread describes a custom SVG box-blur shadow visible in browsers
+but missing when opened for editing; an Illustrator 26.4.1 report describes
+exported shadows shifting toward the upper-left; and an Affinity import
+feedback post asks for stronger SVG import behavior, noting that effects may
+be expanded or rasterized instead of remaining editable. These reports are
+version-specific and are not evidence of current product behavior. They do
+support a realistic Varve rule: keep ordinary geometry editable, import only
+the filter subset with a defensible mapping, and expose every approximation or
+unsupported filter detail in the import report rather than silently dropping
+or flattening it. [Illustrator community report](https://community.adobe.com/questions-652/shadow-problem-svg-illustrator-2021-787351),
+[Illustrator export report](https://illustrator.uservoice.com/forums/601447-illustrator-desktop-bugs/suggestions/45535048-drop-shadows-in-illustrator-26-4-1-won-t-export-to),
+[Affinity SVG import feedback](https://forum.affinity.serif.com/index.php?/topic/96986-svg-import-improvements-needed/).
+
+## Discussion sweep leads: #1–100, #1201–1300, and #2401–2500
+
+Full cached discussions were read for the exact pending issues recorded in
+continuation item 54. These reports are useful as failure modes to guard
+against, but they do not establish defects in Varve. The review found several
+cases where a fix was partial, disputed, or users continued reporting the
+problem in later versions:
+
+- [#31](https://gitlab.com/inkscape/inkscape/-/issues/31) reports scroll-wheel
+  changes to controls the user was not trying to edit. The first proposed fix
+  was explicitly partial; later comments listed remaining affected dialogs and
+  panels. This supports testing scroll containment around numeric controls.
+- [#54](https://gitlab.com/inkscape/inkscape/-/issues/54) documents popup menus
+  appearing on the wrong monitor or off-screen in multi-monitor layouts. A GTK
+  fix was reported and tested, but users later reported recurrence in Inkscape
+  1.2.2, 1.3.2, and 2025. The historical discussion is a regression-testing
+  prompt for mixed-DPI and multi-monitor menus, not proof of current behavior.
+- [#45](https://gitlab.com/inkscape/inkscape/-/issues/45) describes broad text
+  layout shifts. Its attempted document fixer had residual RTL crashes and
+  silent batch failures; the exact remaining status is disputed. This is a
+  warning to validate repair tools on RTL, large batches, and save/reopen, not
+  to infer a current Varve text defect.
+- [#1231](https://gitlab.com/inkscape/inkscape/-/issues/1231) records a
+  maintainer-reproduced memory leak during selection of many stroked objects
+  and a subsequent patch, while later users still reported high cumulative
+  memory use. Any Varve performance comparison needs a bounded repeatable
+  workload and before/after measurements rather than relying only on the
+  original fix report.
+- [#1201](https://gitlab.com/inkscape/inkscape/-/issues/1201) reports common
+  copy/paste shortcuts being routed to the canvas while a toolbar value field
+  is focused. [#94](https://gitlab.com/inkscape/inkscape/-/issues/94) reports
+  shortcut behavior diverging from the active keyboard layout, while
+  [#1269](https://gitlab.com/inkscape/inkscape/-/issues/1269) and
+  [#1270](https://gitlab.com/inkscape/inkscape/-/issues/1270) describe keypad
+  zoom differences tied to NumLock, focus, and layout. Together these motivate
+  focus-aware shortcut tests across layouts and input states; they do not show
+  Varve currently mishandles those cases.
+- [#1224](https://gitlab.com/inkscape/inkscape/-/issues/1224) reports that
+  ungrouping drops nested titles, descriptions, comments, and metadata. The
+  data-preservation expectation is clear, but no Varve equivalent was
+  reproduced. [#1251](https://gitlab.com/inkscape/inkscape/-/issues/1251)
+  separately reports path nodes disappearing or shifting after undo; linked
+  merge requests are mentioned without confirmation that all cases were
+  resolved.
+- [#2467](https://gitlab.com/inkscape/inkscape/-/issues/2467) says copied nodes
+  on LPE paths still land at the wrong position after an earlier partial
+  improvement. [#2479](https://gitlab.com/inkscape/inkscape/-/issues/2479)
+  reports Spacebar pan mode interfering with handle dragging and sometimes
+  requiring Escape to recover. These remain source-side reports pending review
+  of their attached video and linked issues.
+- [#1296](https://gitlab.com/inkscape/inkscape/-/issues/1296) documents
+  cross-application paste failures on macOS and points to a separate fix
+  report; [#1276](https://gitlab.com/inkscape/inkscape/-/issues/1276) reports
+  bitmap clipboard contents unexpectedly being pasted while using the Pen
+  tool's clipboard-shape mode. Both are useful clipboard-interoperability and
+  tool-routing cases, with upstream resolution status requiring linked-history
+  checks.
+
+Other examined reports include layout-dependent keyboard behavior, toolbar
+controls hidden at narrow widths, file chooser and extension recovery, and
+historical performance fixes. Several have platform-specific workarounds or
+reported upstream fixes; they are not generalized into Varve requirements
+without a matching workflow and current reproduction. Attachments and linked
+merge requests remain unreviewed for the listed candidates where stated.
+
+## Discussion sweep leads: #101–200, #1301–1400, and #2501–2600
+
+The next three cached discussion batches add 259 fully reconciled threads; one
+additional thread (#2550) remains partial because two of ten reported user
+comments were absent from the cache. The cached records were read, but that
+does not establish complete discussion coverage for #2550. The source reports
+below remain comparison leads, not Varve defect claims:
+
+- [#125](https://gitlab.com/inkscape/inkscape/-/issues/125) reports blank
+  toolbars and docks after startup. A `check_resize()` change reduced but did
+  not eliminate reports across systems; one later fix was confirmed by a
+  Linux reporter, while further platform reports were split to follow-up
+  issues. This is a launch-layout restoration regression case, not evidence of
+  a current Varve failure.
+- [#159](https://gitlab.com/inkscape/inkscape/-/issues/159) documents a
+  corrupt SVG that failed to load without an actionable error. The issue was
+  closed by a parser error-handling fix; it is a useful import-feedback
+  acceptance case. [#172](https://gitlab.com/inkscape/inkscape/-/issues/172)
+  and [#175](https://gitlab.com/inkscape/inkscape/-/issues/175) are separate
+  historical SVG-open crashes involving mesh-gradient whitespace and CSS
+  masks; both have linked fixes and reporter confirmation, with their own
+  repros.
+- [#181](https://gitlab.com/inkscape/inkscape/-/issues/181) reports text-range
+  coloring through the color dropper still unavailable in 1.4-dev and 1.4
+  beta. [#188](https://gitlab.com/inkscape/inkscape/-/issues/188) reports
+  palette swatches not updating after numeric or hex edits, with later linked
+  changes but no user confirmation in the cached discussion. These suggest
+  consistency checks across text and color editing surfaces.
+- [#192](https://gitlab.com/inkscape/inkscape/-/issues/192) reports crashes
+  and incorrect dimensions for very large PNG imports, with multiple failure
+  signatures and an upstream ImageMagick fix addressing only one path. This is
+  a resource-limit and recovery prompt; the mixed evidence does not show one
+  confirmed resolution. [#194](https://gitlab.com/inkscape/inkscape/-/issues/194)
+  separately tracks rotation-plus-snapping crashes with platform/build-specific
+  reproduction and multiple partial fixes; treat it as a numerical boundary
+  regression case pending resolution review.
+- [#1351](https://gitlab.com/inkscape/inkscape/-/issues/1351) reports that an
+  LPE “Simplify” performance improvement covered selection updates, but drag,
+  copy, and paste still triggered costly recomputation in 2026. The issue was
+  reopened after MR !7833. This is evidence that a partial performance fix can
+  leave the interactive workflow degraded; Varve would need a measured matching
+  repro before changing code.
+- [#1359](https://gitlab.com/inkscape/inkscape/-/issues/1359) describes hatch
+  discontinuities and a separate unresolved hatch-to-path conversion need for
+  continuous engraving paths. The report says the first symptom improved in
+  Inkscape 1.4.2, while later conversion work was described as nearly ready
+  without final confirmation in the thread. The two workflows should remain
+  separate in any Varve assessment.
+- [#1387](https://gitlab.com/inkscape/inkscape/-/issues/1387) reports that
+  snapping targets behaved inconsistently even after guide-origin fixes; a
+  later 1.5-dev report still mentions bounding-box-border snapping, but does
+  not retest every earlier case. It is a mode/target matrix prompt for snapping
+  regression coverage.
+- [#1391](https://gitlab.com/inkscape/inkscape/-/issues/1391) and
+  [#1392](https://gitlab.com/inkscape/inkscape/-/issues/1392) report clipped
+  text and groups producing SVG that did not interoperate with browsers. A
+  2026 comment says Plain SVG export now repairs one path through MR !8237, but
+  merge and independent verification are not established here. This is a
+  cross-renderer export acceptance case; inspect the linked MR and an actual
+  sample before classifying the upstream status.
+- [#2585](https://gitlab.com/inkscape/inkscape/-/issues/2585) isolated memory
+  growth to dragging while Document Properties and a grid were active; users
+  confirmed a later development-build fix. [#2600](https://gitlab.com/inkscape/inkscape/-/issues/2600)
+  reports repeated word-spacing input freezing the UI on a large, high-zoom
+  document, with linked follow-ups but no confirmed fix in this discussion.
+  These are distinct panel-refresh and rapid-input performance scenarios.
+- [#2588](https://gitlab.com/inkscape/inkscape/-/issues/2588) reports gradient
+  offset fields that cannot edit the first and last stops through the toolbar;
+  the cached thread still showed the gap in 1.4 beta. [#2589](https://gitlab.com/inkscape/inkscape/-/issues/2589)
+  discusses filter-region rotation with the object and cites SVG coordinate
+  requirements, but has no fix confirmation in the thread. Both need a current
+  Varve capability match before engineering work.
+
+The 101–200 sweep also reviewed cross-document dialog ownership, preview
+transaction behavior, undo/redo, and Japanese filename handling. Several are
+historical fixes or platform-specific reports; do not generalize them without
+checking the current linked changes and corresponding Varve path. Attachments
+were not opened for these discussion batches.
+
+## Discussion sweep leads: #201–300
+
+Cached discussion history for 80 issues in this range was read, covering 1,061
+cached records (531 user comments and 530 system events). Fifteen other pending
+issues had no note cache; their bodies remain unreviewed. The issue-list note
+counts differ from cached history for some threads, so these reports are
+candidate cases, not claims that the cache fully represents every discussion:
+
+- [#234](https://gitlab.com/inkscape/inkscape/-/issues/234) has a 2025 report
+  reproducing SVG `tspan` x-coordinate shifts while editing, nudging, or
+  copying text in Inkscape 1.4.2 on Fedora 42. The older fix attempt did not
+  establish a current resolution. This is a useful text round-trip fidelity
+  case if Varve imports or edits equivalent positioned text.
+- [#297](https://gitlab.com/inkscape/inkscape/-/issues/297) reports PDF
+  imported text with absolute x-positioning becoming hard to edit. Although
+  the issue was closed against Inkscape 1.4, later users said differential
+  kerning still misplaced characters and accumulated errors in justified
+  text; follow-ups #5326 and #5367 are cited. Treat this as a potentially
+  partial fix and verify with a current source file before making a claim.
+- [#204](https://gitlab.com/inkscape/inkscape/-/issues/204) documents a
+  complex SVG that eventually loaded in 1.4 beta after about two minutes while
+  using 24 GB of RAM. The maintainer suspected image instances in definitions,
+  clipping masks, or their combination. This supports testing bounded import
+  work and clear failure feedback, but the single file does not establish a
+  general regression.
+- [#291](https://gitlab.com/inkscape/inkscape/-/issues/291) reports MATLAB
+  `imagesc` PDF import producing an incorrect or transparent embedded PNG.
+  Despite an earlier merge request and PDF importer rewrite, the reporter
+  reproduced a variant on 1.3-dev; related reports include #1859 and #4295.
+  The final status is unclear, so inspect the file and linked changes before
+  treating it as open behavior.
+- [#230](https://gitlab.com/inkscape/inkscape/-/issues/230) reports stroke
+  opacity becoming locked when changing a flat stroke to a gradient or
+  pattern. MR !7508 is marked done, but this discussion has no post-merge
+  confirmation. Keep it as a regression check for style editing rather than
+  an asserted current defect.
+- [#208](https://gitlab.com/inkscape/inkscape/-/issues/208) tracks document
+  unit changes not propagating across open dialogs and toolbars. The initial
+  toolbar fix was partial, with other controls split into follow-ups and a
+  later development-build regression report. It is a useful consistency check
+  across inspector surfaces when the same unit model is supported.
+- [#256](https://gitlab.com/inkscape/inkscape/-/issues/256) reports text
+  flowing into a frame becoming visually desynchronized after resize and
+  undo. [#238](https://gitlab.com/inkscape/inkscape/-/issues/238) reports
+  multi-selection stroke-width edits changing dash behavior. Both need a
+  concrete Varve feature match before engineering work.
+
+Several other reports are better treated as historical or environment-specific
+evidence: #255 traced a PDF crash to mismatched Poppler libraries, #275 to an
+old Qt clipboard issue, and #293 had a fixed trace crash followed by a separate
+preview complaint that needed its own reproducer. #276 describes the limits of
+approximating exact stroke offsets with cubic paths; it does not by itself show
+a fixable implementation defect. Attachments and linked merge requests were
+not independently opened in this sweep.
+
+## Discussion sweep leads: #1401–1500
+
+The cached discussion review covered 84 pending threads with 1,171 records
+(515 user comments and 656 system events); two already-reviewed threads (#1469
+and #1491) bring the batch read total to 1,229 records. Thirteen pending
+threads had no note cache, and IID #1489 was absent from both ledger and cache.
+The following reports describe user-visible failure patterns, with the
+version and resolution limits kept explicit:
+
+- [#1465](https://gitlab.com/inkscape/inkscape/-/issues/1465) reports font
+  picker freezes and crashes with roughly 1,000–2,000 or more installed fonts;
+  disabling previews did not consistently help. A June 2026 report still
+  described repeated freezes. The issue was marked Done on October 13, 2026,
+  after a maintainer said MR !8228 fixed freezing, but that fix was not
+  independently verified in this review. Varve's font picker should remain
+  responsive with large font sets and degrade gracefully if enumeration or
+  previews are expensive.
+- [#1478](https://gitlab.com/inkscape/inkscape/-/issues/1478) reports blank
+  or incomplete printing after importing and rotating JPEGs, including
+  objects above the image disappearing. The cached evidence is from older
+  Windows releases and shows no confirmed fix through November 2023. This is
+  useful as a direct-print transform and stacking regression case if Varve
+  supports that path.
+- [#1467](https://gitlab.com/inkscape/inkscape/-/issues/1467) reports Word's
+  Paste Special exposing only PNG even though Inkscape offered EMF clipboard
+  data; users later said the behavior remained in versions 1.1 and 1.2. The
+  thread points to Windows clipboard format compatibility, including BMP, but
+  establishes no later resolution. Treat it as a vector clipboard
+  interoperability test when Varve adds or supports office-app paste.
+- [#1473](https://gitlab.com/inkscape/inkscape/-/issues/1473) reports more
+  calligraphy lag than in 0.92; one user said lag improved in 1.4 while strokes
+  stayed angular and artifact-prone. Later notes mention MR !7427 without
+  confirming that it resolves those remaining complaints. This is a paired
+  input-latency and stroke-fidelity case, not a current Varve defect claim.
+- [#1464](https://gitlab.com/inkscape/inkscape/-/issues/1464) shows a simple
+  cubic producing Spiro coordinates around 10^10, while
+  [#1446](https://gitlab.com/inkscape/inkscape/-/issues/1446) reports extreme
+  off-canvas paths blanking the canvas. These older reports motivate finite
+  geometry bounds and recovery coverage if a matching Varve operation exists.
+- [#1483](https://gitlab.com/inkscape/inkscape/-/issues/1483) reports
+  shortcuts that appear assigned but do not work, including a hard-coded
+  Ctrl+W path. [#1493](https://gitlab.com/inkscape/inkscape/-/issues/1493)
+  reports snapping failures on circle and arc paths, with node conversion as a
+  workaround. Both remain older, unverified reports in the cache.
+
+These discussion notes were read from the cached source; attachments and cited
+merge requests were not independently opened. They are competitor failure
+patterns and test ideas, not evidence that Varve has the same defects.
+
+## Discussion sweep leads: #1501–1600
+
+The cached review covered 85 threads with reported user comments: all 578
+reported comments were present and read, alongside 727 system/history notes
+(1,305 records total). Four threads were already reviewed; 81 additional
+threads are now recorded in the ledger. Fourteen issues had no reported user
+comments and remain pending review of any cached history events. Issue #1503
+is missing from the ledger and cache. Notes were retrieved October 18, 2026.
+The attachments and linked issues below were not independently opened.
+
+- [#1523](https://gitlab.com/inkscape/inkscape/-/issues/1523) reports
+  patterned SVGs printing blank fills or white seams on Windows. Users later
+  reported an original file consuming about 30 GB before crashing; the thread
+  links this to [#1018](https://gitlab.com/inkscape/inkscape/-/issues/1018),
+  where zoom-scaled Cairo pattern allocation was discussed, and also mentions
+  [#1491](https://gitlab.com/inkscape/inkscape/-/issues/1491). This is a
+  bounded PDF/export-memory and pattern-seam regression case for Varve, not
+  evidence of the same Cairo failure.
+- [#1524](https://gitlab.com/inkscape/inkscape/-/issues/1524) reports Windows
+  print memory spikes across older releases. Reproductions conflict: one
+  reduced case with two paths still used substantial memory, while another
+  user could not reproduce with a reduced file. A maintainer attributed the
+  issue to the Cairo/Win32 backend. Preserve the resource-boundary test idea,
+  while treating the historical trigger as uncertain.
+- [#1526](https://gitlab.com/inkscape/inkscape/-/issues/1526) reports clipped,
+  transformed, bitmap-masked hatching disappearing or becoming gradients in
+  SVG/PDF export; reimport also produced deeply nested clip/mask groups. The
+  discussion offers a mask/filter transform fidelity case and supports clear
+  unsupported-feature reporting. It does not establish current Varve behavior
+  or an upstream fix; [#694](https://gitlab.com/inkscape/inkscape/-/issues/694)
+  is linked history.
+- [#1551](https://gitlab.com/inkscape/inkscape/-/issues/1551) reports export
+  mode leaking between sequential export-page and export-drawing commands in
+  Inkscape 1.2-dev. The discussion identifies stale page-export state after a
+  document closes. This maps to Varve's multi-export/session state isolation;
+  reproduce the sequence before changing code.
+- [#1573](https://gitlab.com/inkscape/inkscape/-/issues/1573) is a duplicate
+  of [#203](https://gitlab.com/inkscape/inkscape/-/issues/203), a historical
+  crash with clipped image filters. The earlier finding recorded a fix for a
+  minimal case but no verification against the larger document; keep that
+  linked-document coverage open.
+- [#1584](https://gitlab.com/inkscape/inkscape/-/issues/1584) reports an
+  object at opacity 0.999 disappearing from a Windows print path while nearby
+  opacity values print. The workaround was a PDF save, not direct print.
+  Include opacity boundary values in print parity checks if the Varve path is
+  reproduced.
+- [#1589](https://gitlab.com/inkscape/inkscape/-/issues/1589) documents that
+  Inkscape's RGB16 export expanded 8-bit values rather than preserving source
+  precision, with later comments describing use for height maps. Verify output
+  bit depth and actual channel data before claiming precision; an 8-bit screen
+  preview cannot establish this.
+- [#1569](https://gitlab.com/inkscape/inkscape/-/issues/1569) concerns
+  Inkscape-specific object labels omitted from plain SVG. Users disagreed on
+  whether that was data loss because plain SVG does not define those labels.
+  The UX lesson is to explain format-specific losses at export time without
+  adding noisy warnings for every proprietary attribute. [#1553](https://gitlab.com/inkscape/inkscape/-/issues/1553)
+  is a duplicate report about a Cancel control that did not stop an extension.
+
+These are reported Inkscape behaviors from historical versions, not verified
+Varve defects. The strongest current-work leads are #2069's desktop export
+collision choice, the sequential export-state case in #1551, and targeted
+memory/output checks for #1523 and #1524.
+
+## Persistence and batch export follow-up: #2229, #2378, and #2069
+
+The older reports produce different implementation decisions. Inkscape #2229
+was a reproduced text-loss regression at the SVG 1.1 fallback boundary; its
+maintainer traced it to MR !2755, fixed the export-copy mutation in trunk, and
+the reporter confirmed the fix. Varve's comparable save path serializes the
+document through `DocumentCodec` and emits SVG text from the stored text/run
+model. The historical report does not establish a current Varve defect, so no
+code change is proposed from #2229 alone. [Inkscape #2229](https://gitlab.com/inkscape/inkscape/-/issues/2229),
+[MR !2755](https://gitlab.com/inkscape/inkscape/-/merge_requests/2755).
+
+Inkscape #2378 documents a narrower custom-attribute loss on SVG 1.1 fallback
+for SVG2 auto-flow text. The report's exact trigger is not general text, and
+later #9716 is adjacent evidence about tspan labels rather than proof that the
+same custom attribute remains lost. Varve's normalized `TextNode` and SVG
+writer do not preserve arbitrary XML attributes. That is a real round-trip
+limit if generic XML fidelity is promised, but it would require an explicit
+metadata contract or raw-node preservation rather than a small patch; current
+docs do not promise arbitrary-attribute round trips. [Inkscape #2378](https://gitlab.com/inkscape/inkscape/-/issues/2378),
+[related #9716](https://gitlab.com/inkscape/inbox/-/issues/9716).
+
+Inkscape #2069 began with batch export overwriting same-named PNGs without a
+warning. The early proposal !2835 was not the final behavior: auto-suffixing
+prevented overwrite but produced copy clutter for users repeatedly exporting
+to the same project folder. Later reports #7494 and #6983 requested explicit
+overwrite for iteration workflows, and MR !6092 added an overwrite-existing
+checkbox that is enabled by default. This still leaves overwrite as the silent
+initial policy unless users notice and change it. The opposite policy also has
+a cost: the 1.2 follow-up reports say auto-renamed `copy_1`, `copy_2` files
+clutter repeated export workflows. Varve already renames collisions inside one
+batch and disambiguates duplicate ZIP entries in the browser. Its desktop
+folder writer, however,
+passes resolved relative paths to an atomic native write that replaces an
+existing destination without a batch-level conflict check. This was a current,
+reproducible product gap. Varve now offers Keep both, Replace, and Skip existing
+for desktop folder exports. Keep both puts a conflicting logical output group
+into a new `Exports N` folder, retaining companion filenames and their relative
+references; Skip leaves the entire group unchanged if any member conflicts;
+Replace uses the existing atomic replacement writer. The native writer refuses
+no-replace races rather than silently clobbering a file, and the report records
+per-output paths and partial outcomes, including a path claimed by another
+process after planning. Browser ZIP delivery remains separate.
+These choices address both observed failure classes: automatic copy clutter and
+unexpected overwrite. A disk or permission error can still leave a partial
+multi-file group, which is reported per output rather than presented as a full
+success. Retry incomplete reruns that logical job using the current conflict
+choice; Keep both can place the retry in a fresh `Exports N` folder so the
+earlier partial copy remains inspectable and untouched.
+[Inkscape #2069](https://gitlab.com/inkscape/inkscape/-/issues/2069),
+[later overwrite request #7494](https://gitlab.com/inkscape/inbox/-/issues/7494),
+[later overwrite request #6983](https://gitlab.com/inkscape/inbox/-/issues/6983),
+[MR !6092](https://gitlab.com/inkscape/inkscape/-/merge_requests/6092).
+
+Comparable-app reports reinforce why a single fixed policy is a poor default.
+An Illustrator user reported that multi-artboard export created numbered files
+instead of overwriting and asked for the prior overwrite option back; another
+recent report says Illustrator silently replaced an existing file after its
+overwrite warning stopped appearing. Penpot's 2026 bulk-export issue reports
+slow browser-bound batches and weak per-file failure feedback, so the result
+list should say exactly which outputs were replaced, retained, skipped, or
+failed instead of showing one generic completion state. These are
+version-specific user reports, not a claim that either app always behaves this
+way. [Illustrator numbered-export complaint](https://community.adobe.com/questions-652/illustrator-not-allowing-file-overwrite-anymore-765089),
+[Illustrator missing-warning complaint](https://community.adobe.com/questions-652/not-getting-overwrite-notification-when-exporting-files-817604),
+[Penpot bulk-export issue #11348](https://github.com/penpot/penpot/issues/11348).
+
+The reconciled sweep fully read #5304 and 300 available descriptions in
+#5479–5790. The exact reviewed ranges are #5479–5481, #5483–5526,
+#5528–5538, #5540–5545, #5547–5577, #5579–5586, #5588–5623,
+#5625–5660, #5662–5673, #5675–5695, #5697–5716, #5718–5781, and
+#5783–5790. #5294 remains partial because its 126,637-character body was not
+fully inspected. #5546, #5578, #5587, #5674, and #5717 had no available
+ledger/cache body; they are not counted as read. Fresh exact-ID reads later
+covered 347 descriptions in #4801–5150 and 321 available descriptions in
+#5151–5478. #4834, #5091, #5293, #5295, #5296, and #5418 are absent from the
+ledger/cache; #5294 remains partial. #5304 and #5451 were already screened.
+No discussions or attachments were reviewed.
+These reports are issue-screening leads, not proof that Varve has the same
+defects:
+
+- [#5304](https://gitlab.com/inkscape/inkscape/-/issues/5304) reports a crash
+  when selecting a range in the Objects panel. The described stack ends in
+  object-set ancestor testing/removal during range selection. This suggests a
+  multi-selection regression prompt, but no Varve reproduction or source
+  implementation was reviewed.
+- [#5480](https://gitlab.com/inkscape/inkscape/-/issues/5480) reports pattern
+  fills mirrored in PDF/PNG exports despite looking correct in the viewport,
+  with a blur-related export difference. This maps to export/render parity;
+  its four linked screenshots are unavailable because GitLab redirects the
+  upload URLs to sign-in, and the issue list reports no comments. Varve's
+  raster pattern path was checked with an asymmetric 2×2 tile: the exported
+  PDF retained its red/green top row and blue/white bottom row in a 1152-dpi
+  Poppler render. This verifies that raster-tile path only; vector-origin
+  patterns and blur behavior remain untested, so no matching defect is
+  established.
+- [#5497](https://gitlab.com/inkscape/inkscape/-/issues/5497) reports a
+  clipboard crash when pasting from LibreOffice, in a GTK clipboard target
+  selection path. This is a cross-application clipboard robustness prompt;
+  no Varve failure is established.
+- [#5502](https://gitlab.com/inkscape/inkscape/-/issues/5502) reports an SVG
+  import crash during GTK file chooser teardown. The report is platform and
+  lifecycle-specific; it does not establish a matching Varve defect.
+
+The last six pending bodies have now been accounted for. Selection-only SVG
+export reports missing selected paths (#5887) and an oversized exported
+`viewBox` (#5924); selection-only PDF export reportedly includes a clone's
+original while preview and PNG/JPEG output show only the clone (#5910). A
+variable-font PDF mismatch between Cairo and CapyPDF is reported in #5960.
+These are relevant export parity prompts, but require discussion and fixture
+review plus direct checks against Varve's SVG/PDF route contracts. The report
+for `feDropShadow` combined with gradient fill (#5939) is closed with no
+comments in the current cache; its inline example is unverified, and full SVG 2
+filter support is not assumed to be a Varve requirement. #5956 has an empty
+description, so only its shortcut-request title is available. No defects are
+established by these reports.
+
+The fresh pass fully read 347 pending descriptions in IID 4801–5150: #4801–4833,
+#4835–4923, #4925–5090, and #5092–5150. #4924 was already screened; #4834 and
+#5091 are absent from the ledger/cache. No discussions or attachments were
+reviewed. High-signal body-only leads from the #4801–5150 pass include:
+
+- [#5092](https://gitlab.com/inkscape/inkscape/-/issues/5092) reports batch
+  PNG layer export flattening overlapping content differently from its
+  preview; [#5106](https://gitlab.com/inkscape/inkscape/-/issues/5106) and
+  [#5147](https://gitlab.com/inkscape/inkscape/-/issues/5147) report stale
+  batch ordering after page reorder and stale preview after visibility/content
+  changes. These suggest export-preview parity and invalidation checks.
+- [#5098](https://gitlab.com/inkscape/inkscape/-/issues/5098) reports a PDF
+  import crash during recursive font traversal, while
+  [#5099](https://gitlab.com/inkscape/inkscape/-/issues/5099) reports a CLI
+  PDF export crash while deleting pages. Both suggest failure-boundary checks
+  for malformed or changing document inputs.
+- [#5120](https://gitlab.com/inkscape/inkscape/-/issues/5120) reports an
+  undo/redo crash while editing text under a reverse mask.
+  [#5137](https://gitlab.com/inkscape/inkscape/-/issues/5137), a duplicate of
+  #5102, reports hide/show clearing SVG `tspan` coordinates. These suggest
+  history and text-preservation checks, subject to confirming the supported
+  document paths in Varve.
+
+These are historical descriptions only; their discussions, linked fixes,
+fixtures, and current upstream status have not been checked.
+
+## Screening update: issues #6393–6482
+
+All 85 pending bodies in this IID slice were available and read in full; #6398,
+#6407, and #6477 were already screened. Discussions and attachments were not
+reviewed. These version-specific reports are test prompts rather than verified
+Varve defects:
+
+- [#6411](https://gitlab.com/inkscape/inkscape/-/issues/6411) says the
+  “Clip to page” option stops clipping after save/reopen. This suggests a
+  persistence round-trip check for page clipping and overflow.
+- [#6416](https://gitlab.com/inkscape/inkscape/-/issues/6416) reports
+  swatch/gradient edits applied to selected text spans affecting all spans or
+  disappearing after a move. The sample was not inspected; test selection
+  scope and undo/persistence only for equivalent rich-text styling in Varve.
+- [#6420](https://gitlab.com/inkscape/inkscape/-/issues/6420) reports a
+  startup failure after one Linux dialog-state configuration; renaming a saved
+  dialog-state file restores launch. The logs/config were not opened, and the
+  issue is platform-specific; no matching Varve failure is established.
+- [#6421](https://gitlab.com/inkscape/inkscape/-/issues/6421) reports the
+  final line of centered/right-aligned multiline text shifting by about one
+  character. The fixture was not inspected; this is a text-layout comparison
+  prompt.
+- [#6452](https://gitlab.com/inkscape/inkscape/-/issues/6452) reports a
+  displaced gradient in one SVG compared with Firefox. [#6453](https://gitlab.com/inkscape/inkscape/-/issues/6453)
+  reports page-view scrollbars reaching their endpoint while content remains
+  offscreen. Both sample files were unavailable to this sweep; these motivate
+  gradient-transform and multipage viewport-bound checks.
+- [#6474](https://gitlab.com/inkscape/inkscape/-/issues/6474) says `.jfif`
+  raster files fail on drag/drop/import but succeed after renaming to `.jpg`.
+  This is a MIME/extension-detection case for import workflows.
+- [#6478](https://gitlab.com/inkscape/inkscape/-/issues/6478) reports page
+  duplication shifting text relative to its page. The video was not opened;
+  compare page-relative transforms if Varve's page duplication shows the same
+  behavior.
+- [#6482](https://gitlab.com/inkscape/inkscape/-/issues/6482) reports the
+  Align and Distribute “Relative to” choice not persisting and falling back to
+  Page. This is a saved-operation-defaults case; the report is from Inkscape
+  1.4.2 and its discussion was not reviewed.
+
+## Screening update: issues #1201–2400
+
+The 1,200-ID body sweep fully read 1,165 descriptions. Thirty-two IDs were
+already screened, two cached descriptions were unavailable (#1489 and #1503),
+and #2207 remains partial because its 99,250-character test transcript was
+truncated mid-output. Empty cached descriptions #1289 and #1595 were counted
+as screened. No discussion comments, attachments, or linked merge requests
+were reviewed in this sweep. These are historical reports and regression
+prompts, not evidence that Varve has the same defects:
+
+- [#2069](https://gitlab.com/inkscape/inkscape/-/issues/2069) reports batch
+  PNG export overwriting same-named files from another document without a
+  collision warning. This is a data-loss safety case for multi-file export.
+- [#2229](https://gitlab.com/inkscape/inkscape/-/issues/2229) reports SVG2
+  flowed text disappearing on save after editing. [#2378](https://gitlab.com/inkscape/inkscape/-/issues/2378)
+  reports a custom attribute on an inner text span being accepted in the UI but
+  omitted on save. Neither report's attachment or follow-up was inspected;
+  they motivate save/reopen assertions for content and metadata Varve supports.
+- [#2171](https://gitlab.com/inkscape/inkscape/-/issues/2171) reports
+  cross-document paste changing group geometry when documents use different
+  scales. [#2304](https://gitlab.com/inkscape/inkscape/-/issues/2304) reports
+  SVG clipboard import ungrouping content and dropping foreign-app metadata.
+  The source data and comments were not inspected, so only the general
+  transform and structure-preservation cases transfer as test prompts.
+- [#2128](https://gitlab.com/inkscape/inkscape/-/issues/2128) reports
+  zoom- and raster-resolution-dependent appearance. [#2118](https://gitlab.com/inkscape/inkscape/-/issues/2118)
+  and [#2123](https://gitlab.com/inkscape/inkscape/-/issues/2123) report
+  images inside patterns exported at the wrong coordinates. These prompt
+  camera-independent render hashes and export-resolution comparisons; the
+  sample files were not fetched.
+- [#2348](https://gitlab.com/inkscape/inkscape/-/issues/2348),
+  [#2349](https://gitlab.com/inkscape/inkscape/-/issues/2349), and
+  [#2350](https://gitlab.com/inkscape/inkscape/-/issues/2350) report startup
+  stalls when recent-file history points to disconnected locations. The
+  reports implicate probing unrelated GTK recent-file entries, a platform
+  integration detail; no matching Varve mechanism has been established.
+- [#504](https://gitlab.com/inkscape/inkscape/-/issues/504) reports an
+  open/preview hang for a style-heavy SVG in Inkscape 1.0 beta; the linked SVG
+  was not opened. [#2107](https://gitlab.com/inkscape/inkscape/-/issues/2107)
+  reports canvas lag and occasional crashes while Document Properties is
+  open on Linux/GTK. These reports warrant separate file-load and modal-dialog
+  checks only if a comparable Varve path is implicated.
+- [#2039](https://gitlab.com/inkscape/inkscape/-/issues/2039) was later
+  marked duplicate of [#773](https://gitlab.com/inkscape/inkscape/-/issues/773),
+  a historical stale-background-cache report for filter effects. The cached
+  issue notes say Inkscape 1.0 changed layer blend modes from filters to CSS
+  blend modes. In Varve, visible group blending selects structural compositing,
+  which bypasses partial redraw. This is a source-inspection no-change finding,
+  not a reproduced visual result; the issue's SVG attachment was not opened.
+
+## Screening update: issues #3751–3900
+
+The full descriptions for all 149 available nonempty issue bodies in this
+interval were read; #3771 was unavailable. This is body screening only: no
+discussion notes, linked files, or upstream fixes were checked for this batch.
+The following reports are useful regression-test prompts, not verified Varve
+defects:
+
+- [#3786](https://gitlab.com/inkscape/inkscape/-/issues/3786) reports a
+  segmentation fault when a paint-server URL has a missing closing parenthesis.
+  The report is from Inkscape 1.2.1/Arch in 2022 and was not reproduced. It is
+  a malformed-SVG robustness case for parser/import paths.
+- [#3797](https://gitlab.com/inkscape/inkscape/-/issues/3797) and
+  [#3798](https://gitlab.com/inkscape/inkscape/-/issues/3798) describe recursive
+  filter application leading to unbounded load-time CPU and memory use. Both
+  are old 1.2.1-era reports; sample files and discussion history were not
+  reviewed. They motivate bounded resource evaluation only if Varve exercises
+  an equivalent recursive filter graph.
+- [#3822](https://gitlab.com/inkscape/inkscape/-/issues/3822) reports PDF
+  import placing U+000C in generated SVG, after which extension tools fail XML
+  parsing. The report includes a specific import-to-extension sequence but is
+  Windows/Inkscape 1.2-era and remains unconfirmed here. This is a document
+  integrity and downstream-validation case.
+- [#3840](https://gitlab.com/inkscape/inkscape/-/issues/3840) reports
+  optimized SVG save dropping text objects using `inline-size`. The original
+  file reportedly opens before save; the report is Fedora/Inkscape 1.2.1 and
+  its attachments were not inspected. It is a useful lossless-serialization
+  regression category.
+- [#3885](https://gitlab.com/inkscape/inkscape/-/issues/3885) reports the
+  Poppler/Cairo PDF importer ignoring the requested page and loading page 1.
+  [#3886](https://gitlab.com/inkscape/inkscape/-/issues/3886) reports flipped
+  text from the internal PDF importer where another importer and browser
+  render the pattern upright. Importer mode, requested page, and text
+  orientation are distinct PDF fidelity checks; the linked examples and
+  discussion were not inspected.
+- [#3899](https://gitlab.com/inkscape/inkscape/-/issues/3899) reports
+  keyboard-applied bold/italic text being saved or copied with the wrong font
+  size, while panel-applied formatting survives. It is an old Ubuntu 20.04 /
+  Inkscape 1.1.2 report; use as a text style round-trip case, not evidence of a
+  current Varve problem.
+
+## Screening update: issues #601–640
+
+Thirty-eight new full-description reads in this interval produced several
+useful test prompts. #602 and #613 were already counted. No discussion notes,
+attachments, or upstream fixes were inspected for this batch, and none of the
+reports below establishes a Varve defect:
+
+- [#593](https://gitlab.com/inkscape/inkscape/-/issues/593) and
+  [#616](https://gitlab.com/inkscape/inkscape/-/issues/616) describe PDF import
+  replacing ligature text with missing or replacement characters for some
+  source PDFs/fonts. The reports are historical and linked files were not
+  retrieved. They motivate targeted glyph-map coverage without assuming every
+  PDF text run can be preserved as editable text.
+- [#594](https://gitlab.com/inkscape/inkscape/-/issues/594) and
+  [#595](https://gitlab.com/inkscape/inkscape/-/issues/595) report RTL alignment
+  and Persian ZWNJ shaping differences. These are old-version reports; their
+  fixtures were not inspected. They are international text layout and shaping
+  regression categories.
+- [#608](https://gitlab.com/inkscape/inkscape/-/issues/608) says changing an
+  Offset LPE's units from 5 mm to inches changes the amount to 5 inches rather
+  than preserving the physical value. If Varve exposes unitful parameters,
+  conversions should preserve the represented quantity; the report is not a
+  direct match to a verified Varve feature.
+- [#610](https://gitlab.com/inkscape/inkscape/-/issues/610) reports undo after
+  editing B-spline/spiro paths dropping curve metadata until additional undo
+  and redo steps. This is a useful history-round-trip test for geometry that
+  stores more than its visible control points.
+- [#623](https://gitlab.com/inkscape/inkscape/-/issues/623) reports paste
+  operations on a path effect modifying its source and other copies, suggesting
+  shared mutable state. [#626](https://gitlab.com/inkscape/inkscape/-/issues/626)
+  separately reports a crash when copying a path with Attach Path LPE. Both
+  are historical and their sample files were not opened; test independent
+  copies and invalid linked references if a comparable Varve path-effect
+  workflow is exercised.
+- [#635](https://gitlab.com/inkscape/inkscape/-/issues/635) reports SVG mask
+  content rendering differently from GIMP, and [#636](https://gitlab.com/inkscape/inkscape/-/issues/636)
+  says moving an object out of a hidden layer can leave inherited `display:none`
+  in place. The external mask fixture was not opened; the layer report's
+  behavior should be compared against SVG/CSS inheritance rules before
+  treating it as a defect.
+- [#639](https://gitlab.com/inkscape/inkscape/-/issues/639) reports a document
+  license choice disappearing on save/reopen. It is a small but concrete
+  metadata persistence test, subject to checking the format's intended storage.
+
+## Screening update: issues #641–680
+
+Thirty-four previously uncounted bodies were read in this interval. #643,
+#644, and #652 were unavailable; #651, #670, and #678 were already screened.
+Discussion history, sample files, and linked fixes remain pending. These
+reports suggest test categories only:
+
+- [#641](https://gitlab.com/inkscape/inkscape/-/issues/641) reports a resize
+  drag ending over the palette changing fill color unexpectedly and interrupting
+  undo. Test that pointer release outside the canvas cannot trigger another
+  action and that one gesture remains one undoable transaction.
+- [#642](https://gitlab.com/inkscape/inkscape/-/issues/642) describes copied
+  SVG2 text with broken position/editing, where editing the duplicate can alter
+  the source. [#658](https://gitlab.com/inkscape/inkscape/-/issues/658) reports
+  copied content inheriting the wrong opacity from a partially transparent
+  layer. Together these are copy isolation and inherited-style round-trip
+  checks; the old report files were not inspected.
+- [#646](https://gitlab.com/inkscape/inkscape/-/issues/646) reports numeric
+  width/height entry producing incorrect geometry when thick strokes are not
+  scaled. This is a useful constraint test for whether the interface reports
+  path bounds or painted bounds; the original example was not opened.
+- [#647](https://gitlab.com/inkscape/inkscape/-/issues/647) reports clone
+  stroke-width changes when scaling the original and an unexpected style change
+  on the source. It motivates checking clone style isolation, but the source
+  file and discussion were not inspected.
+- [#650](https://gitlab.com/inkscape/inkscape/-/issues/650) describes a mixed
+  text selection showing one font and an averaged size, then failing to apply
+  the displayed font. This is a mixed-value inspector-state test, not evidence
+  of a Varve failure.
+- [#654](https://gitlab.com/inkscape/inkscape/-/issues/654) reports a crash
+  when combining CLI selection with verbs; [#656](https://gitlab.com/inkscape/inkscape/-/issues/656)
+  reports a Trace Bitmap crash on a large raster without clear size bounds.
+  Both are historical CLI/import robustness prompts; no reproducer was run.
+- [#667](https://gitlab.com/inkscape/inkscape/-/issues/667) reports spraying or
+  cloning an Attach Path effect breaking shared references. [#669](https://gitlab.com/inkscape/inkscape/-/issues/669)
+  reports Path Outset deleting some valid generated paths. Their age and
+  feature-specific behavior require an exact equivalent before prioritizing
+  implementation work.
+
+## Screening update: issues #5791–6000
+
+One hundred ninety-eight available, nonempty descriptions were read in this
+range. Eleven previously screened bodies were excluded and #5956 has no body.
+No issue discussions or linked attachments were reviewed; the following are
+body-only examples that may inform focused tests:
+
+- [#5988](https://gitlab.com/inkscape/inkscape/-/issues/5988) reports
+  ungrouping thousands of objects freezing all windows for 5–10 minutes at
+  full CPU use. The issue body references a sample and Sysprof profile, neither
+  of which was opened. This supports measuring large-tree operations with a
+  bounded, generated document rather than assuming Varve shares the same cost.
+- [#5989](https://gitlab.com/inkscape/inkscape/-/issues/5989) reports Cmd+C/V
+  in toolbar numeric fields routing to the drawing on macOS. This is a
+  focus/shortcut integration case; the environment-specific report was not
+  reproduced.
+- [#5991](https://gitlab.com/inkscape/inkscape/-/issues/5991) reports a crash
+  loading an older SVG with Rotate Copies LPE. [#5995](https://gitlab.com/inkscape/inkscape/-/issues/5995)
+  reports selection or spraying crashing in nearest-time hit testing for
+  scaled ellipses. Their source files and histories were not reviewed; they
+  suggest load-time effect migration and degenerate/curved hit-test coverage.
+- [#5999](https://gitlab.com/inkscape/inkscape/-/issues/5999) reports the same
+  SVG importing with incorrect fills while opening it directly works, on
+  macOS 26. This is a useful distinction between document-open and import
+  paths, though the unusually specific environment needs confirmation.
+- [#5982](https://gitlab.com/inkscape/inkscape/-/issues/5982) reports
+  self-dropping a group in the Objects panel crashing in `fillBetweenMany` /
+  `toLayer`; #5814 describes a similar failure class. These are explicit
+  invalid-reparenting guards to test where Varve exposes drag-and-drop tree
+  operations.
+- [#5948](https://gitlab.com/inkscape/inkscape/-/issues/5948) reports a
+  regression in creating a gradient fading to transparency. The cause/fix
+  history remains pending, so it should be compared against the intended
+  gradient defaults before treating it as a product gap.
+
+## Screening update: issues #1–1200
+
+The complete range contains 1,200 issue numbers. Of those, 1,057 previously
+unreviewed, cached, nonempty descriptions were read individually; 116 IDs had
+already been screened and 27 descriptions were unavailable in the cache. No
+discussion notes or attachments were reviewed in this sweep. The reports below
+are body-only candidate tests, many from old releases:
+
+- Export behavior is a recurring complaint. [#1022](https://gitlab.com/inkscape/inkscape/-/issues/1022)
+  says `--export-margin` updates attributes without changing SVG page bounds;
+  [#1024](https://gitlab.com/inkscape/inkscape/-/issues/1024) says
+  `--export-id-only` yields empty/non-resized output for some formats;
+  [#1056](https://gitlab.com/inkscape/inkscape/-/issues/1056) describes
+  `--export-area-drawing` not cropping EMF/WMF; and [#1135](https://gitlab.com/inkscape/inkscape/-/issues/1135)
+  reports export-height changing aspect ratio instead of deriving the other
+  dimension. [#1198](https://gitlab.com/inkscape/inkscape/-/issues/1198)
+  documents pixel-page dimensions rounded to whole PostScript points. These
+  reports justify checking option combinations and units per output format;
+  their version-specific histories and Cairo/backend limits remain unchecked.
+- [#761](https://gitlab.com/inkscape/inkscape/-/issues/761) reports overflowed
+  SVG2 text being removed from the saved file, with no way to restore it by
+  enlarging the frame. This is a concrete data-preservation case, though the
+  issue is an older feature-era report and its fixture was not opened.
+- [#1034](https://gitlab.com/inkscape/inkscape/-/issues/1034) reports copied
+  class-based SVG losing the associated CSS styling across documents;
+  [#1120](https://gitlab.com/inkscape/inkscape/-/issues/1120) reports Stroke to
+  Path orphaning clones that reference the original ID. These motivate testing
+  copy/import reference remapping and conversion integrity, but neither is a
+  confirmed Varve regression.
+- [#1130](https://gitlab.com/inkscape/inkscape/-/issues/1130) says undoing a
+  resize leaves a dashed line rendered solid although its SVG dash array stays
+  intact until save/reopen. This is a strong stale-render-versus-model
+  consistency test prompt, not evidence that Varve has the same cache defect.
+- [#1179](https://gitlab.com/inkscape/inkscape/-/issues/1179) reports
+  repeated no-op saves reversing XML attribute order and creating large diffs;
+  [#1180](https://gitlab.com/inkscape/inkscape/-/issues/1180) reports locked
+  guides reopening as unlocked. The former is source-control noise unless
+  serialization stability is promised; the latter is a more direct persistence
+  invariant. Both require format-contract review and save/reopen testing.
+- [#1200](https://gitlab.com/inkscape/inkscape/-/issues/1200) reports a
+  scrollbar range that excludes content after opening a document larger than
+  the page. This suggests a viewport-bounds test after document load; the
+  issue is historical and no sample was inspected.
+
+## Screening update: issues #3601–3750
+
+The 147 available nonempty descriptions in this interval were read in full;
+#3650, #3661, and #3704 were missing from the cache. No discussions or
+attachments were reviewed. Representative body-only candidates:
+
+- [#3629](https://gitlab.com/inkscape/inkscape/-/issues/3629) reports Object
+  to Path silently unlinking a group clone, with no undo entry or dirty-state
+  prompt. This is a useful operation-atomicity and clone-integrity test; the
+  report is an old Inkscape beta and includes one uninspected fixture.
+- [#3635](https://gitlab.com/inkscape/inkscape/-/issues/3635) reports a
+  blurred clone disappearing from a later page in PDF export. This motivates
+  a multipage clone/filter export case; it dates from old 1.2/1.3 development
+  versions and the sample was not opened.
+- [#3655](https://gitlab.com/inkscape/inkscape/-/issues/3655) describes an
+  AddressSanitizer use-after-free while previewing a marker-bearing SVG in the
+  startup file dialog. The stack attributes it to marker teardown. This is a
+  lifecycle test prompt for any preview path, not evidence about Varve's
+  document-open path.
+- [#3667](https://gitlab.com/inkscape/inkscape/-/issues/3667) reports distinct
+  `<use>` elements resolving to the same shape when imported source IDs
+  collide. [#3705](https://gitlab.com/inkscape/inkscape/-/issues/3705) reports
+  duplicate-ID repair breaking references in undo history. Together they
+  suggest namespace/reference-graph tests; both are old, single-document
+  reports and their attached archives were not opened.
+- [#3672](https://gitlab.com/inkscape/inkscape/-/issues/3672) reports a crash
+  when selecting/copying or saving one complex Adobe XD SVG, with invalid
+  `<use>` warnings and a stack in reference collection. The detailed body was
+  read in chunks, but its attachment was not opened. Treat it as a malformed
+  or complex-input case, not a general import guarantee.
+- [#3682](https://gitlab.com/inkscape/inkscape/-/issues/3682) reports drawing
+  after selecting an earlier undo-history state crashing. Its body gives
+  repeat steps but no stack; this suggests checking history branch integrity.
+- [#3723](https://gitlab.com/inkscape/inkscape/-/issues/3723) reports severe
+  zoom/rotation slowdown for multipage PDF documents, with profiling pointing
+  to canvas group updates. This is a historical 1.3-dev performance prompt;
+  no timing reproduction was run.
+- [#3746](https://gitlab.com/inkscape/inkscape/-/issues/3746) reports Boolean
+  Difference dropping fill when SVG uses a presentation `fill` attribute
+  instead of CSS style. [#3748](https://gitlab.com/inkscape/inkscape/-/issues/3748)
+  reports PDF export applying raster EXIF orientation differently from the
+  source editor. They are useful SVG-attribute normalization and raster export
+  fidelity cases; neither was reproduced in Varve.
+
+## Candidate: large raster save memory
+
+Inkscape [#6398](https://gitlab.com/inkscape/inkscape/-/issues/6398) reports
+RAM doubling and possible OOM crashes while saving 100+ linked 4K JPEGs. The
+reporter says autosave is unaffected and warns that the attached 400-image ZIP
+can lock up a system. The sample ZIP was not downloaded or executed.
+
+Varve currently embeds assets in `Document.assets`, assigns the same content a
+shared asset ID, and strips duplicate per-fill image payloads during
+serialization. This makes the linked-image failure mechanism a poor direct
+match. Varve still produces a full JSON serialization at save time, so a
+transient peak with many *distinct* large assets remains a hypothesis to
+measure. No Varve memory failure has been reproduced. Review the issue thread,
+then use generated image data to compare repeated identical placements with
+distinct assets and measure encode/save/reopen memory before deciding whether
+an implementation change is warranted.
+
+A second older Inkscape report, [#2800](https://gitlab.com/inkscape/inkscape/-/issues/2800),
+also reports about 14.8 MiB retained per save with one linked large PNG,
+contrasting 1.1 with 1.0.2. That report's 7z attachment was not downloaded;
+discussion and resolution history remain pending. This strengthens the
+recurrence signal for save-time memory complaints, but still does not show a
+Varve defect.
+
+## Candidate: PDF text fidelity
+
+Inkscape [#6380](https://gitlab.com/inkscape/inkscape/-/issues/6380) reports
+that its internal PDF import changes “information” to “informaton”. The
+reported PDF upload returned HTTP 403 in this review; the source PDF and
+comment thread have not been inspected. Varve's bounded PDF parser already
+resolves text through `/ToUnicode` or declared font encoding and reports
+unmapped characters instead of inventing text. Compare this exact fixture if
+it becomes accessible; until then, do not change decoding based on the title
+or report alone.
+
+## Candidate: large PDF exports with omitted artwork
+
+Inkscape [#5782](https://gitlab.com/inkscape/inkscape/-/issues/5782) reports
+that a 100 × 70 cm document at 300 ppi exported without 16 embedded images and
+9 captions on macOS and Windows. The thread narrows the trigger to an empty text
+object with a singular transform (zero determinant): hiding, deleting, or
+reordering it changed the export. Inkscape linked the report to [#691](https://gitlab.com/inkscape/inkscape/-/issues/691),
+an older PDF-export failure involving non-invertible matrices. A maintainer
+reported that #691 was fixed in Inkscape 1.0.1, but #5782 was still assigned to
+1.4.3 and was closed as a duplicate without evidence of a #5782-specific fix.
+The associated merge request is not identified in the public links.
+
+The 29 MB attached SVG and 11 MB PDF were not downloaded or inspected. The
+reporter also noted incomplete testing on 1.5-dev; later comments identified
+missing-font and long-URI diagnostics, so those do not establish a separate
+image-loss cause.
+
+Varve's current PDF path sends any subtree containing text or a non-identity
+linear transform through whole-subtree rasterization. A singular text node
+therefore stays in the same raster replay as its image and shape siblings and
+does not reach the native PDF writer as a singular text matrix. Source review
+found no equivalent “bad object aborts later siblings” path, but a focused
+real-export regression and independent-renderer inspection are still needed
+before marking the workflow handled.
+
+**Separate Varve gap found during this investigation:** the native PDF and
+PDF/X bridge previously ignored malformed supplied image-manifest JSON and
+continued without those image resources. Because the print engine uses a
+checkerboard when image data is missing, this could return a successful PDF
+with placeholder content. This is not the cause of #5782 and the change below
+does not fix Inkscape's singular-transform failure. Varve now returns a clear
+error for an invalid supplied manifest on all four native PDF/PDF/X command
+paths. The parser consumes the owned JSON string so its base64 buffer can be
+released immediately after decoding. A Rust regression test covers the
+ordinary PDF command; the UI error is covered by a desktop-bridge E2E test.
+The Rust parser regression passes. The desktop error-state E2E is pending: its
+typecheck fails on committed `master` because
+`packages/scene/src/index.ts` exports absent `./nodeResize`. An uncommitted
+copy exists in the shared root worktree, so it was not copied into this
+isolated validation tree. This does not validate or resolve the separate
+#5782 visual-export report.
+
+Comparable first-hand reports include [Illustrator users reporting missing
+artwork after PDF export](https://community.adobe.com/questions-652/adobe-illustrator-2025-images-not-exporting-as-pdf-815385)
+and a separate [Illustrator report about missing PDF
+items](https://community.adobe.com/questions-652/items-missing-from-pdf-when-exporting-from-illustrator-782411).
+Those reports include conflicting viewer behavior and unconfirmed theories;
+they support checking actual PDF resources and more than one renderer, not a
+claim that Varve or Inkscape shares their causes. Affinity's [PDF text editing
+discussion](https://forum.affinity.serif.com/index.php?/topic/199661-editing-pdf-text-layout-go-crazy-v24-22024/)
+also documents how missing embedded fonts and substitution can change editable
+text layout while page-image passthrough preserves appearance but loses text
+editability.
+
+**Website impact:** no copy change is justified. The fix changes an error path,
+not advertised PDF behavior or the scope of supported PDF content. Recheck the
+file-format and print-export pages after validation.
+
+## Candidate: crashes during filter/clip PDF export
+
+Inkscape [#203](https://gitlab.com/inkscape/inkscape/-/issues/203) documents a
+confirmed crash while exporting filtered content with a clip path. Maintainers
+traced the issue to PDF export rasterizing filtered clip paths even though SVG
+clip geometry should ignore filters. The fix
+[MR 2907](https://gitlab.com/inkscape/inkscape/-/merge_requests/2907), later
+cherry-picked in [MR 2923](https://gitlab.com/inkscape/inkscape/-/merge_requests/2923),
+stopped rasterizing those clip paths. The reporter confirmed the minimal
+reproducer no longer crashed; the larger original document remained unverified
+because it exceeded the reporter's available memory. Related reports #481 and
+#1573 were duplicate variants.
+
+Varve sends PDF subtrees with effects or masks through a live canvas raster
+fallback, so this is a relevant workflow to exercise. The Inkscape report does
+not establish that Varve shares Inkscape's Cairo failure, and no equivalent
+Varve crash has been reproduced. Keep the targeted export regression pending
+until a real document with a filtered clipped raster is exported and inspected.
+
+Inkscape [#1739](https://gitlab.com/inkscape/inkscape/-/issues/1739) separately
+reports memory growth, crashes, or a missing fill for masked images inside SVG
+patterns. Its small embedded-image sample shows reported peak memory growing
+from roughly 104 MB at a 10×10 pattern to 1.3 GB at 128×128; a 150×150 case
+crashed and produced a zero-byte PDF. Its two comments and linked reports were
+reviewed; the original sample and attachments have not been downloaded.
+Varve's print pipeline expands supported image tiles into PDF content and caps
+the estimated tile count, but does not implement SVG masks nested inside
+arbitrary SVG patterns. The reported workaround converts the pattern to an
+object, which can change paint order.
+
+Inkscape [#1018](https://gitlab.com/inkscape/inkscape/-/issues/1018) reports
+multi-gigabyte memory growth and a black canvas when zooming into image-based
+patterns. Its description attributes the growth to a Cairo-renderer pattern
+surface that scales with the zoomed pattern tile, even when only a small part
+of the tile is visible. The issue body includes a summary of four comments but
+those individual notes have not been retrieved. Varve's interactive renderer
+uses a decoded image tile with bounded repeated instances; it does not allocate
+a Cairo-style tile bitmap proportional to zoom. This is a related resource
+class, not evidence of the same renderer defect. The still-open Inkscape Inbox
+[#9599](https://gitlab.com/inkscape/inbox/-/issues/9599) reports 30–40 GB RAM
+use for high-resolution images used as patterns and remains linked evidence.
+
+Other Inkscape issues describe crashes for patterns on both fill and stroke
+([#4924](https://gitlab.com/inkscape/inkscape/-/work_items/4924)), a patterned
+fill that leaves an unreadable PDF ([#5539](https://gitlab.com/inkscape/inkscape/-/work_items/5539)),
+swatch `gradientTransform` export failures ([#5624](https://gitlab.com/inkscape/inkscape/-/work_items/5624)),
+and missing corner markers after the CapyPDF merge
+([#5696](https://gitlab.com/inkscape/inkscape/-/work_items/5696)). These are
+currently body-only reports; discussion retrieval has not reached them. Their
+specific Cairo/vector-marker failure paths are not implemented by Varve's PDF
+exporter. Varve expands supported raster image tiles directly and enforces a
+100,000-tile ceiling. A regression has been added to exercise that ceiling and
+check that omitting an over-budget pattern preserves neighboring solid
+artwork. A Poppler render of the over-budget regression was visually inspected:
+the pattern is omitted and neighboring artwork remains visible. An independent
+rendered-PDF check of alpha-tile appearance remains desirable.
+
+Additional discussion review found a useful split between transferable and
+product-specific failures:
+
+- [#86](https://gitlab.com/inkscape/inkscape/-/issues/86) reports clipped
+  pattern PDF OOM and missing output. A later user said it no longer reproduced
+  on current Inkscape master; no specific fix for this issue was confirmed.
+- [#155](https://gitlab.com/inkscape/inkscape/-/issues/155) reports filtered
+  artwork clipped at the page edge instead of extending into PDF bleed. Varve's
+  filtered-PDF and PDF/X-with-bleed path still needs a real output comparison.
+- [#252](https://gitlab.com/inkscape/inkscape/-/issues/252) reports masked
+  artwork reduced to low-resolution raster output. MR 5000 improves some mask
+  cases but explicitly does not resolve all mask-export fidelity. Varve also
+  rasterizes masks for PDF; a detailed fixture needs visual inspection.
+- [#4717](https://gitlab.com/inkscape/inkscape/-/issues/4717) reports a Cairo
+  crash for a large mixed image/vector SVG. Varve applies decoded-image and
+  raster-surface budgets, but the exact failure mechanism is not shared.
+- [#529](https://gitlab.com/inkscape/inkscape/-/issues/529) was a historical
+  filter export issue that the reporter confirmed fixed. [#112](https://gitlab.com/inkscape/inkscape/-/issues/112)
+  concerns saving a georeferenced PDF imported from QGIS, a geospatial round-trip
+  outside Varve's current print contract. [#481](https://gitlab.com/inkscape/inkscape/-/issues/481)
+  and [#1573](https://gitlab.com/inkscape/inkscape/-/issues/1573) duplicate the
+  filtered-clip failure in #203. [#328](https://gitlab.com/inkscape/inkscape/-/issues/328)
+  has conflicting reproduction reports and no stable mechanism.
+
+None of these source reports alone proves a Varve defect. The bleed and mask
+fidelity cases remain the clearest candidates for real PDF visual tests; the
+others map to existing bounds or to features Varve does not claim to support.
+
+These reports reinforce the need to test export completion, output validity,
+and visual content on complex documents. They do not justify claims of shared
+causes, and they do not currently justify marketing copy changes.
+
+## Existing protections: interrupted saves and oversized raster output
+
+Inkscape [#260](https://gitlab.com/inkscape/inkscape/-/issues/260) is an
+unconfirmed historical report that a crash during save could truncate the
+original file. Its sole user comment links an inbox request for atomic export.
+Varve's native filesystem bridge already writes a sibling temporary file,
+flushes it, then replaces the target; the existing regression
+`atomic_write_replaces_content_without_leaving_staging_files` covers the
+successful replacement path. This source report does not establish a Varve
+data-loss defect. Crash/power-loss injection and browser-download semantics
+remain separate validation questions, not claims covered by that unit test.
+
+Inkscape [#543](https://gitlab.com/inkscape/inkscape/-/issues/543) records a
+blank or corrupted PNG near Cairo's 32,767-pixel axis limit, with later reports
+of zero-byte exports and a proposed alert. Varve already bounds raster
+surfaces to 16,384 pixels per axis and 33,554,432 pixels per surface, fits
+oversized export requests while preserving aspect ratio, and displays a
+warning that names the requested and fitted dimensions. Existing
+`rasterSurface.test.ts` cases cover area and axis constraints; export tests
+assert the scale-down warning. This is a directly relevant failure class with
+an existing defensive behavior, not a new Varve defect. The 16K/32M policy is
+an application allocation budget, not a claim about the maximum size supported
+by every browser or image format.
+
+Neither finding currently requires a code or marketing change. Recheck the
+save and raster-export pathways against updated reports before closing their
+broader issue groups.
+
+## Screened adjacent reports: zoom, import bounds, and editing cost
+
+Inkscape [#3975](https://gitlab.com/inkscape/inkscape/-/issues/3975) reports
+a Cairo crash when zooming to the corner of a 32,768-pixel blurred rectangle;
+the report explicitly relates it to [#3580](https://gitlab.com/inkscape/inkscape/-/issues/3580).
+Varve caps interactive zoom at 6,400% and raster surfaces at 16,384 pixels
+per side / 33,554,432 pixels per surface, which limits the same unbounded
+surface-growth class. Those limits do not prove that a large blurred object
+renders correctly near Varve's own ceilings. A generated, bounded blur fixture
+at the zoom/raster boundary is still a useful regression candidate; do not use
+the reported Cairo trace as evidence of a shared renderer bug.
+
+Inkscape [#5983](https://gitlab.com/inkscape/inkscape/-/issues/5983) reports a
+black display and crash while zooming around a linked JPEG 65,000 pixels wide
+in Inkscape 1.4.2 on macOS. The linked
+[Wikimedia image](https://commons.wikimedia.org/wiki/File:Panorama_of_Sydney_from_Lavender_Bay_%281875%29.jpg)
+is 65,500 × 3,273 pixels (214,381,500 total) and 73.2 MB encoded. Varve's
+65,535-pixel axis limit alone would accept that width, but the image is far
+above Varve's 64 Mi-pixel decoded-area budget and is rejected by the header
+gate before decode. A focused regression test now uses a synthetic JPEG header
+with those exact dimensions to assert the rejection. This establishes a safe
+import boundary for the linked file's dimensions; it does not reproduce or
+explain Inkscape's black-canvas zoom crash. The original image was not
+downloaded, and the two issue notes remain pending review.
+
+Inkscape [#1231](https://gitlab.com/inkscape/inkscape/-/issues/1231) reports
+rapid memory growth while dragging roughly 200 rectangles after applying a
+Fill and Stroke style with a visible stroke; the default fill-only style and
+`stroke:none` reportedly avoid it. This is an old Windows/Inkscape 1.1-dev
+editing path, not a PDF or file-size issue. Varve's canvas has different
+selection and stroke rendering code, so it is a reasonable bounded stress
+scenario if the comment history identifies a transferable trigger. Its 15
+reported notes have not been retrieved yet.
+
+Inkscape [#5878](https://gitlab.com/inkscape/inkscape/-/issues/5878) reports
+memory exhaustion while manipulating a path with the Powerstroke live path
+effect and `CubicBezierJohan` smoothing. The backtrace enters path dash
+generation and outline/bounding-box work. Varve has no equivalent live-path-
+effect editing pipeline, so this is not a direct feature match. It can still
+inform a general stress test only if a Varve workflow reaches similarly
+unbounded outline generation; no such path has been established.
+
+Inkscape [#5976](https://gitlab.com/inkscape/inkscape/-/issues/5976) reports
+that resetting color in the Recolor Marker dialog crashes Inkscape. The body
+contains a long repeated Windows stack trace and one reported note. Varve has
+path endpoint arrowheads but no equivalent marker recoloring dialog or SVG
+marker workflow, so no direct implementation or marketing change follows from
+this report. The discussion remains pending, and the large body was screened
+without executing or rendering its embedded media.
+
+## Screened rendering and export edge cases
+
+Inkscape [#721](https://gitlab.com/inkscape/inkscape/-/issues/721) reports
+that a blue multiply-blended circle was missing its blend result in PDF after
+a green blur was rasterized. The report compares Inkscape 0.92.4 and 1.0-alpha
+and includes two linked SVG samples that were not downloaded. Varve's standard
+PDF path uses the live compositor raster fallback for unsupported effects,
+which makes overlapping blend-plus-blur output a focused visual test. The old
+Cairo-specific cause is not established as shared, and no Varve defect has
+been reproduced.
+
+Inkscape [#670](https://gitlab.com/inkscape/inkscape/-/issues/670) reports
+dashed polygon strokes differing between on-screen display and PNG output in
+Inkscape 0.92.4 on Windows, with a minimal SVG linked. This is a useful
+canvas/export parity scenario for Varve's dashed-stroke renderer, but the issue
+is historical and its linked sample has not been checked against current
+Inkscape or Varve. Preserve it as a regression candidate until a bounded
+reproducer is available.
+
+Inkscape [#894](https://gitlab.com/inkscape/inkscape/-/issues/894) reports
+zero-length SVG paths with square caps rendered in Firefox but not Inkscape.
+The reporter notes that the sample changed after an optimization and that the
+expected result was uncertain. Because the expected semantics are unsettled,
+Varve should only adopt this as a visual test after checking the current SVG
+specification and sample; no change is justified from the report alone.
+
+Inkscape [#1063](https://gitlab.com/inkscape/inkscape/-/issues/1063) reports
+white bars in large radial gradients in Cairo while comparing other SVG
+backends. Varve's browser renderer does not use Cairo, so this does not show a
+shared failure. Large-coordinate radial gradients are still a reasonable
+cross-renderer test case; the referenced SVG and inbox samples were not
+downloaded.
+
+Inkscape [#1351](https://gitlab.com/inkscape/inkscape/-/issues/1351) reports
+severe editing lag from its Simplify live-path effect, even after removing
+embedded images. Varve has no equivalent live-path-effect feature, so there is
+no direct implementation target.
+
+Other PDF reports reinforce the need for real output checks. Inkscape
+[#685](https://gitlab.com/inkscape/inkscape/-/issues/685) reports overlapping
+colored text in a different order on the canvas and in PDF; its reporter says
+the PDF agrees with the SVG text-order specification and other renderers. The
+linked sample was not downloaded. Varve routes text through the live compositor
+for standard PDF, so comparing the canvas and resulting PDF is a useful parity
+check, not a presumed defect.
+
+Inkscape [#694](https://gitlab.com/inkscape/inkscape/-/issues/694) reports
+masked artwork disappearing from PDF under a combination of transforms,
+clipping, and blur. [#712](https://gitlab.com/inkscape/inkscape/-/issues/712)
+reports masks rasterized at visibly low resolution, plus duplicate masked
+objects disappearing when they share a layer. These are old reports with
+linked SVG/PDF examples that remain uninspected. Varve also rasterizes masked
+subtrees for standard PDF, but has a different renderer and scene structure.
+Inspect output resolution and verify every masked sibling remains visible in
+generated PDFs before treating the failure class as closed. No matching Varve
+defect has been reproduced.
+
+Inkscape [#651](https://gitlab.com/inkscape/inkscape/-/issues/651) reports
+that selecting an embedded image in its XML Editor froze the whole application
+in a 2019 beta. Varve has no equivalent XML Editor selection workflow, so this
+does not map to a current product feature.
+
+## Not directly transferable: relative image paths in extensions
+
+Inkscape [#6477](https://gitlab.com/inkscape/inkscape/-/issues/6477) reports
+linked image paths being rewritten after running an extension and points to
+[#1313](https://gitlab.com/inkscape/inkscape/-/issues/1313). The earlier report
+attributes path drift to extension execution converting relative paths and
+failing to restore them. Inkscape's [1.0.1 release notes](https://inkscape.org/release/inkscape-1.0.1/)
+say relative paths to linked images no longer break when running an extension.
+Later first-hand reports [#5482](https://gitlab.com/inkscape/inkscape/-/issues/5482)
+and [#6483](https://gitlab.com/inkscape/inkscape/-/work_items/6483) describe
+similar path corruption in Inkscape 1.4 and 1.4.2. This establishes recurrence
+of the user-visible failure across versions, but does not prove the same code
+path regressed. The seven comments on #6483 and 13 notes on #1313 are being
+checked in the durable crawler; the first-hand issue bodies and 1.0.1 release
+note have been reviewed.
+
+Varve's `DocumentAsset` storage and SVG import currently use embedded,
+content-addressed image assets; remote and filesystem image references do not
+become mutable linked paths. There is no equivalent third-party Python
+extension API that rewrites an SVG href against its installation directory.
+The reported mechanism is therefore outside Varve's current product path. The
+design invariant remains: export or local transformation must preserve an
+asset's document identity and must not silently replace an unresolved asset
+with a successful-looking placeholder. No site-copy or feature change is
+justified by the current evidence.
+
+## Failure reports from other design tools
+
+These first-hand complaints are comparison evidence, not proof that Varve
+shares the same defects. They help identify the output and editing workflows
+that should be checked before closing this audit.
+
+Penpot users report blurred or downsampled images in large-format PDF exports
+([#1899](https://github.com/penpot/penpot/issues/1899), still open in the
+reviewed issue history; [#7047](https://github.com/penpot/penpot/issues/7047),
+an image-resolution complaint tracked separately). Varve's native PDF image
+manifest preserves source image samples for supported image fills, while
+effect fallbacks rasterize through the live renderer and PDF/X uses a separate
+flattened print path. The UI's minimum-image-resolution setting is a preflight
+floor; it does not resample images. Validate one high-resolution placed image
+in standard PDF and PDF/X output, including an effect-rasterized case, before
+making a broad fidelity claim. No matching Varve defect is established.
+
+Penpot [#10208](https://github.com/penpot/penpot/issues/10208) reports a
+bold Work Sans substitution that made auto-width text wider and clipped the
+export; Penpot tracked the fix in [#10238](https://github.com/penpot/penpot/issues/10238),
+and the reporter confirmed it in Penpot 2.17.0. Varve's standard PDF and
+raster export wait for export fonts to become ready, and the native PDF/X path
+collects font data and rejects missing font records. Existing tests cover the
+readiness wait and missing-font data validation. This is an existing Varve
+protection to retain; it is not evidence that every external font will render
+with the same metrics in every viewer.
+
+Penpot [#10496](https://github.com/penpot/penpot/issues/10496) describes a
+save-validation failure after teams used a shared custom font and imported raw
+SVG content with dangling children. Penpot fixed it in [#10837](https://github.com/penpot/penpot/issues/10837),
+and the reporter later confirmed the problem no longer reproduced. Varve's
+SVG import and document persistence use different data structures, and no
+matching Varve failure was found in this review. Keep imported-SVG save/reopen
+round trips in the regression set when that area is changed; do not infer a
+Varve defect from the Penpot report alone.
+
+An Adobe Illustrator forum report describes QR artwork missing from a saved
+PDF while it remains visible in InDesign; replies point to a collapsed
+MediaBox/CropBox, and the thread also contains conflicting diagnoses. This is
+a useful reminder to inspect page boxes and open generated PDFs in an
+independent renderer alongside application screenshots. It does not establish
+a general Illustrator failure or a Varve bug.
+
+**Website impact:** these findings do not change a supported-format boundary,
+file-size limit, or measured fidelity result. Leave the marketing website
+unchanged until the targeted PDF artifacts are validated; then update only a
+specific claim if the evidence shows it is inaccurate or a fix adds a verified
+capability.
+
+## Current disposition
+
+One native PDF manifest error-path guard has been prepared during the #5782
+workflow investigation; it addresses a separate malformed-resource failure,
+not #5782's singular-transform cause. A focused real-export check is still
+needed to confirm the source workflow is handled in Varve. The other findings remain
+body-only and do not yet justify code changes. The full Inkscape issue corpus
+and comment crawl are still being reviewed; this page is an interim evidence
+record, not the final product audit. Initial website review of
+`features/local-first.astro`, `support/troubleshooting.astro`, and
+`docs/file-formats.astro` found existing low-memory/save-recovery guidance and
+an explicit description of PDF import as a bounded local parser. No unsupported
+save-memory or full-fidelity PDF claim was found in those surfaces, so no site
+copy change is justified for these unconfirmed candidates. Recheck the relevant
+feature and troubleshooting pages for every later implementation batch.
+
+## Cross-application PDF compatibility and zoom resource limits
+
+Inkscape [#6242](https://gitlab.com/inkscape/inkscape/-/issues/6242) reports
+that its CapyPDF-generated PDF 2.0 files fail when included by LuaLaTeX, while
+QDF-normalized files work. The report explicitly identifies CapyPDF/LuaTeX
+interoperability as the likely boundary. Varve's standard PDF writer emits
+PDF 1.4, and PDF/X-4 emits 1.6; both are within the reported LuaTeX 1.7
+maximum. This rules out the specific PDF 2.0 version trigger, but does not
+claim LuaLaTeX interoperability has been tested. No marketing change or format
+change is supported by this report. Discussion review remains pending.
+
+Inkscape [#2190](https://gitlab.com/inkscape/inkscape/-/issues/2190) reports
+garbled or unopenable PDFs when embedding mixed/bold text fonts on Windows in
+Inkscape 1.0.2. The report lists inconsistent reproduction and is tied to an
+older font embedding/subsetting path. Varve's PDF text export has separate font
+embedding and subsetting code, so this is a useful cross-viewer test category,
+not evidence of a matching defect. Reader coverage for embedded and subset
+fonts remains pending.
+
+Inkscape [#3580](https://gitlab.com/inkscape/inkscape/-/issues/3580) reports
+`std::bad_alloc` while scroll-zooming some documents near 15,000%. Varve clamps
+zoom at 6,400% and bounds raster surfaces to 16,384 pixels per side with an
+area limit. The reported zoom level is therefore unreachable in Varve; existing
+clamp and raster-budget checks cover the closest shared resource boundary. The
+issue's discussion history remains pending, and no matching Varve failure was
+identified.
+
+## Thread review: dashed strokes, filters, and transformed masks
+
+A targeted review of the cached discussions narrows several earlier body-only
+candidates:
+
+- [#670](https://gitlab.com/inkscape/inkscape/-/issues/670) is traced in its
+  notes to Cairo's banded raster export: dashed paths can disappear when a
+  64-pixel band contains neither dash endpoint, especially with round or bevel
+  joins. The thread includes a minimal SVG and a C reproducer, and reports
+  different results across output scales. Varve does not share that Cairo
+  implementation; keep it as a cross-output regression candidate rather than
+  assuming the same defect.
+- [#721](https://gitlab.com/inkscape/inkscape/-/issues/721) mixes background-
+  dependent filter primitives with blend modes. The notes distinguish those
+  older filters from CSS blend modes and report version-dependent results.
+  This is not evidence that every PDF blend effect is broken.
+- [#685](https://gitlab.com/inkscape/inkscape/-/issues/685) was reproduced on
+  older Inkscape builds and fixed by [MR !1299](https://gitlab.com/inkscape/inkscape/-/merge_requests/1299).
+  Keep overlapping text as a cross-output test category, but do not treat it as
+  an active Inkscape defect.
+- [#694](https://gitlab.com/inkscape/inkscape/-/issues/694) traces clipping and
+  degraded mask resolution to transform handling. [MR !5000](https://gitlab.com/inkscape/inkscape/-/merge_requests/5000)
+  landed a fix for those symptoms, while explicitly leaving other masked-item
+  PDF cases unresolved. Later notes identify filter-dependent mask failures as
+  a separate cause.
+- [#712](https://gitlab.com/inkscape/inkscape/-/issues/712) is duplicate
+  evidence: the low-resolution symptom was tracked under #252 and the
+  duplicate-mask disappearance under #694. The discussion attributes the
+  disappearance to transforms rather than duplicate-mask count.
+
+The linked SVG/PDF attachments have not been downloaded or executed. These
+thread outcomes refine the source claims; they do not establish matching Varve
+defects. The discussion downloader is still running. Its latest durable
+snapshot at `2026-10-18T13:12:24Z` had retrieved 12,748 of 32,692 reported
+non-system comments across 1,931 issue threads. Retrieval coverage is not
+content-review coverage.
+
+## Additional PDF import/export reports screened
+
+A further body-screening batch adds five candidates without treating their
+reports as confirmed Varve defects:
+
+- [#6143](https://gitlab.com/inkscape/inkscape/-/issues/6143) reports a
+  clipped object from an editable PDF becoming invisible after import unless a
+  large white rectangle is added behind the mask. The sample PDF remains
+  uninspected; this matters only where Varve's PDF import promises editable
+  transparency fidelity.
+- [#6220](https://gitlab.com/inkscape/inkscape/-/issues/6220) reports missing
+  paths and a background pattern in a recent Inkscape 1.5-dev PDF export. The
+  issue links the original SVG and PDF, but the fixture and upstream discussion
+  have not been checked.
+- [#6298](https://gitlab.com/inkscape/inkscape/-/issues/6298) reports a 1.1 MiB
+  glitched PDF for clipped/masked text, compared with 12 KiB outputs from
+  `rsvg-convert` and Typst `svg2pdf`; the reporter says the Typst output keeps
+  clip edges sharp. This is a strong Varve raster-fallback size/fidelity test
+  candidate, but Varve output has not been compared yet.
+- [#6323](https://gitlab.com/inkscape/inkscape/-/issues/6323) supplies a
+  minimal negative-origin `viewBox` that reportedly shifts content in one PDF
+  export route while PNG and Save/Save-a-Copy remain correct. This supports a
+  focused viewBox-origin export test.
+- [#6407](https://gitlab.com/inkscape/inkscape/-/issues/6407) reports a fatal
+  error only for a Windows CLI PDF export on one Inkscape 1.5-dev build; Save a
+  Copy and other formats work. Its fixture and discussion are still pending,
+  so the failure is not generalized to other PDF paths.
+
+These five descriptions raise body screening to 49 of 6,392. Their linked
+files and discussions remain pending where noted. The marketing site still has
+no relevant full-fidelity PDF claim to revise until a Varve reproduction is
+confirmed.
+
+## More export and import reports screened
+
+Six more issue descriptions were checked against Varve's current architecture:
+
+- [#204](https://gitlab.com/inkscape/inkscape/-/issues/204) reports an
+  out-of-memory import after adding two SVGs with 25 MB and 9 MB source images.
+  It lacks controlled dimensions or a Varve reproduction, so it remains an
+  aggregate image-memory test candidate.
+- [#255](https://gitlab.com/inkscape/inkscape/-/issues/255) attributes an old
+  PDF import crash to a later `libpoppler-glib8` package from external Linux
+  repositories. This points to dependency error handling, not a confirmed
+  format-level Varve defect.
+- [#698](https://gitlab.com/inkscape/inkscape/-/issues/698) reports black
+  crosses and a foggy color haze over masked red/orange artwork in Inkscape
+  0.92.3 PDF output. It is a useful mask/color parity fixture if the source SVG
+  becomes accessible.
+- [#814](https://gitlab.com/inkscape/inkscape/-/issues/814) reports a slight
+  raster-image position shift between equivalent SVG-to-PDF exports in
+  Inkscape 0.92.4. Its paired SVGs and PDFs have not been inspected.
+- [#952](https://gitlab.com/inkscape/inkscape/-/issues/952) reports underline
+  text decoration missing from old Inkscape PDF output. Check whether Varve's
+  rich-text model supports the same decoration before treating it as a direct
+  compatibility gap.
+- [#5971](https://gitlab.com/inkscape/inkscape/-/issues/5971) reports print
+  marks absent from a PDF made with Inkscape 1.4.2. Varve has explicit PDF/X
+  mark generation and Rust coverage; a rendered marked page is still the useful
+  visual check before making changes.
+
+Body screening is now 55 of 6,392. Comments and attached files for these six
+reports remain pending, so these are screening results rather than full issue
+reviews.
+
+## Recent font, bleed, and scale-limit complaints
+
+A recent-issue pass screened nine more reports and mapped them to concrete
+Varve boundaries:
+
+- [#5451](https://gitlab.com/inkscape/inkscape/-/issues/5451) says Adobe
+  Acrobat rejects a PDF with embedded fonts, while outlining the same text
+  makes it open. This supports cross-reader structural and visual checks for
+  font embedding; Acrobat is not available in this Linux validation run.
+- [#5527](https://gitlab.com/inkscape/inkscape/-/issues/5527) reports a crash
+  exporting a 32,000×16,000 raster page. Varve's 16,384-pixel side and 64 Mi
+  pixel surface budgets bound that 512-million-pixel request before allocation.
+  Verify the scale-down warning and boundary behavior when the raster workflow
+  is validated.
+- [#5661](https://gitlab.com/inkscape/inkscape/-/issues/5661) says page-tool
+  bleed settings do not reach the PDF's separate bleed box. Varve's PDF/X
+  `MarksGeometry` derives page boxes, but inspect a generated bleed export
+  before declaring that path visually and structurally covered.
+- [#5808](https://gitlab.com/inkscape/inkscape/-/issues/5808) reports text
+  omitted when an Inkscape 1.5-dev AppImage cannot load existing fonts. Varve
+  gathers requested font data and fails before export when required data is
+  unavailable; verify the user sees that explicit failure rather than a
+  successful PDF with missing text.
+- [#5893](https://gitlab.com/inkscape/inkscape/-/issues/5893) is a
+  CapyPDF-specific segfault on imported nested group/child transparency and
+  gradients. The shared risk category is resource nesting, but the backend is
+  different and no Varve regression is established.
+- [#6031](https://gitlab.com/inkscape/inkscape/-/issues/6031) reports invalid
+  PDFs with Hiragino fonts on macOS; this remains a targeted font-corpus case,
+  not evidence of a general Varve PDF failure.
+- [#6132](https://gitlab.com/inkscape/inkscape/-/issues/6132) reports legacy
+  SVG 1.2 `flowRoot` text omitted by CapyPDF but present in Cairo output. Varve
+  does not claim complete legacy flowed-text roundtripping.
+- [#6243](https://gitlab.com/inkscape/inkscape/-/issues/6243) reports a clipped
+  clone of a root-level group missing from a multi-page batch PDF while PNG
+  and Save Copy succeed. Keep it as a page/clone/clip export candidate if that
+  workflow is supported.
+- [#6284](https://gitlab.com/inkscape/inkscape/-/issues/6284) reports memory
+  exhaustion when two SVGs link to each other and one is cold-opened. It is not
+  a direct Varve match unless the importer starts resolving external SVG links.
+
+Body screening is now 64 of 6,392. Attachments and reported discussions remain
+pending for this batch; the notes above are not full issue resolutions.
+
+## Further Inkscape issue-corpus screening
+
+A bounded sweep extended coverage into three IID ranges. The 1,190 available
+issue descriptions in #2401–#3600 were individually screened; #2443, #2580,
+#2806, #2880, #2946, #3011, #3452, and #3558 were unavailable in the local
+cache. The other two IIDs in that range had already been screened. No cached
+comment threads were available for #2401–#3600, so the candidates below are
+body-only and remain unconfirmed against attachments or discussion history.
+The earlier #1–#1200 and #1201–#2400 passes were lexical triage followed by
+manual review of selected candidates; they are not represented as full manual
+reviews of those ranges.
+
+### Import, document integrity, and command-line contracts
+
+- [#3115](https://gitlab.com/inkscape/inkscape/-/issues/3115) describes a
+  missing linked-image placeholder overwriting authored dimensions, then
+  corrupting the image when it is relinked. This is a data-integrity test
+  category for any Varve flow that supports external links; Varve's
+  content-addressed embedded-image path may not share the mechanism.
+- [#265](https://gitlab.com/inkscape/inkscape/-/issues/265) reports invalid
+  PDF page selection causing crashes or empty output, while
+  [#270](https://gitlab.com/inkscape/inkscape/-/issues/270) reports CLI export
+  failures sometimes returning exit code zero. The shared product contract is
+  explicit failure and no published partial artifact for invalid requests.
+- [#1794](https://gitlab.com/inkscape/inkscape/-/issues/1794) documents
+  export-by-ID mutating the source document. Varve export should preserve the
+  open document snapshot; the report does not demonstrate a Varve defect.
+- [#526](https://gitlab.com/inkscape/inkscape/-/issues/526) and
+  [#804](https://gitlab.com/inkscape/inkscape/-/issues/804) describe absolute
+  local paths leaking through SVG metadata. Check portable-file metadata only
+  where Varve writes equivalent local paths.
+- [#1119](https://gitlab.com/inkscape/inkscape/-/issues/1119) reports a PDF
+  import expanding repeated glitter assets into very large files and high
+  memory use. The supplied file was not available for this review; generic
+  deduplication and bounded-import behavior are useful checks if PDF import is
+  supported.
+
+### PDF, raster, and multipage fidelity
+
+- [#602](https://gitlab.com/inkscape/inkscape/-/issues/602) reports stroked
+  text clipped in PDF despite correct canvas rendering. Cached discussion says
+  the report still reproduced on Inkscape development builds in 2022. This is
+  a strong text/stroke export regression category, not a confirmed Varve bug.
+- [#947](https://gitlab.com/inkscape/inkscape/-/issues/947) reports CLI PNG
+  export diverging from GUI export for an image clipped with
+  `clipPathUnits="objectBoundingBox"`; comments attribute it to coordinate
+  interpretation in one render path. Compare equivalent export paths if
+  Varve supports this SVG clip behavior.
+- [#1246](https://gitlab.com/inkscape/inkscape/-/issues/1246) describes a
+  large blurred export becoming black when allocation fails. Assert bounded
+  allocation and an honest error/degradation path for expensive raster export.
+- [#1491](https://gitlab.com/inkscape/inkscape/-/issues/1491) reports print
+  output losing a pattern that remains in Save-As PDF; the thread connects it
+  to [#1018](https://gitlab.com/inkscape/inkscape/-/issues/1018), where Cairo
+  rasterizes large pattern tiles at zoom-dependent resolution. Varve's capped
+  pattern tile path addresses a distinct implementation; its cap has a
+  visually reviewed regression test.
+- [#2704](https://gitlab.com/inkscape/inkscape/-/issues/2704) and
+  [#3239](https://gitlab.com/inkscape/inkscape/-/issues/3239) identify clipped
+  blend and filtered-mask PDF cases. They are candidate scenes for independent
+  PDF rendering and canvas comparison if the corresponding Varve features are
+  in scope.
+- [#2828](https://gitlab.com/inkscape/inkscape/-/issues/2828) reports
+  mask-heavy large-canvas PDF export exhausting memory. Varve has raster
+  surface bounds; peak memory and graceful handling of nested/cardinality-heavy
+  scenes remain the relevant validation questions.
+- [#3009](https://gitlab.com/inkscape/inkscape/-/issues/3009) reports thin
+  strokes changing under skew in vector printing. [#3214](https://gitlab.com/inkscape/inkscape/-/issues/3214)
+  reports filtered content and embedded images disappearing on later pages of
+  a multipage PDF. These are useful targeted visual fixtures only if the same
+  output features are supported.
+- [#3517](https://gitlab.com/inkscape/inkscape/-/issues/3517) reports
+  `preserveAspectRatio` raster edge leakage during PNG export;
+  [#3569](https://gitlab.com/inkscape/inkscape/-/issues/3569) reports hairline
+  seams between multipage PDF pages. Both need synthetic cross-renderer cases
+  before assigning any Varve cause.
+- [#3596](https://gitlab.com/inkscape/inkscape/-/issues/3596) reports an
+  empty drawing export crashing instead of returning a clear result. Test the
+  empty-document boundary if the corresponding export command is exposed.
+- [#558](https://gitlab.com/inkscape/inkscape/-/issues/558) is a historical
+  masked-image clone clipping report; the reporter later said it no longer
+  reproduced in Inkscape 1.4.2. Keep it as a regression shape, not a current
+  upstream defect claim. [#827](https://gitlab.com/inkscape/inkscape/-/issues/827)
+  was traced to and resolved through an upstream Cairo fix; it is an
+  interoperability corpus idea rather than evidence of a current Varve issue.
+
+### Adjacent renderer and resource cases
+
+The remaining manually selected reports include large-coordinate pattern
+phase (#2520), filter bounds under transforms (#2589, #2618), filtered
+clone/clip behavior (#2463), repeated image-heavy transforms (#2523), and
+repeated image relinking/import state (#3115). These map to stress or visual
+regression scenarios where Varve has an equivalent feature; Inkscape-specific
+GTK, extension, live-path-effect, arbitrary-marker, EPS/PS and packaging
+reports were not treated as Varve defects. The full-body lexical triage in
+#1–#1200 and #1201–#2400 is not counted as individual manual screening; the
+ledger records only descriptions that received a substantive read.
+
+### Additional historical threads and document-safety cases
+
+A direct read of [#1668](https://gitlab.com/inkscape/inkscape/-/issues/1668)
+found an old print clipping report whose discussion separates at least two
+reproductions: the original clip/print mismatch was reproduced on 1.0 and
+0.92.5, then not reproduced on 1.1-dev; a second user reported nested SVG
+viewports not appearing in print. Later notes link separate Inbox reports and
+additional fixtures. Treat this as historical renderer-parity evidence, not a
+single current defect. [#1627](https://gitlab.com/inkscape/inkscape/-/issues/1627)
+reports PNG export hanging on a clipped group whose fill references a gradient
+inside itself, with repeated “more than 32 iterations” document-update
+warnings. Its discussion also contains later distinct examples and a 42 KB
+comment; that thread is not counted as content-reviewed here. This reinforces
+cycle detection and bounded export as a test category without establishing a
+Varve hang. [#1957](https://gitlab.com/inkscape/inkscape/-/issues/1957) records
+an export-by-ID-only operation removing objects before a later export in the
+same session; [#1673](https://gitlab.com/inkscape/inkscape/-/issues/1673)
+records an old complex-document hit-testing loop during tool switching. These
+are historical integrity/performance reports; no matching Varve failure is
+known.
+
+## Recent Inkscape reports, IID 6001–6392
+
+A full-description pass read all 375 available, previously unscreened issues in
+this range. Ten were already in the ledger and seven bodies were unavailable;
+exact IDs are recorded in the continuation record. No discussions or linked
+attachments were reviewed in this pass, so the findings below are screening
+candidates only.
+
+Recent body reports again cluster around export fidelity and data integrity:
+PDFs reportedly lose content in masks and patterns (#6073, #6157, #6163,
+#6176, #6347), imported PDF colors/text can differ by renderer (#6186, #6278,
+#6380), and export metadata/links and page geometry can be wrong (#6052,
+#6105, #6184, #6185, #6305, #6317, #6390). Other reports cite incorrect
+HSL serialization (#6309), turbulence seams (#6331), raster edge bleed
+(#6160), and a 512× viewBox expansion during plain-SVG export (#6317).
+
+These reports are not direct evidence of matching Varve defects. Validate only
+where Varve supports the same feature and use the linked report as a regression
+shape; the attached samples were not fetched. Several reports concern current
+1.5 development builds, so check the tested version, platform, and export path
+before treating them as continuing upstream failures. User-pain reports also
+include an eight-minute selection of thousands of layers (#6391) and PDF form
+radio controls rendered selected on import (#6292); both are feature-specific
+and need realistic Varve workflow evidence before implementation.
+
+## Inkscape issue bodies #3901–#4800
+
+All 868 available, previously unscreened descriptions in this range were read
+in full. Bodies #3601–#3900 have not yet been fully screened; compact excerpts
+from part of that range are not counted. Thirty IDs had no cached body, and two were already screened. This
+pass did not inspect comments or attachments; findings here remain issue-body
+reports, not confirmed Varve defects.
+
+The strongest transferable reports include PDF export dropping a cloned
+marker (#3911), multi-page PDF output progressively clipping a masked JPEG
+(#3998), a pattern-of-pattern PDF mismatch (#4217), objects omitted from bleed
+areas (#4292), single-page bleed omitted while multipage output includes it
+(#4487), transparent text hiding earlier PDF text (#4572), mismatched page
+MediaBoxes (#4780), and clones omitted from batch PDF export (#4702). Import
+cases report PDF page scaling errors (#4251) and a renderer-specific PDF
+round-trip failure (#4577). These warrant fixtures only where Varve supports
+the same print/import behavior.
+
+Integrity and lifecycle reports include image dimensions changing when a
+missing link is edited (#4014), live preview actions wiping document contents
+(#4385), text style lost after saving/reopening (#4160), and document content
+flipping when a page moves with an inverted Y axis (#4350). Repeated export
+failures, invalid IDs, and closing during export can crash the application
+(#4235, #4328, #4523/#4524, #4703). These suggest invariant tests for
+non-destructive edits, saved state, explicit invalid-input errors, and safe
+cancellation. Their reports are version-specific and have not been reproduced
+in Varve.
+
+## Inkscape issue bodies #4801–#5478
+
+Fresh exact-ID reads covered 347 descriptions in #4801–#5150 and 321
+descriptions in #5151–#5478. The ledger records the screened IDs and omissions.
+No discussions or linked attachments were reviewed in these body-only passes,
+so the items below are leads rather than confirmed current Inkscape defects or
+Varve regressions.
+
+The clearest transferable integrity and interoperability leads are external
+SVG/clone copy crashes (#5282), recursive SVG definition import while pasting a
+pattern (#5351), and generated SVG ID collisions that change `<use>` resolution
+(#5317). Image relinking reportedly substitutes a different same-basename file
+when a valid external link contains spaces (#5432), a high-impact asset
+integrity scenario worth reproducing before mapping it to Varve. PDF import
+reportedly creates a clipPath for every path, including duplicates (#5345),
+which suggests measuring whether Varve's importer bounds redundant resources.
+
+Other workflow leads include physical print-size errors with GTK portals
+(#5335), stale boolean-operation rendering after save/reopen (#5305), and a
+Save As freeze caused by a recursive file-picker callback (#5376). These map
+to print geometry, scene invalidation, and re-entrant UI state only if Varve
+exposes equivalent workflows. The bodies are version- and platform-specific;
+their linked fixtures, discussions, and current upstream status remain
+unreviewed. See the continuation record for exact body coverage and remaining
+gaps.
+
+## Discussion sweep: IID 1601–1700 (2026-10-18)
+
+A read-only sweep reviewed every cached note body and history event for the 95
+threads with note caches in this range: 801 user notes and 865 system/history
+notes (1,666 records). Three cached threads (#1644, #1668, and #1676) were
+already marked reviewed; 92 additional issue discussions are now recorded in
+the ledger. The five zero-comment threads without a note cache (#1603, #1648,
+#1654, #1664, #1670) remain pending rather than being inferred reviewed.
+Cached comment counts reconciled for the reviewed range. Most reports are
+historical (2020–21); linked merge requests and attachments were not fetched
+independently in this sweep, and none of these reports establishes a Varve
+defect.
+
+The strongest follow-up candidates are:
+
+- **Autosave retention and document identity (#1649):** the title and thread
+  raise rotation/overwrite ordering and per-document collision questions.
+  Inspect Varve's recovery/autosave naming and retention behavior before
+  mapping; no current Varve failure has been established.
+- **Print/PDF fidelity (#1613, #1668, #1676):** reports cover clipped or
+  transformed content, raster-mask export, and landscape page orientation.
+  They reinforce checking output geometry and clipping across print routes;
+  #1676 was reported resolved upstream in 1.1.2, which does not prove Varve
+  shares or avoids the issue.
+- **PDF interaction and malformed input (#1631, #1632):** hyperlink hit-region
+  behavior and a null-page crash are candidate checks for Varve's PDF routes.
+  Their exact failure mechanisms and present upstream status need source/fixture
+  follow-up before prioritization.
+- **Large SVG interaction performance (#1673):** a long-running report was
+  updated in 2026 with a 1.5-dev/Fedora note. This supports a bounded
+  reproduction with a realistic complex SVG before any optimization; the
+  report alone does not identify Varve's hot path.
+- **SVG edit churn and navigation performance (#1653, #1614):** style
+  reordering was reported to create noisy VCS diffs, while zoom/pan reports
+  describe broad platform-specific performance concerns. Treat them as
+  candidate interoperability/performance checks, not proof of a Varve
+  regression.
+
+This sweep adds no confirmed Varve defect or implementation-ready change.
+Continue by inspecting the referenced issue bodies, attachments, linked MRs,
+and current Varve contracts for the strongest candidates, while the wider
+corpus remains in progress.
+
+## Discussion sweep: IID 1721–1730 (2026-10-18)
+
+Read the cached discussion history for five new threads in this interval (85
+records: 39 user comments and 46 system/history events). Together with the four
+previously reviewed threads #1721 and #1723–1725, this interval covers nine
+threads and 110 cached records. IID 1722 has no
+reported comments or note cache and remains pending. The four previously
+reviewed threads #1721 and #1723–1725 are included in the running 940-thread
+coverage count.
+
+- [#1726](https://gitlab.com/inkscape/inkscape/-/issues/1726): the reporter
+  retracted the original fill complaint after discovering Bezier Pen mode was
+  set to Triangle In. The maintainer then confirmed a separate Powerstroke LPE
+  bug for closed paths and linked #577/#1079. Varve has no matching Powerstroke
+  LPE, so this is not mapped to a current defect.
+- [#1727](https://gitlab.com/inkscape/inkscape/-/issues/1727): Linux users
+  described a modal live-preview dialog obscuring and dimming the canvas, with
+  one saying the workaround was obscure enough to make them consider leaving
+  Inkscape. Replies attribute the behavior to GNOME Mutter's attached-modal
+  setting, report it absent on other desktop environments, and later identify
+  a GTK issue. This is a toolkit/window-manager behavior, not an SVG rendering
+  regression in Varve.
+- [#1728](https://gitlab.com/inkscape/inkscape/-/issues/1728): exporting in a
+  rapid Windows CLI loop while typing with non-US keyboard layouts produced
+  spurious accent characters. The thread identifies an upstream GTK issue and
+  reports it fixed in GTK 3.24.31. Varve's export path does not share that GTK
+  event-handling route.
+- [#1729](https://gitlab.com/inkscape/inkscape/-/issues/1729): a PDF-import
+  text iterator underflow was addressed in [MR !2621](https://gitlab.com/inkscape/inkscape/-/merge_requests/2621).
+  Varve uses a separate TypeScript PDF importer; the report does not establish
+  the same defect there.
+- [#1730](https://gitlab.com/inkscape/inkscape/-/issues/1730): Inkscape's
+  debug build crashed opening a single-point SVG path with `stroke-dasharray`;
+  the issue records it fixed by commit
+  `97c5de14bd45ec5ac810fd2fba48f3c64225fe55`. Inspecting Varve's importer
+  against the minimal reproducer found it substituted a visible 10×10
+  rectangle when a path had fewer than two points. Varve now skips that
+  non-renderable path and reports a warning, with regression coverage for
+  `M 0,0` and `m 0,0 z`.
+
+These discussions also contain reports that were later corrected or traced to
+toolkit and desktop-environment behavior. They are evidence about where users
+lose trust, not proof that Varve shares the same implementation failure.
+
+## Discussion sweep: IID 1731–1735 (2026-10-18)
+
+All five cached discussions were reviewed (54 records: 27 user comments and 27
+system/history events). No exact Varve defect was established.
+
+- [#1731](https://gitlab.com/inkscape/inkscape/-/issues/1731) reports that a
+  two-scan Autotrace run generated hundreds of grouped paths. Varve's trace
+  pipeline flattens traced contours into one editable trace group, enforces a
+  100,000-path ceiling, and shows a path/point complexity estimate before
+  applying the result. The attached video and related inbox #4168 remain
+  uninspected; output size depends on source-image detail, so this is a
+  candidate stress case rather than a confirmed Varve performance problem.
+- [#1732](https://gitlab.com/inkscape/inkscape/-/issues/1732) asks for more
+  predictable PowerClip live-path-effect application and clipboard sourcing.
+  Later comments question the LPE design; the thread notes SVG has no direct
+  representation for this operation. Varve has no matching LPE feature.
+- [#1733](https://gitlab.com/inkscape/inkscape/-/issues/1733) reports stale
+  clipboard content and wrong scale when copying an Offset LPE between
+  documents. The thread separates focus/clipboard behavior from an Offset
+  implementation bug and says it was fixed in 1.1-dev by commit
+  `5928baa181cda4b51a51bd624b0806caec060dea`. Varve does not have live Offset
+  LPEs, so no direct mapping was found.
+- [#1734](https://gitlab.com/inkscape/inkscape/-/issues/1734) is specific to
+  the Ubuntu Snap: print preview could not launch Evince, and printing also
+  lacked host CUPS access. [MR !6947](https://gitlab.com/inkscape/inkscape/-/merge_requests/6947)
+  fixes the main branch; [MR !6951](https://gitlab.com/inkscape/inkscape/-/merge_requests/6951)
+  backports the print/preview fix to 1.4.x by packaging Evince and connecting
+  host printing. Varve does not distribute a Snap package, so the packaging
+  failure is not shared.
+- [#1735](https://gitlab.com/inkscape/inkscape/-/issues/1735) reports missing
+  drag/drop preview cues for macOS dockable panels, linked in the discussion to
+  GTK issue #410. Later notes say the docking system was rewritten for 1.1 and
+  a user believed the behavior had fixed itself. Varve's dock uses its own
+  React drop preview rather than GTK/GDL; no matching regression is established.
+- [#1736](https://gitlab.com/inkscape/inkscape/-/issues/1736) reports the
+  Objects dialog search reopening unexpectedly after its tree updates. The
+  discussion points to upstream MR !2216 and a 1.0.x backport; Varve's object
+  search has no equivalent defect established by this report.
+- [#1737](https://gitlab.com/inkscape/inkscape/-/issues/1737) reports a crash
+  opening path data with enormous coordinates (`1e309`, `-1e309`). The note
+  records reproduction in Inkscape 1.1-dev on Windows and moving the report
+  from the inbox. Varve's SVG parser also accepted these numbers as `Infinity`
+  and could put non-finite path points or Bezier handles into the scene. It now
+  skips a path with any non-finite point or handle and reports a warning. The
+  regression is covered by a parser test; browser validation is in progress.
+- [#1738](https://gitlab.com/inkscape/inkscape/-/issues/1738) covers
+  Save as > Optimized SVG failures across older Linux packages and AppImages.
+  The discussion distinguishes extension runtime/dependency packaging from
+  application behavior and records a packaging update that restored the
+  AppImage case. Varve has no matching extension packaging path.
+- [#1740](https://gitlab.com/inkscape/inkscape/-/issues/1740) reports invisible
+  zero-area fills generated by Stroke to Path, later partly fixed and split
+  into [#3259](https://gitlab.com/inkscape/inkscape/-/issues/3259). Varve has
+  no matching Stroke to Path operation, so no direct product change follows.
+
+The #1737 importer guard is a directly transferable malformed-geometry lesson:
+SVG numeric syntax can parse successfully while producing values that are not
+finite. Skip the affected path and tell the user, instead of admitting invalid
+coordinates into the editable document.
+
+## Discussion and implementation check: IID 1741–1745
+
+The five threads contain 69 cached records (17 user comments and 52
+system/history events). #1741 and #1742 document older Cairo/Poppler PDF
+gradient displacement and clipping. Users reproduced the behavior in 1.1-dev;
+the later 1.3-dev comments report that the original examples work after the
+internal PDF importer rewrite, with a remaining soft-mask case split to
+inbox#8253. The upstream PDF importer refactor is [MR !4757](https://gitlab.com/inkscape/inkscape/-/merge_requests/4757).
+#1743 is a duplicate of the LPE copy/paste issue reviewed in #1733; [MR !3479](https://gitlab.com/inkscape/inkscape/-/merge_requests/3479)
+fixes that family of LPE clipboard failures. #1744 reports displaced PDF text
+gradients: [MR !5298](https://gitlab.com/inkscape/inkscape/-/merge_requests/5298)
+fixes gradient-stop scaling and transform timing, while the later
+[#4295 status table](https://gitlab.com/inkscape/inkscape/-/issues/4295)
+still lists a missing-gradient regression in one text sample. #1745's simple
+PDF gradient displacement was reported fixed in 1.3-dev after the importer
+rewrite.
+
+Varve's PDF importer intentionally imports editable text and plain
+axis-aligned rectangle fills, and reports gradients and other unsupported
+content rather than approximating them. These reports therefore reveal a
+fidelity limitation users may encounter when moving PDFs between design tools,
+but they do not establish a Varve rendering defect. The File Formats guide now
+states this subset and asks readers to review Import Results before relying on
+a partial import. No PDF gradient subsystem or code change is selected from
+these historical reports alone.
+
+The one actionable follow-up is to retain a high-detail, multi-scan raster as
+a trace complexity stress fixture if tracing performance is investigated.
+The existing path cap and pre-apply estimate already address unbounded output;
+do not change tracing behavior from this historical report alone.
+
+## Discussion and implementation check: IID 1746–1750
+
+The five threads contain 43 cached records (13 user comments and 30
+system/history events). [#1746](https://gitlab.com/inkscape/inkscape/-/issues/1746)
+is an LPE path-geometry issue, later echoed by the Tiling LPE report
+[#4547](https://gitlab.com/inkscape/inkscape/-/issues/4547): changing display
+units can leave authored numeric parameters stale and cause a later edit or
+export to alter the result. Varve has no live path effects, so the LPE failure
+does not map to its current document model. [#1747](https://gitlab.com/inkscape/inkscape/-/issues/1747)
+was a separate regression caused by the GObject data migration. Upstream
+[MR !3665](https://gitlab.com/inkscape/inkscape/-/merge_requests/3665) restored
+unit-tracker refresh but explicitly notes remaining cases without a viewBox.
+Varve's status-bar selector changes ruler display units only; it does not
+promise to convert document geometry or tool-specific numeric fields. The
+visible label is now “Ruler units” to state that scope.
+
+The cross-product evidence supports clear affordances: a Figma user reported
+being unable to use the ruler after a UI change, then explained they had waited
+for a cursor cue before dragging. The [support reply](https://forum.figma.com/report-a-problem-6/ruler-won-t-work-on-new-figma-ui-18553)
+confirmed that the cue was confusing. This does not establish a Varve ruler
+interaction defect, but reinforces naming controls for the operation they
+actually affect.
+
+[#1748](https://gitlab.com/inkscape/inkscape/-/issues/1748) is a GTK Win32
+theme context-menu border, addressed by a Windows theme backport
+[MR !3550](https://gitlab.com/inkscape/inkscape/-/merge_requests/3550); Varve's
+web-based menus do not share that rendering path. [#1749](https://gitlab.com/inkscape/inkscape/-/issues/1749)
+reports that the legacy 90-to-96-dpi conversion prompt was skipped when a
+document replaced the new-document tab. Its 425-byte sample identifies itself
+as Inkscape 0.48, has explicit dimensions and no `viewBox`, and contains no
+artwork to compare. Inkscape's [CSS96 migration notes](https://wiki.inkscape.org/wiki/CSS96)
+explain that pre-0.92 SVGs without a `viewBox` can depend on 90-dpi sizing; the
+official [units FAQ](https://inkscape.org/learn/faq/#dpi_change) documents why this
+matters for physical-size work. Varve's importer previously preserved the
+numeric coordinates without flagging this ambiguity. It now reports the risk
+for sized pre-0.92 Inkscape SVGs without a `viewBox`, and leaves coordinates
+unchanged because the SVG cannot reveal whether numeric dimensions were meant
+to express fixed physical size. A focused parser regression and real import
+flow cover the warning and confirm geometry is retained. The File Formats guide
+explains the limitation.
+
+[#1750](https://gitlab.com/inkscape/inkscape/-/issues/1750) concerns an
+unexpanded year/author placeholder in Inkscape's bundled GPL license text;
+[MR !2318](https://gitlab.com/inkscape/inkscape/-/merge_requests/2318) updated
+those templates. Varve's About section shows its concrete FSL-1.1-MIT license
+identifier and links to the license page; no matching placeholder exists, so
+no product edit is needed.
+
+## Discussion and implementation check: IID 1751–1755
+
+The five threads contain 114 cached records (61 user comments and 53
+system/history events; #1751 has no cached comments). [#1751](https://gitlab.com/inkscape/inkscape/-/issues/1751)
+is a closed Path Effect issue about distorted pattern-along-path output. Varve
+does not have this live effect. [#1752](https://gitlab.com/inkscape/inkscape/-/issues/1752)
+documents font-family dropdown hangs and crashes with very large installed
+font catalogs across Windows and Linux, with inconsistent workarounds and
+uncertain root cause. Varve's font selectors already virtualize their lists;
+the report does not establish a matching failure, so no platform-specific
+change is selected without reproduction. [#1753](https://gitlab.com/inkscape/inkscape/-/issues/1753)
+shows old Inkscape 0.48 flowed text moving or disappearing after migration.
+Varve does not lay out SVG 1.2 `flowRoot` text. It previously skipped that
+element without a fidelity report; it now identifies flowed text in
+`unsupportedFeatures`, and the File Formats guide states the limitation.
+
+[#1754](https://gitlab.com/inkscape/inkscape/-/issues/1754) requested a
+documented command-line pipe example, which was added to Inkscape's manual.
+Varve's current CLI validates, canonicalizes and diffs documents, but does not
+render artwork to stdout, so the reported CLI output use case is outside the
+current feature set. [#1755](https://gitlab.com/inkscape/inkscape/-/issues/1755)
+reports a 4.2 MB SVG that took about 13 seconds in Inkscape 0.92.5 and did not
+open within three minutes in 1.1-dev; commenters found duplicate style tags
+and large gradient sets affected load time. Varve's XML parser extracted text
+from every closed element, rescanning nested subtrees although only `<text>`
+consumes that data. It now extracts content only for `<text>`, preserving
+nested `tspan` content. A regression also protects against silently losing
+Inkscape flowed text. The imported artwork still follows Varve's documented
+SVG subset; this optimization does not imply CSS style support.
+
+
+## Discussion and implementation check: IID 1761–1770
+
+The ten cached threads contain 133 records (74 user comments and 59
+system/history events). [#1761](https://gitlab.com/inkscape/inkscape/-/issues/1761)
+is a GTK box-property warning without an established Varve UI match. [#1762](https://gitlab.com/inkscape/inkscape/-/issues/1762)
+is an internal longest-common-suffix refactor request rather than a user-facing
+regression. [#1763](https://gitlab.com/inkscape/inkscape/-/issues/1763) concerns
+joining Bezier nodes with handles; Varve has no equivalent join-nodes command.
+
+[#1764](https://gitlab.com/inkscape/inkscape/-/issues/1764) reports the Layers
+and Objects panel jumping upward after create, delete, or reorder in a large
+document. Varve's virtualized `LayersTree` has an explicit guard to avoid
+scrolling on layer-origin selections and only auto-reveals external canvas
+selection when the preference is enabled. This is relevant existing protection,
+but the exact sequence from the report is not yet covered by a visual E2E.
+[#1765](https://gitlab.com/inkscape/inkscape/-/issues/1765) reports a hang on
+negative SVG `stroke-dasharray`. The SVG importer now accepts finite,
+nonnegative dash lengths with supported units and reports invalid negative or
+overflowing patterns as unsupported instead of silently treating them as solid.
+Parser coverage includes this failure class; the File > Import visual check is
+tracked with #1791.
+
+[#1766](https://gitlab.com/inkscape/inkscape/-/issues/1766) is a startup canvas
+warning whose discussion does not show it caused incorrect rendering. #1767
+reports inherited transforms on newly created autoflowed text; Varve does not
+implement SVG 1.2 autoflow text, and no equivalent ordinary-text defect was
+reproduced. [#1768](https://gitlab.com/inkscape/inkscape/-/issues/1768) requests
+filter-region handles for raster images. Varve does not expose editable filter
+regions on raster nodes and reports unsupported imported filter-region behavior.
+[#1769](https://gitlab.com/inkscape/inkscape/-/issues/1769) describes a
+Perspective LPE flip regression that later commenters could not reproduce in
+newer releases; Varve has no such LPE. [#1770](https://gitlab.com/inkscape/inkscape/-/issues/1770)
+was an upstream use-after-free when popping a selected object from its group,
+confirmed fixed in [MR !2186](https://gitlab.com/inkscape/inkscape/-/merge_requests/2186).
+Varve has no equivalent command, and this historical report alone does not
+show a defect in its different reparenting path.
+
+No additional code change is justified by these reports. The layers-panel case
+remains a focused visual regression candidate; keep it open until the large-tree
+create/delete/reorder sequence is exercised through Varve's UI.
+
+
+## Discussion and implementation check: IID 1756–1760
+
+These five cached threads contain 70 records (21 user comments and 49
+system/history events). [#1756](https://gitlab.com/inkscape/inkscape/-/issues/1756)
+reports a masked PDF clone unlink/export failure; Varve has no clone model or
+matching export path, so no analogous defect is established. [#1757](https://gitlab.com/inkscape/inkscape/-/issues/1757)
+concerns embedded SVG documents whose child `<use>` references fail in
+Inkscape; [MR !3147](https://gitlab.com/inkscape/inkscape/-/merge_requests/3147)
+addresses child href and CSS handling. Varve already blocks fetching external
+references for safety, but previously reported them as unknown local IDs. The
+importer now reports external-document references explicitly as unsupported,
+and the SVG guide and Import Results E2E explain that behavior.
+
+[#1758](https://gitlab.com/inkscape/inkscape/-/issues/1758) reports CJK
+Find/Replace source offsets; [MR !2999](https://gitlab.com/inkscape/inkscape/-/merge_requests/2999)
+fixes the upstream byte-offset issue. Varve's current mapping converts
+Unicode comparison coordinates to UTF-16 offsets and existing tests cover CJK,
+combining marks, and emoji. [#1759](https://gitlab.com/inkscape/inkscape/-/issues/1759)
+remains an open SVG2 text fallback-centering issue; Varve's basic SVG text
+import does not implement per-`tspan` positioning, so a representative fixture
+would be needed to establish a matching failure. [#1760](https://gitlab.com/inkscape/inkscape/-/issues/1760)
+is an ellipse-brush live-path-effect regression, outside Varve's feature set.
+
+
+## Discussion and implementation check: IID 1771–1780
+
+These ten cached discussions contain 106 records (48 user comments and 58
+system/history events). [#1771](https://gitlab.com/inkscape/inkscape/-/issues/1771)
+traces a smooth-node deformation to overlapping/nearly overlapping path nodes
+and the timing of neighboring smooth-handle repair. Varve has Bezier editing,
+but this specific imported-geometry failure has not been reproduced. #1772
+reports that creating a layer leaves focus in the panel so Ctrl+Tab document
+switching no longer works; this remains an unverified keyboard workflow in
+Varve. [#1773](https://gitlab.com/inkscape/inkscape/-/issues/1773) is duplicate
+evidence for the large font-catalog performance/crash family in #1465. Varve
+already virtualizes font lists, though large-catalog behavior still needs real
+application validation. #1774's singular Perspective LPE and #1775's missing
+Python extension interpreter are outside Varve's feature set. #1776 describes
+an older Qt clipboard-manager symbol error without a matching Varve path.
+
+[#1777](https://gitlab.com/inkscape/inkscape/-/issues/1777) reports a broken
+PNG file left behind after cancelling a long export. Later discussion says
+Inkscape switched to temporary output, but cleanup of abandoned temporary files
+was still questioned. Varve's export service encodes bytes before saving,
+checks abort state before the save sink, and its Tauri writer atomically
+replaces the target after syncing a same-directory temporary file. Existing
+unit tests cover cancellation and safe-write cleanup; the exact real export UI
+cancellation path remains a visual/E2E candidate.
+
+[#1778](https://gitlab.com/inkscape/inkscape/-/issues/1778) reports an old
+Inkscape line-positioning problem with an empty `<tspan/>` before a
+`<tspan sodipodi:role="line">`. Varve currently flattens nested tspan text
+and discards per-tspan line positioning. This is a plausible import fidelity
+gap, not yet verified on the reported attachment; inspect that fixture and
+compare the actual Varve result before choosing line-layout support or a more
+specific unsupported-feature warning. #1779's color-button freeze is specific
+to an extension live-preview picker Varve does not have. #1780's discussion
+distinguishes normal, fullscreen, and focus-mode visibility settings and
+reports stale controls; Varve has native fullscreen but no equivalent three-mode
+toolbar model, so its real window-state behavior remains to be checked before
+closing the comparison.
+
+
+## Discussion and implementation check: IID 1781–1785
+
+The five threads contain 50 cached records (16 user comments and 34
+system/history events); #1782 has no discussion notes. [#1781](https://gitlab.com/inkscape/inkscape/-/issues/1781)
+was reproduced with zero-length path segments and a nonzero-angle gradient;
+[MR !2200](https://gitlab.com/inkscape/inkscape/-/merge_requests/2200) tests
+for degenerate lines. Varve already rejects non-finite points/handles and
+contours that are too short, but finite coincident points may be retained. No
+Varve rendering/editor failure is established, and a blanket removal of such
+segments could change SVG cap/marker behavior. Keep this as a fixture candidate.
+
+[#1782](https://gitlab.com/inkscape/inkscape/-/issues/1782) is a brief report
+of strange rendering from a very distant finite path coordinate; it closed with
+no discussion or fix evidence. That is insufficient basis for imposing a
+coordinate cap that could reject valid oversized maps. [#1783](https://gitlab.com/inkscape/inkscape/-/issues/1783)
+remains an open, inconclusive gradient-handle performance report. Varve has
+editable canvas/inspector gradient controls and bounded gradient caching, but
+no slowdown or leak has been reproduced; repeated-drag measurements would be
+needed before a code change.
+
+[#1784](https://gitlab.com/inkscape/inkscape/-/issues/1784) triggered a Cairo
+NaN-angle assertion; [MR !2199](https://gitlab.com/inkscape/inkscape/-/merge_requests/2199)
+added a finite-angle check. The same reporter later described a distinct
+zoom/pan crash in [#1800](https://gitlab.com/inkscape/inkscape/-/issues/1800),
+which is also filed as [Inkscape Inbox #3421](https://gitlab.com/inkscape/inbox/-/issues/3421). Its six cached records confirm the separate lib2geom assertion and later report that it still reproduced in a development build. The original upload redirects to sign-in, so fixture validation remains blocked. The first fix does not close the follow-up failure. Varve rejects non-finite
+path points and handles before node creation, a relevant guard for its separate
+parser/renderer. [#1785](https://gitlab.com/inkscape/inkscape/-/issues/1785)
+removed an unused 2006 toolbox XML file upstream via [MR !2940](https://gitlab.com/inkscape/inkscape/-/merge_requests/2940);
+Varve has no corresponding UI file or runtime path.
+
+## Discussion and implementation check: IID 1786–1795
+
+The retrieved cache has 104 records across nine threads (31 user comments and
+73 system/history events). #1787 has no reported user comments and no local
+note cache; its six system events were checked from the GitLab discussion
+response. For #1786, the cache has 15 user comments, matching the frozen
+ledger count; an earlier issue-page summary of seven user comments appears
+stale and is not used as the discussion total.
+
+[#1786](https://gitlab.com/inkscape/inkscape/-/issues/1786) reports a crash
+on an empty group with an unusually large filter region. The closed issue has
+no confirmed upstream fix in the reviewed discussion. Varve caps supported
+filter parameters and reports unsupported group filters; the reported empty
+filter construction does not map directly to the supported filter pipeline.
+[#1787](https://gitlab.com/inkscape/inkscape/-/issues/1787) asks about Cut
+behavior for zero-radius arcs. Varve converts such arcs to their endpoint, but
+the precise interactive Cut semantics remain unverified. #1788 is a GUI batch
+process plus piped-stdin shutdown report; Varve has no SVG-on-stdin GUI mode.
+#1789 concerns Inkscape's Tweak/Roughen brush, which Varve does not implement.
+#1790's connector obstacle avoidance and object identity failure has no Varve
+connector-avoidance model.
+
+[#1791](https://gitlab.com/inkscape/inkscape/-/issues/1791) reports unit
+handling errors in Inkscape's PDF dash export. The reported exporter failure is
+Cairo-specific and its later status is inconclusive, but code inspection found
+a separate, actionable Varve fidelity gap: SVG import dropped
+`stroke-dasharray` and `stroke-dashoffset` and set an empty dash pattern. The
+importer now converts unitless, px, pt, mm, cm, and in lengths using the SVG
+unit conversion and reports invalid/unsupported values. Percentage dash lengths
+are reported because the importer does not yet resolve the viewport-relative
+normalized diagonal. Parser tests cover millimeter patterns, negative offsets,
+invalid negative lengths, and percentages. The real File > Import visual case
+passes in Chromium with a visibly dotted stroke. This fixes Varve's SVG import
+loss, not Inkscape's distinct Cairo PDF exporter defect.
+#1792 reports Envelope LPE
+geometry at very large coordinates, a different effect model from Varve's warp
+features and not a reproduced Varve defect. #1793 was fixed upstream in
+[MR !2758](https://gitlab.com/inkscape/inkscape/-/merge_requests/2758) by
+unlinking clones before ungrouping; Varve materializes SVG `<use>` references
+and guards cycles, with no persistent linked-clone model. #1794's Save a Copy
+mutation was fixed upstream in [MR !2755](https://gitlab.com/inkscape/inkscape/-/merge_requests/2755);
+Varve's native save-copy and PDF snapshot paths preserve the live document by
+construction. #1795 was fixed upstream in [MR !2211](https://gitlab.com/inkscape/inkscape/-/merge_requests/2211);
+Varve supports proportional resize policy but has no confirmed matching
+persistent canvas lock control, so the exact gesture needs application-level
+verification before drawing a parity conclusion.
+
+The initial body screen for IID 1801–1810 flagged #1802's legacy-DPI concern,
+#1807's flowed-text loss, and #1809's stale node indicator for discussion and
+code-path review. The section below records the completed discussion review
+and the applicable Varve mappings.
+
+## Discussion and implementation check: IID 1801–1810
+
+Eight nonempty threads contain 87 cached records (43 user comments and 44
+system/history events); #1805 and #1808 have zero reported comments and no
+notes. [#1801](https://gitlab.com/inkscape/inkscape/-/issues/1801) is a
+confirmed crash while exporting unsupported single-point geometry to WMF. Varve
+has no WMF exporter, so the format-specific failure path is absent. [#1802](https://gitlab.com/inkscape/inkscape/-/issues/1802)
+was identified as a duplicate of [#872](https://gitlab.com/inkscape/inkscape/-/issues/872),
+which ties the ruler issue to documents lacking `viewBox` during migration from
+90 to 96 dpi. Varve now warns on old Inkscape documents that present that sizing
+ambiguity, preserves coordinates, and labels the ruler-unit control explicitly.
+
+[#1803](https://gitlab.com/inkscape/inkscape/-/issues/1803) is a misplaced
+text-on-path handle; the current Varve SVG importer has no text-path layout or
+handle model. [#1804](https://gitlab.com/inkscape/inkscape/-/issues/1804) was
+fixed upstream by [MR !2266](https://gitlab.com/inkscape/inkscape/-/merge_requests/2266),
+which searches translated symbol names. Varve has no symbol library search
+dialog. #1805 has no description or discussion and is a stub. #1806's macOS
+startup failure to load lib2geom was fixed in the upstream build pipeline; it
+does not share a Varve native dependency.
+
+[#1807](https://gitlab.com/inkscape/inkscape/-/issues/1807) concerns broken
+legacy flowed text whose referenced `shape-inside` frame is missing. Varve
+already reports Inkscape `flowRoot` as unsupported, but previously silently
+ignored `shape-inside` on basic `<text>`. The importer now reports that layout
+loss while retaining the editable text content, with parser and File > Import
+coverage. Visual validation also found that the retained text's CSS generic
+`sans-serif` family triggered a false Missing Fonts prompt and inline
+unavailable-family indicator. The resolver and compact font picker now share a
+predicate that leaves CSS generic family keywords, including `system-ui`,
+`ui-*`, and `math` forms, plus script-specific `generic(...)` forms, to platform
+fallback; regressions cover document, text-style, and picker references.
+The generic allowlist follows the current CSS Fonts draft; the string `emoji`
+is a named family and still receives availability checks. The historical linked
+#776 is not available in the current tracker response, so its status remains
+unverified. #1808 requests exact gradient
+handle coordinates; the report has no comments, and no matching coordinate
+control was established. #1809 was a CanvasItems node-type indicator refresh
+bug fixed upstream; Varve's editor uses a different overlay architecture, and
+no stale indicator was reproduced. [#1810](https://gitlab.com/inkscape/inkscape/-/issues/1810)
+was fixed in [MR !2239](https://gitlab.com/inkscape/inkscape/-/merge_requests/2239);
+Varve does not implement Inkscape live path effects or their node-tool handles.
+
+## Discussion and implementation check: IID 1811–1820
+
+Eight nonempty threads contain 91 cached records (41 user comments and 50
+system/history events); #1816 and #1818 have zero reported comments and no
+notes. [#1811](https://gitlab.com/inkscape/inkscape/-/issues/1811) reports
+that the bottom bar does not name the nested group currently being edited.
+Varve has the matching `isolatedNodeId` context but previously showed no name
+in the status row. The bottom bar now displays the active isolated container's
+name; a component regression and the real Select-tool Enter/Escape workflow
+verify appearance and cleanup.
+
+[#1812](https://gitlab.com/inkscape/inkscape/-/issues/1812) and
+[#1813](https://gitlab.com/inkscape/inkscape/-/issues/1813) report canvas
+recentering after window maximize/fullscreen changes. Varve's ResizeObserver
+path preserves a camera anchor through viewport resizing; no matching camera
+reset is present, but dedicated maximize/fullscreen automation remains a
+candidate. [#1814](https://gitlab.com/inkscape/inkscape/-/issues/1814) is
+specific to Visio VSDX conversion through librevenge/libvisio, which Varve does
+not import. [#1815](https://gitlab.com/inkscape/inkscape/-/issues/1815) was
+fixed upstream; Varve's wheel classifier already maps Ctrl/Cmd+wheel to zoom
+and Shift+vertical-wheel to horizontal pan. #1816's GCode extension has no
+Varve equivalent.
+
+[#1817](https://gitlab.com/inkscape/inkscape/-/issues/1817) found a Cairo grid
+repaint region too small at high zoom and far from origin; the report's thread
+says the grid was fixed upstream in !2273. Varve's grid renderer adapts line
+spacing to zoom and caps per-axis lines, and its coordinates pass through the
+floating-origin camera. No same failure was reproduced. #1818 is an old
+macOS notarization problem in a Python-wheel build pipeline. #1819 concerns
+stale values in GTK's Selectors and CSS dialog; Varve has no corresponding
+CSS editing dialog, and its Inspector commits are driven by current document
+state. #1820 is a GTK insert-emoji context menu crash in that dialog, also
+without a Varve feature match.
+
+## Comparable-app complaint check for SVG text and stroke import — 2026-10-18
+
+Firsthand reports reinforce that import feedback and honest editability claims
+are part of fidelity. In a June 2026 Inkscape community thread, a user moving
+SVG documents to a new computer could not identify the missing fonts and
+resorted to changing font families object by object; another user pointed to
+Inkscape's optional substitution warning. This is anecdotal, not a controlled
+reproduction, but it illustrates the cost of silent font substitution and the
+need to distinguish CSS platform-generic families from unavailable named
+families. Varve's supported-family replacement workflow already covers named
+missing fonts; this comparison motivated the regression ensuring a generic
+`sans-serif` fallback does not raise a false Missing Fonts prompt or an inline
+unavailable-family warning.
+[Reddit thread](https://www.reddit.com/r/Inkscape/comments/1u5kvid/reinstalled_inkscape_on_a_new_computer_now_all_my/)
+(post and comments read 2026-10-18).
+
+A separate Inkscape user report describes PDF text arriving as outlines or
+individual character objects rather than editable text. It underscores that
+visual presence does not establish text editability. Varve's file-format page
+now states exactly which PDF constructs it imports and warns about unsupported
+content; it does not promise preservation of arbitrary PDF text structure.
+[Reddit thread](https://www.reddit.com/r/Inkscape/comments/1i2v5y8/why_it_converts_pdf_text_to_shapes/)
+(post and comments read 2026-10-18). An Affinity Designer forum report also
+describes a PDF export where balanced dashed strokes lose corner behavior;
+that is a distinct export pipeline and does not prove a shared importer cause,
+but supports checking dash appearance in the actual target renderer rather
+than treating a parsed dash array as sufficient evidence.
+[Affinity forum report](https://forum.affinity.serif.com/index.php?/topic/229769-balanced-dash%E2%80%9C-option-for-stroke-doesnt-make-it-to-pdf-corners-not-respected%E2%80%A6/)
+(thread search result reviewed 2026-10-18; direct page access returned 403).
+
+## Discussion and implementation check: IID 1821–1830
+
+Nine threads with comments contain 100 cached records (57 user comments and
+43 system/history events); #1824 reports zero comments. #1821's filter-related
+assertion is emitted while closing Inkscape's built-in tutorial document and
+does not establish a Varve import/render failure. The issue history links it
+to #937 and identifies a distinct window-close fix; Varve does not load that
+tutorial through the same SPObject lifecycle. #1822's Ubuntu 18.04 nightly PPA
+problem was answered with an AppImage workaround because that environment no
+longer met master-branch GTK dependencies; Varve does not publish that PPA.
+
+[#1823](https://gitlab.com/inkscape/inkscape/-/issues/1823) separates a
+sticky-snap release defect from broader requests for alignment guides. Its
+discussion links [UX #15](https://gitlab.com/inkscape/ux/-/issues/15),
+[Launchpad #541036](https://bugs.launchpad.net/inkscape/+bug/541036), and
+[MR !1965](https://gitlab.com/inkscape/inkscape/-/merge_requests/1965). Varve
+already tracks raw pointer intent separately from its corrected position and
+releases a sticky axis once intent exceeds the CSS-pixel hysteresis. A real
+drag regression now acquires a snap, moves away while still held, and checks
+the final document coordinate. #1824 has no discussion; Varve's editable font
+combobox clears its display value on focus so typing replaces the family, now
+covered by a component regression for click-then-type.
+
+[#1825](https://gitlab.com/inkscape/inkscape/-/issues/1825) was marked Done in
+September 2026. The discussion traces the corruption to a non-default
+Rendering Tile Multiplier value of 1 and preference reset, rather than an
+unconditional renderer failure. Varve has no equivalent tile-multiplier
+preference; no same failure is established. [#1826](https://gitlab.com/inkscape/inkscape/-/issues/1826)
+is still open and is the remaining performance lead in this range. The user
+reduced the case to 25k–50k SVG objects and reported large slowdowns when the
+same clip was applied to every object, with much of the delay during selection,
+deletion, or document close. The uploaded test archives are not in the local
+cache. A bounded repeated-clip import reproduction found a Varve importer
+scaling defect: 100 / 500 / 1,000 objects took 95 ms / 2.5 s / 8.4 s before
+the fix. Importer-owned mutable node indexing and local mask attachment reduced
+that same workload family to 93 ms at 1,000 objects; 10,000 and 50,000 objects
+parsed in 409 ms and 2.7 s, respectively. The 50,000 case produced 150,001
+scene nodes. A recursion guard reports and skips circular/deep mask-reference
+chains. This resolves the measured parse-time regression, not the Inkscape
+report's post-import selection, deletion, and close delays; Varve's rendering
+and interaction performance at 150k nodes still requires a real-app check.
+
+[#1827](https://gitlab.com/inkscape/inkscape/-/issues/1827) reports a path
+Division failure for intersecting traced and rectangle geometry. The user
+follow-up narrows it to overlapping nodes in the traced contour. Varve's Shape
+Builder exposes a Divide operation over selected filled regions, but this is
+not automatically equivalent to Inkscape's path-division contract. Verify a
+minimal overlap case in Varve before deciding whether its current operation is
+sufficient. #1828 was reproduced upstream as a null LPE reference during a
+stylus tap and fixed through [MR !2573](https://gitlab.com/inkscape/inkscape/-/merge_requests/2573);
+the reported GDK/LPE stack is platform-specific, and no Varve crash was
+reproduced. #1829's connector initialization crash was fixed in
+[MR !2373](https://gitlab.com/inkscape/inkscape/-/merge_requests/2373); Varve
+has no matching connector-tool lifecycle. #1830's apparent EMF text breakup
+was not reproduced after disabling the exporter's “convert text to paths”
+option and was closed as a support question; Varve has no EMF exporter.
+
+## IID 1831–1840 — style paste, path editing, and view rotation
+
+This batch adds ten reviewed issue threads (63 user comments and 85 history
+events) from the 2026-10-18 discussion cache. The per-issue ledger records the
+source follow-ups and missing attachment limits.
+
+- [#1831](https://gitlab.com/inkscape/inkscape/-/issues/1831) describes a
+  copied blur filter leaking into the style for subsequently drawn objects.
+  The thread contains different platform observations and links to the earlier
+  [#164 report](https://gitlab.com/inkscape/inkscape/-/issues/164); Inkscape
+  later filtered `filter` CSS from its “use current style” route in
+  [MR !2776](https://gitlab.com/inkscape/inkscape/-/merge_requests/2776).
+  Varve's property clipboard applies effects to selected nodes; it does not
+  seed the next shape tool's defaults. There is no demonstrated matching
+  failure, so no change is justified.
+- [#1832](https://gitlab.com/inkscape/inkscape/-/issues/1832) concerns memory
+  growth while repeatedly opening/exporting in Inkscape's persistent `--shell`
+  mode. The final 2024 comment says the reporter's loop reopened the same file
+  for every export and that opening it once removed the observed growth. This
+  was closed as a duplicate of [#201](https://gitlab.com/inkscape/inkscape/-/issues/201),
+  a distinct file-preview leak. A separate mention of [#3369](https://gitlab.com/inkscape/inkscape/-/issues/3369)
+  records another preview/open-save document-lifecycle leak, not proof of the
+  same cause. Varve's CLI has no equivalent persistent shell loop.
+- [#1833](https://gitlab.com/inkscape/inkscape/-/issues/1833) concerns XML
+  editor changes to `sodipodi:nodetypes` not updating node handles until a
+  later edit. Its related [#1771](https://gitlab.com/inkscape/inkscape/-/issues/1771)
+  concerns overlapping or misclassified smooth nodes. Varve has no raw XML
+  editor or Sodipodi node metadata; the typed node editor writes model state
+  directly. The upstream SVG/video uploads were not locally available.
+- [#1834](https://gitlab.com/inkscape/inkscape/-/issues/1834) is a Bezier
+  preview color/fill regression, fixed upstream by restoring transparent fill
+  for handle paths in [MR !2391](https://gitlab.com/inkscape/inkscape/-/merge_requests/2391).
+  The neighboring [#1835](https://gitlab.com/inkscape/inkscape/-/issues/1835)
+  was a separate, small path-stroke hover offset; the reporter confirmed that
+  one fixed too, and the thread corrects an erroneous MR reference. Varve's
+  PenTool preview and node-hover overlay have no reproduced matching defect;
+  source screenshots and the hover video remain upstream-only.
+- [#1836](https://gitlab.com/inkscape/inkscape/-/issues/1836) was closed as a
+  duplicate of [#1347](https://gitlab.com/inkscape/inkscape/-/issues/1347):
+  moving a scaled path could create an extra endpoint node. “Preserve
+  transforms” was reported as a workaround with a stroke-skew tradeoff. The
+  source SVG and screencast are unavailable, and no Varve node-topology
+  corruption was reproduced.
+- [#1837](https://gitlab.com/inkscape/inkscape/-/issues/1837) mixes a node
+  count discrepancy with reports of zero nodes for a one-point path. The
+  related [#1443](https://gitlab.com/inkscape/inkscape/-/issues/1443) and
+  [#5689](https://gitlab.com/inkscape/inkscape/-/issues/5689) confirm that the
+  single-point count report resurfaced in later releases. Varve does not
+  display path-node totals in its status bar, so this particular wrong count
+  has no user-facing equivalent; the linked circle-to-path topology reports
+  [#576](https://gitlab.com/inkscape/inkscape/-/issues/576) and
+  [#620](https://gitlab.com/inkscape/inkscape/-/issues/620) lack a Varve
+  reproduction.
+- [#1838](https://gitlab.com/inkscape/inkscape/-/issues/1838) asks Division
+  and Cut Path to retain user-selected chunks as combined paths instead of
+  leaving many subpaths. The discussion rejects node editing as a workaround.
+  Varve Shape Builder's Divide intentionally outputs each selected filled
+  region as a separately editable shape; that contract differs from
+  Inkscape's path operations. No change is justified without a Varve report
+  showing that this output model creates unusable fragments.
+- [#1839](https://gitlab.com/inkscape/inkscape/-/issues/1839) concerns stale
+  entries and a close-time crash in Inkscape's document-bound SVG Font Editor,
+  with related [#628](https://gitlab.com/inkscape/inkscape/-/issues/628) and
+  [MR !3381](https://gitlab.com/inkscape/inkscape/-/merge_requests/3381).
+  Varve's Font Browser is a catalog and picker, not an in-document SVG font
+  editor, so adding that subsystem would not be warranted by this report.
+- [#1840](https://gitlab.com/inkscape/inkscape/-/issues/1840) records
+  repeated accidental view rotation during ordinary navigation. Inkscape
+  added a rotation lock in [MR !1964](https://gitlab.com/inkscape/inkscape/-/merge_requests/1964)
+  and backported it in [MR !2633](https://gitlab.com/inkscape/inkscape/-/merge_requests/2633);
+  later comments still ask for a nearby lock affordance. Varve already has a
+  persisted two-finger twist toggle and a rotated-view reset chip, but enables
+  twist rotation for new users. This is a close workflow match: make twist
+  rotation opt-in by default, keep the existing setting, and test both states
+  with real touch input.
+
+## IID 1841–1850 — stroke markers, effects, text movement, and color controls
+
+This batch adds ten reviewed threads (52 user comments and 68 history or
+system events) from the retained discussion cache. Upstream fixes are evidence
+about Inkscape; they do not establish the same defect in Varve.
+
+- [#1841](https://gitlab.com/inkscape/inkscape/-/issues/1841) reports that
+  the no-marker choice disappeared from Inkscape's stroke-end menu after a
+  UI regression; discussion narrowed it to an icon-name/pixbuf lookup and
+  identified the introducing commit. Varve currently exposes no stroke-marker
+  authoring menu, so there is no matching control to repair.
+- [#1842](https://gitlab.com/inkscape/inkscape/-/issues/1842) documents
+  intermittent crashes while grouping paths using Clone Original and Offset
+  live path effects, including related layer-move failures. Discussion reports
+  a fix in commit `33f9ad6c` and a reporter confirmation on master. Varve does
+  not implement these live path effects; generic grouping and undo tests do
+  not reproduce this effect-specific reference lifecycle.
+- [#1843](https://gitlab.com/inkscape/inkscape/-/issues/1843) found
+  PowerStroke affecting only the first subpath and hiding the remainder after
+  a split. It was fixed for Inkscape 1.3 by
+  [MR !4880](https://gitlab.com/inkscape/inkscape/-/merge_requests/4880),
+  which adds subpath support. Varve has no PowerStroke LPE or equivalent
+  per-subpath live width effect.
+- [#1844](https://gitlab.com/inkscape/inkscape/-/issues/1844) reports
+  unwrapped CDR text and compares Inkscape with LibreOffice's import result.
+  Follow-up links a CDR/PDF/SVG reproduction and LibreOffice report #136186.
+  CDR is outside Varve's declared import formats, so this does not justify a
+  new proprietary-format importer or a website capability claim.
+- [#1845](https://gitlab.com/inkscape/inkscape/-/issues/1845) reproduces a
+  crash on undo after an already-existing filter-primitive connection is
+  dragged back to its same target; its backtrace matches the separate
+  [#1688](https://gitlab.com/inkscape/inkscape/-/issues/1688). Varve exposes
+  filter parameters, not an editable primitive-connection graph, so the
+  no-op relink action cannot occur in the current UI.
+- [#1846](https://gitlab.com/inkscape/inkscape/-/issues/1846) reports a GTK
+  marker-list assertion tied to dialog/preferences state. Users could clear
+  the symptom by resetting the Inkscape profile; another report traced it to
+  marker-combo iterator invalidation, fixed in commit `21ce30ad`. Varve has no
+  GTK list store or stroke-marker dialog, and no corresponding native crash
+  has been observed.
+- [#1847](https://gitlab.com/inkscape/inkscape/-/issues/1847) remains an
+  open report of text-on-path objects jumping back on the first multi-object
+  move. The reporter's video shows the first attempt can move none, one, or
+  both objects and the second attempt then works. Varve has editable text on
+  path; a new Chromium E2E fits the selected path-text objects onscreen and
+  verifies their first drag applies identical translation deltas to the text
+  and referenced shape. The behavior was not reproduced in Varve, so the
+  regression stays covered without a production code change.
+- [#1848](https://gitlab.com/inkscape/inkscape/-/issues/1848) records a
+  development build failing to start on macOS because the dynamic loader
+  rejected a library's code signature. The reporter was directed to a newer
+  development build; this is a packaging artifact, not evidence of a Varve
+  runtime defect. Varve's signed/notarized release workflow remains a separate
+  platform validation requirement.
+- [#1849](https://gitlab.com/inkscape/inkscape/-/issues/1849) reports CMS
+  color sliders continuing to follow the pointer after release and value
+  entry becoming inconsistent across CMYK profiles. Varve offers RGB/CMYK
+  color entry but no CMS profile selector or profile-managed channel editing.
+  A Chromium regression verifies that mouse movement after release does not
+  keep changing Varve's hue slider; it passed and the resulting dialog
+  screenshot was inspected. The reported pointer-release failure was not
+  reproduced in Varve, and profile-specific CMYK behavior is outside its
+  implemented scope, so no production change is warranted.
+- [#1850](https://gitlab.com/inkscape/inkscape/-/issues/1850) is a
+  shutdown-time `No toolname` debug warning, later removed during the dock
+  replacement; the reporter could not reproduce it after that change. It is
+  not a user-visible Varve workflow failure and no equivalent warning is
+  present in the application.
+
+## IID 1851–1860 — modifiers, text persistence, and PDF images
+
+This batch contains 37 user comments and 43 system/history events in the
+retained cache. Two issues (#1856 and #1860) report no user comments and have
+no note records. Source bodies, all available discussions, and the linked
+evidence listed below were reviewed; missing attachments were not executed.
+
+- [#1851](https://gitlab.com/inkscape/inkscape/-/issues/1851) reports
+  modifier combinations cancelling during live resize/rotation. The discussion
+  reproduces this in Inkscape 1.1-dev and points to
+  [MR !2250](https://gitlab.com/inkscape/inkscape/-/merge_requests/2250) and
+  [#1815](https://gitlab.com/inkscape/inkscape/-/issues/1815), a distinct
+  Ctrl/Shift-wheel navigation regression. Varve's `ScaleTool` reads modifier
+  state on each drag and has coverage for changing Shift during a resize, but
+  no test combines modifiers mid-gesture. Add that focused regression before
+  calling this workflow resolved.
+- [#1852](https://gitlab.com/inkscape/inkscape/-/issues/1852) documents the
+  missing Mesh-tool Show/Hide Handles action and other mesh controls. The
+  follow-up says the control still fails in Inkscape 1.4
+  ([#5668](https://gitlab.com/inkscape/inkscape/-/issues/5668)). Varve has no
+  mesh-gradient node or authoring tool; adding a full mesh subsystem is not
+  justified by a missing-toolbar-action report alone.
+- [#1853](https://gitlab.com/inkscape/inkscape/-/issues/1853) describes a
+  Windows crash on undo after repeatedly editing a filter-primitive slider.
+  It reproduced on Inkscape 1.0 and 1.3 Windows but not the reporter's Linux
+  Mint builds. [MR !4520](https://gitlab.com/inkscape/inkscape/-/merge_requests/4520)
+  tentatively mentioned it, but the reporter reopened the issue after
+  confirming the crash remained. Varve's supported effect controls do not
+  expose this editable Specular Lighting primitive, so no same-cause crash is
+  established; slider release and undo safety remain regression categories
+  for Varve's actual effect controls.
+- [#1854](https://gitlab.com/inkscape/inkscape/-/issues/1854) reproduces
+  paragraphs joining after save/reopen when legacy SVG 1.1 text is flowed into
+  a frame; SVG 2 text does not reproduce it. The discussion separates the
+  earlier justified-short-line report tracked in
+  [#1661](https://gitlab.com/inkscape/inkscape/-/issues/1661). Varve's PDF/SVG
+  import results explicitly identify unsupported flowed-text layout; the
+  reported Inkscape XML construct is outside the imported contract, so this
+  is not evidence that Varve's supported text round-trip loses newlines.
+- [#1855](https://gitlab.com/inkscape/inkscape/-/issues/1855) reports changed
+  word spacing on path text across Linux distribution upgrades. The thread
+  narrows the behavior to a Pango version change (1.42 versus 1.44/1.46) and
+  records differing results across fonts, package versions, and systems; the
+  apparent off-center glyph was not confirmed as part of the same defect.
+  Varve's text layout uses different runtime paths, but no Varve fixture or
+  cross-platform mismatch was demonstrated. Keep this as an open fidelity
+  check when a reproducible source fixture is available.
+- [#1856](https://gitlab.com/inkscape/inkscape/-/issues/1856) reports one PDF
+  image missing from a Poppler/Cairo page import and has zero user comments.
+  Varve's bounded PDF parser does not import image XObjects and reports them
+  as unsupported in Import Results; it does not claim complete PDF object
+  fidelity. This is an existing capability limit, not a silent omission in a
+  supported feature. Assess it with the related PDF-image findings before
+  expanding the importer contract.
+- [#1857](https://gitlab.com/inkscape/inkscape/-/issues/1857) is titled as a
+  snapping defect, but the reporter clarified that snapped artwork is correct
+  and the visible axonometric grid is misprojected during canvas rotation.
+  Inkscape later fixed the grid-rendering path in
+  [MR !7798](https://gitlab.com/inkscape/inkscape/-/merge_requests/7798),
+  which explicitly says its prior calculations assumed an unrotated view.
+  Varve has a separate camera-aware isometric overlay and rotated-camera unit
+  geometry; a new Chromium check changes camera rotation while the grid is
+  visible and confirms the overlay paths change. The before/after screenshots
+  show the lattice following the rotated view, so no product change was
+  indicated by this comparison.
+- [#1858](https://gitlab.com/inkscape/inkscape/-/issues/1858) reports a
+  collision between Inkscape's `edit-select-all` icon name and generic Linux
+  icon themes. Varve uses its own UI icon components rather than resolving
+  that GTK theme name, so the reported substitution has no matching route.
+- [#1859](https://gitlab.com/inkscape/inkscape/-/issues/1859) concerns
+  transparent PostScript/PDF imagery imported through Inkscape's internal
+  route. Its long thread records several distinct failures: an alpha-mask
+  interpretation bug, a mismatched Poppler package causing a crash, and a
+  reproduction still present in 1.3 after the importer rewrite. The linked
+  [MR !4348](https://gitlab.com/inkscape/inkscape/-/merge_requests/4348)
+  fixed an image-mask alpha inversion associated with the separate historical
+  [#291 report](https://gitlab.com/inkscape/inkscape/-/issues/291); it does
+  not prove every #1859 symptom was resolved. Varve currently reports PDF
+  images as unsupported and imports no image bytes from those XObjects. If
+  PDF image support is expanded, soft masks, alpha polarity, and actionable
+  partial-import reporting are acceptance requirements; no matching Varve
+  rendering bug is yet established.
+- [#1860](https://gitlab.com/inkscape/inkscape/-/issues/1860) reports a
+  multi-selection flying across the canvas when horizontally flipped with a
+  path and flowed text at large positive X coordinates. It has zero user
+  comments. The reproducer depends on Inkscape flowed-text layout and a path
+  transform; Varve does not import that flowed-text form. The broader
+  transform/bounds interaction deserves a Varve regression only if the
+  supported area/path-text workflow reproduces the same failure.
+
+## IID 1861–1870 — flow text, export controls, and view input
+
+The retained note cache has 60 user comments and 65 system/history events for
+this batch. Every available note body was reviewed; reported per-issue comment
+counts reconcile. Linked issues and merge requests were inspected where they
+clarify the cause or disposition. The SVG attachment for #1870 could not be
+opened by the web reader, so its in-issue XML example was used and the importer
+mapping remains a reproduction candidate.
+
+- [#1861](https://gitlab.com/inkscape/inkscape/-/issues/1861) is a 1.0.x
+  shape-inside text selection that paints text at a doubled position while a
+  drag is active. The thread distinguishes the related flow-frame transform
+  defects in [#1029](https://gitlab.com/inkscape/inkscape/-/issues/1029) and
+  [#1396](https://gitlab.com/inkscape/inkscape/-/issues/1396), and the second
+  flip/LPE report later split to [#1769](https://gitlab.com/inkscape/inkscape/-/issues/1769).
+  It was fixed in Inkscape 1.2 alpha, while the remaining flip issue was tracked
+  separately. Varve reports unsupported `shape-inside` flow during SVG import;
+  no same-route Varve defect is established.
+- [#1862](https://gitlab.com/inkscape/inkscape/-/issues/1862) concerns the
+  marker combo-box preview colors, not markers rendered on artwork. The
+  linked [MR !2326](https://gitlab.com/inkscape/inkscape/-/merge_requests/2326)
+  makes the preview stroke black and fill white so context paint remains
+  distinguishable. Varve has no matching GTK marker-selection widget.
+- [#1863](https://gitlab.com/inkscape/inkscape/-/issues/1863) reports a PDF
+  image absent from one Poppler/Cairo import route. The thread traces a clone
+  transform inside an image mask to the upstream Cairo issue and records the
+  reproduction absent by Inkscape 1.3. The archival sample was not re-downloaded.
+  Varve reports PDF image XObjects unsupported rather than claiming that
+  import route, so this is a capability boundary to revisit with the other
+  PDF-image reports, not a silent supported-path regression.
+- [#1864](https://gitlab.com/inkscape/inkscape/-/issues/1864) is specifically
+  about adding a trailing newline to legacy SVG 1.2 flowed text. One follow-up
+  was initially mistaken for the same bug, then traced to a zero line-height
+  preference after an upgrade; the original flowed-text report remained. Varve
+  identifies flowed text as unsupported in Import Results and keeps the
+  readable text content, so there is no matching editable flow-text route.
+- [#1865](https://gitlab.com/inkscape/inkscape/-/issues/1865) reports a
+  disabled selected-object batch-export control after an export-panel change.
+  The thread points to the separate dock-sizing report [#2080](https://gitlab.com/inkscape/inkscape/-/issues/2080)
+  and the closely related export-button report [#1894](https://gitlab.com/inkscape/inkscape/-/issues/1894).
+  Varve's export inspector presents an explicit multi-selection route and its
+  browser coverage exercises the batch workspace; no equivalent disabled
+  control has been reproduced.
+- [#1866](https://gitlab.com/inkscape/inkscape/-/issues/1866) describes
+  broken handles at high display scale. Although the initial report names
+  Windows, discussion reproduction required `GDK_SCALE=2` and did not occur at
+  ordinary scale. This is a platform-specific historical GTK rendering case;
+  Varve's browser DPR coverage does not certify native Windows handle
+  rendering, and no same-cause defect is established.
+- [#1867](https://gitlab.com/inkscape/inkscape/-/issues/1867) reports digits
+  and arrow keys being intercepted while editing the zoom field. The thread
+  identifies a broader GTK key-event ordering issue, fixed by
+  [MR !2316](https://gitlab.com/inkscape/inkscape/-/merge_requests/2316),
+  which routes key events to the focused widget before window accelerators.
+  Varve's shortcut manager already yields to native input controls, but the
+  existing zoom E2Es used programmatic fill. A real-keystroke Chromium
+  regression checks each intermediate digit before commit and passes; the
+  captured status field shows the committed `200` value. No keyboard
+  interception was reproduced, so no product change was indicated.
+- [#1868](https://gitlab.com/inkscape/inkscape/-/issues/1868) exposed a
+  misleading print-comments preference that only affected legacy LaTeX
+  output. The discussion confirms ordinary printing did not implement the
+  advertised feature; [MR !2317](https://gitlab.com/inkscape/inkscape/-/merge_requests/2317)
+  removed the mostly defunct option. Varve has no such preference or print
+  comment contract.
+- [#1869](https://gitlab.com/inkscape/inkscape/-/issues/1869) reports the
+  viewport zoom changing while the status field stayed stale during a
+  document/extension transition. Its single follow-up identifies the same
+  2020 canvas refactor as the zoom-input report, but provides no later
+  reproduction. Varve intentionally opens a document at its stored zoom and
+  updates the status control from the active camera; no matching stale display
+  is established.
+- [#1870](https://gitlab.com/inkscape/inkscape/-/issues/1870) reports
+  appearance changing when recursively unlinking a clone that references a
+  group containing a symbol instance. The issue's one linked report,
+  [#3517](https://gitlab.com/inkscape/inkscape/-/issues/3517), is a separate
+  `preserveAspectRatio` raster-export issue, not the same cause. Varve does not
+  offer clone-unlink editing, but its SVG importer expands local `<use>` nodes;
+  inspection showed `<symbol>` was not handled by the element converter and
+  could be silently omitted. Varve now lists referenced `<symbol>` instances
+  as unsupported in Import Results and in the file-format guide; the parser
+  regression and browser-visible report still need execution. Full symbol
+  viewport and transform support remains a separate fidelity decision.
+
+## IID 1871–1880 — color gestures, duplicate references, and platform reports
+
+The retained note cache contains 51 user comments and 61 system/history events
+for this batch. All available user comments and resolution events were reviewed;
+the two zero-comment issues (#1876 and #1878) have no note records, consistent
+with their source counts. The per-issue user-note totals reconcile. Linked source
+issues and release/fix evidence were inspected where they materially clarify the
+outcome.
+
+- [#1871](https://gitlab.com/inkscape/inkscape/-/issues/1871) asks which color
+  model the status-bar color patches use for scroll gestures. The one technical
+  reply points to HSL and attributes hue drift and early saturation stopping to
+  incremental floating-point/8-bit rounding. Varve has no equivalent status-bar
+  swatch gesture tied to the Fill & Stroke color-model sliders; this is not a
+  matching workflow defect.
+- [#1872](https://gitlab.com/inkscape/inkscape/-/issues/1872) reproduced
+  z-order changes when ungrouping SVG symbols outside `<defs>`. A follow-up says
+  moving the symbols into `<defs>` avoids this case, and Inkscape 1.1 release
+  notes record the z-order fix in MR !2452. Varve does not expose this Inkscape
+  ungroup operation. The related importer limitation is separately covered by
+  the explicit `<symbol>`-through-`<use>` warning added for #1870.
+- [#1873](https://gitlab.com/inkscape/inkscape/-/issues/1873) reports pasted
+  raster content cropped in print/PDF when Windows display scaling is above
+  100%, while canvas and PNG export look correct. Multiple replies reproduce it
+  with the Microsoft PDF printer; PDF export followed by Adobe Reader printing
+  is a workaround. Later reports narrow the workaround to the primary monitor's
+  scaling. Varve's native PDF export is a separate explicit output path, and no
+  same-route defect is established. Windows printing at non-100% display scale
+  remains unverified; do not treat this Linux review as platform certification.
+- [#1874](https://gitlab.com/inkscape/inkscape/-/issues/1874) began as a
+  complaint that duplicated clip masks remain linked. The discussion establishes
+  that preserving linked references on Duplicate was intentional in Inkscape,
+  while multiple users report that this expectation is surprising and ask for a
+  clear shallow/deep duplicate distinction. Varve's duplicate path remaps the
+  mask source to the cloned matte and has scene/editor regression coverage, so a
+  duplicate can be edited independently; no code change is needed for this
+  specific behavior.
+- [#1875](https://gitlab.com/inkscape/inkscape/-/issues/1875) requests
+  multi-page documents. Varve already has document pages and multi-page output;
+  there is no missing core capability to address from this request.
+- [#1876](https://gitlab.com/inkscape/inkscape/-/issues/1876) asks whether a
+  raster image path is absolute or relative. Varve's import model is embedded
+  image data and it reports unsupported external SVG assets rather than
+  pretending to resolve arbitrary paths. This is an explicit scope boundary, not
+  a silent broken path preference.
+- [#1877](https://gitlab.com/inkscape/inkscape/-/issues/1877) was closed by
+  the reporter after discovering they built with the Git for Windows SDK instead
+  of the required MSYS2 environment; the dependency conflict itself was in
+  MSYS2's package state. It does not identify an Inkscape behavior defect or a
+  Varve product path.
+- [#1878](https://gitlab.com/inkscape/inkscape/-/issues/1878) reports a
+  historical Inkscape internal PDF importer stall while repeatedly parsing
+  ICCBased color spaces. Varve's bounded PDF content parser does not implement
+  that Poppler ICC color-space parsing path, and unsupported or unresolved PDF
+  fills are surfaced in Import Results. There is no matching Varve hang to fix;
+  the existing bounded parser and explicit unsupported-fill report remain the
+  appropriate boundary.
+- [#1879](https://gitlab.com/inkscape/inkscape/-/issues/1879) has multiple
+  independent crash reproductions in GTK 3.24.20–3.24.23 when expanding the XML
+  Editor tree with `*`, plus non-reproductions on some later development builds.
+  The report traces the failure to GTK's tree-view lazy expansion behavior; a
+  GTK fix was reported in 3.24.24. Varve has no editable XML-tree dialog, so this
+  is an upstream widget crash without an equivalent product route.
+- [#1880](https://gitlab.com/inkscape/inkscape/-/issues/1880) is a GCC/musl
+  build failure caused by missing sentinel arguments, fixed upstream by MR
+  !3377. It concerns compile-time portability, not user-visible drawing or
+  export behavior in Varve.
+
+## IID 1881–1890 — path measurement, text flow, and file output
+
+The retained note cache contains 77 user comments and 62 system/history events
+for this batch. All user notes and material resolution events were reviewed;
+the per-issue user-note counts reconcile. #1881 has zero reported comments and
+no note-cache file.
+
+- [#1881](https://gitlab.com/inkscape/inkscape/-/issues/1881) asks for path
+  perimeter in the XML Editor while reporting that the Measure Path extension
+  stopped working in Inkscape 1.0.1. Varve has no XML Editor or user-facing
+  path-length readout (the engine computes path length internally for text on
+  paths). This is a potential workflow feature request, not a parity defect in
+  an existing Varve control; no UI expansion is selected in this increment.
+- [#1882](https://gitlab.com/inkscape/inkscape/-/issues/1882) reports a
+  negative `SPDocument` reference count on close after a copy/draw workflow.
+  The thread records it fixed for Inkscape 1.1 by MR !2005. This is an upstream
+  lifetime bug in Inkscape's native document model; no matching Varve close
+  defect is established.
+- [#1883](https://gitlab.com/inkscape/inkscape/-/issues/1883) reports copied
+  text-on-path changing size or position and was closed as a duplicate of
+  [#853](https://gitlab.com/inkscape/inkscape/-/issues/853). Varve's subtree
+  clone remaps a text node's path reference when both are copied, with a
+  regression in `packages/scene/src/__tests__/clone.test.ts`; the focused test
+  is pending. The current report does not establish a Varve behavior defect.
+- [#1884](https://gitlab.com/inkscape/inkscape/-/issues/1884) reports a
+  Windows 8.1 crash when grouping a Clone Original Live Path Effect. The thread
+  has mixed reproductions and links the same crash backtrace to #1842. It was
+  fixed by Inkscape commit `33f9ad6c` and cherry-picked to 1.0.2. Varve does
+  not implement Clone Original LPEs, so this crash route is absent.
+- [#1885](https://gitlab.com/inkscape/inkscape/-/issues/1885) reports Clone
+  Original being added when opening the LPE picker on a clone, then crashing
+  when removed. #1886 describes a related crash while moving such a clone out
+  of a clip group; replies connect it to #1884 and report the same upstream
+  fix. Varve has no clone-original LPE or corresponding editor flow.
+- [#1887](https://gitlab.com/inkscape/inkscape/-/issues/1887) reports line
+  breaks lost when resizing SVG 2 `inline-size` text and editing it through
+  Inkscape's Text and Font dialog. This is an editing defect in the source
+  application. During Varve source review, the related import format exposed
+  a separate silent degradation: CSS `inline-size` layout was ignored while
+  the plain text remained. Varve now retains that text and reports the
+  unsupported flow layout in Import Results; the parser check passes, and the
+  browser import-report screenshot is pending.
+- [#1888](https://gitlab.com/inkscape/inkscape/-/issues/1888) reports the
+  MDN `<symbol>`/`<use>` example appearing misplaced and was moved to the Inbox
+  for triage, so a confirmed Inkscape fix is not established. It reinforces
+  the separate fidelity gap already found under #1870: Varve now identifies
+  local `<symbol>` instances referenced through `<use>` as unsupported instead
+  of silently omitting them. Parser, Import Results browser, and marketing
+  guide validation are pending.
+- [#1889](https://gitlab.com/inkscape/inkscape/-/issues/1889) reports a
+  ghost docking dialog after sharing 1.0 preferences with 1.1-dev. The thread
+  says this was obsolete after replacing the GDL docking system. Varve's UI
+  layout and settings migration are different; no equivalent dialog defect
+  is established.
+- [#1890](https://gitlab.com/inkscape/inkscape/-/issues/1890) reports
+  `--export-filename` discarding its directory when `--export-type` is omitted;
+  a follow-up confirms the path works when the type is explicitly supplied.
+  Inkscape MR !4691 later repaired inconsistent export-filename behavior and
+  `~` expansion. Varve's CLI does not expose an equivalent vector-export flag,
+  so this particular CLI contract is not present.
+
+## IID 1891–1900 — text editing, desktop input, export state, and legacy SVG
+
+The retained cache contains 169 notes across nine note-bearing threads: 87
+user comments and 82 system/history events. All cached notes and resolution
+events were read; their per-issue user counts match the source ledger. #1896
+reports zero comments and has no note-cache file. The 32 corpus-wide retrieval
+count mismatches remain unchanged.
+
+- [#1891](https://gitlab.com/inkscape/inkscape/-/issues/1891) is a split-out
+  report for #1887: changing old multiline text into SVG 2 `inline-size` text
+  lost line breaks. MRs [!2533](https://gitlab.com/inkscape/inkscape/-/merge_requests/2533)
+  and [!2540](https://gitlab.com/inkscape/inkscape/-/merge_requests/2540)
+  respectively preserve newlines in the Text and Font dialog and fix
+  round-tripping between old and SVG 2 multiline text. Varve's current importer
+  retains plain text while reporting `inline-size` flow as unsupported; it has
+  no equivalent width-reflow editor mode, so no additional editor change is
+  selected.
+- [#1892](https://gitlab.com/inkscape/inkscape/-/issues/1892) documents a
+  confirmed Windows tablet-coordinate offset with monitors at different
+  resolutions and scaling. The report distinguishes the pen from a correctly
+  aligned mouse; users describe matching display scaling as a workaround, and
+  the follow-up calls it inadequate. Linked [#1913](https://gitlab.com/inkscape/inkscape/-/issues/1913)
+  is a distinct macOS page-orientation coordinate defect. Varve's canvas uses
+  CSS-to-world pointer conversion shared by browser and Tauri paths, but the
+  Windows/macOS mixed-DPI stylus route cannot be reproduced on the available
+  Linux setup. No platform fix is claimed; physical mixed-DPI stylus validation
+  remains outstanding.
+- [#1893](https://gitlab.com/inkscape/inkscape/-/issues/1893) is a macOS
+  package defect in symbolic filesystem icons. The discussion narrows it to
+  broken generated Adwaita icons from the GTK macOS build dependencies; [MR
+  !2608](https://gitlab.com/inkscape/inkscape/-/merge_requests/2608) identifies
+  the librsvg upgrade as the actual fix. Varve uses its own SVG icon sources
+  and platform icon generation, so the Inkscape-specific GTK package path does
+  not establish a Varve defect.
+- [#1894](https://gitlab.com/inkscape/inkscape/-/issues/1894) is a second
+  manifestation of the batch-export state regression in [#1865](https://gitlab.com/inkscape/inkscape/-/issues/1865).
+  Inkscape first reverted the button relocation in [MR
+  !2358](https://gitlab.com/inkscape/inkscape/-/merge_requests/2358), then
+  [MR !2707](https://gitlab.com/inkscape/inkscape/-/merge_requests/2707)
+  corrected the selection callbacks while batch export was active. Varve's
+  export dialog builds an explicit batch preview and has no equivalent single
+  PNG button state; no corresponding failure is established and no change is
+  selected.
+- [#1895](https://gitlab.com/inkscape/inkscape/-/issues/1895) reports
+  Powerstroke paths thickening across document copy/paste in Inkscape 1.0.x.
+  The reproducer is inconsistent across builds, then the reporter confirms
+  the development version works; the thread identifies a copy/paste transform
+  fix shipped in 1.0.2. Varve has no Powerstroke Live Path Effect, so this
+  source-specific effect has no direct equivalent.
+- [#1896](https://gitlab.com/inkscape/inkscape/-/issues/1896) asks that bundled
+  tutorials open as untitled templates so users cannot overwrite the installed
+  source file. It has no comments or linked fix evidence in the retained
+  snapshot. Varve has no tutorial-file menu; its separate template workflow
+  starts a new document and does not expose an installed tutorial file to
+  overwrite. No change is selected.
+- [#1897](https://gitlab.com/inkscape/inkscape/-/issues/1897) initially
+  misidentified a 1.1-dev Text and Font dialog behavior as a 1.0.1 issue. The
+  reporter corrected the version and could not reproduce it in the next
+  development build. Varve has no matching Text and Font dialog or Apply-based
+  editing transaction; this is not evidence of a current Varve defect.
+- [#1898](https://gitlab.com/inkscape/inkscape/-/issues/1898) asks for
+  irrelevant object actions to be disabled in a blank-canvas context menu when
+  nothing is selected. The thread points to [inbox #2376](https://gitlab.com/inkscape/inbox/-/issues/2376)
+  for the broader context-menu design and reports the narrower issue mostly
+  fixed in 2024. Varve's canvas menu omits selection-only cut/copy/duplicate,
+  delete, grouping, and clip actions when the selection is empty; existing
+  menu snapshot tests cover the empty-selection variant. No change is needed.
+- [#1899](https://gitlab.com/inkscape/inkscape/-/issues/1899) concerns rune
+  shaping on FreeBSD. Windows and Linux reports conflict with the initial
+  FreeBSD behavior; later investigation confirms the canvas failure even when
+  `pango-view` renders the same text correctly, and a Fedora user reports a
+  later occurrence. Varve's Canvas2D/WebKit font stack differs, and FreeBSD is
+  not a validated target in this worktree. Without a current Varve reproduction,
+  no shaping workaround is selected; FreeBSD glyph fidelity remains unverified.
+- [#1900](https://gitlab.com/inkscape/inkscape/-/issues/1900) reports old
+  Inkscape arc objects imported as chords because `sodipodi:open="false"` was
+  treated like `true`. [MR !2356](https://gitlab.com/inkscape/inkscape/-/merge_requests/2356)
+  cherry-picked the guard to 1.0.x after the original master fix. Varve imports
+  the SVG path geometry from `d` and does not recreate Inkscape's native arc
+  object from this metadata; no matching Varve regression is established.
+- [#1901](https://gitlab.com/inkscape/inkscape/-/issues/1901) bisected an
+  incorrect zoom factor after the zoom actions were converted. Follow-up says
+  the zoom-correction behavior and UX issue were fixed; Varve's canvas zoom
+  path is different, and no matching defect was demonstrated.
+- [#1902](https://gitlab.com/inkscape/inkscape/-/issues/1902) reports Pen and
+  Pencil startup modes interfering after `tools_isactive()` was removed. The
+  report was marked fixed in 1.2-dev. Varve's tools and activation state differ;
+  no matching startup regression was found.
+- [#1903](https://gitlab.com/inkscape/inkscape/-/issues/1903) was moved to
+  [Inkscape Inbox #3768](https://gitlab.com/inkscape/inbox/-/issues/3768) as a
+  requested behavior change. Its later bug report is #1905, which isolates
+  accidental keyboard deletion of a locked guide.
+- [#1904](https://gitlab.com/inkscape/inkscape/-/issues/1904) traced missing
+  View menu toggles to the View-menu action rewrite in
+  [MR !1987](https://gitlab.com/inkscape/inkscape/-/merge_requests/1987).
+  Varve already exposes guide/grid visibility through its own menus and
+  controls; this Inkscape menu migration is not a Varve regression.
+- [#1905](https://gitlab.com/inkscape/inkscape/-/issues/1905) reproduces
+  deleting a locked guide with Delete/Backspace while the pointer is over it.
+  [MR !2371](https://gitlab.com/inkscape/inkscape/-/merge_requests/2371)
+  guarded the canvas keyboard-delete route. Varve had the same gap: the
+  selected-guide branch ran after generic Delete shortcut dispatch and removed
+  locked guides. The fix now intercepts both bare keys before generic dispatch,
+  consumes them for locked guides, and preserves removal for unlocked guides.
+  The explicit guide context-menu Delete remains available, matching the
+  original discussion's distinction between accidental keyboard deletion and
+  intentional deletion from the guide dialog/menu. Unit and browser regression
+  checks are recorded with the implementation commit.
+- [#1906](https://gitlab.com/inkscape/inkscape/-/issues/1906) reports an
+  unrecoverable freeze from composing two Inkscape live path effects; a 2024
+  comment confirms it still reproduced in 1.5-dev. Varve has no equivalent LPE
+  composition route, so this is not transferable to its current workflow.
+- [#1907](https://gitlab.com/inkscape/inkscape/-/issues/1907) describes a
+  sporadic rotation-center snapping failure that disappeared after restart.
+  Multiple versions and platforms failed to reproduce it, and no reliable
+  steps or current Varve analogue were established.
+- [#1908](https://gitlab.com/inkscape/inkscape/-/issues/1908) needed an
+  additional canvas redraw after grid settings changed, following an upstream
+  CanvasItems rewrite. Varve's grid overlay uses a different state/render path;
+  the Inkscape report alone does not establish a Varve redraw defect.
+- [#1909](https://gitlab.com/inkscape/inkscape/-/issues/1909) reports a crash
+  opening an SVG with a pattern containing a `<use>` clone of another pattern.
+  Reproduction varied by version/platform and later Linux reports followed an
+  upstream guide-constraints removal. Varve does not import SVG pattern paint
+  servers and reports that unsupported content, so it does not enter this
+  crash path; pattern support remains a separate fidelity feature.
+- [#1910](https://gitlab.com/inkscape/inkscape/-/issues/1910) reports zoom
+  buttons removed from Inkscape's Commands bar during an action migration;
+  users documented risky toolbar-file workarounds before the buttons returned
+  in 1.2-dev. Varve's StatusBar already provides zoom controls, so no matching
+  missing-control defect was found.
+- [#1911](https://gitlab.com/inkscape/inkscape/-/issues/1911) reports Pen
+  tool adjustment handles changing from circles to arrows during a CanvasItems
+  change. The maintainer clarified the shared handle type and corrected it in
+  the upstream implementation. Varve renders path nodes and handles through a
+  separate overlay; no matching Pen-handle defect was found.
+- [#1912](https://gitlab.com/inkscape/inkscape/-/issues/1912) initially
+  appeared to crash when clipping a raster image with a shape, but resetting
+  Inkscape preferences fixed the reporter's case. A maintainer later
+  reproduced it with the saved preference `maskobject grouping="1"`; that
+  preference controls the legacy choice to group clipped objects. Varve has
+  no equivalent preference path, so the original report does not establish a
+  matching crash.
+- [#1913](https://gitlab.com/inkscape/inkscape/-/issues/1913) describes a
+  cursor offset after changing page orientation on macOS, later also reported
+  after applying an axonometric grid. It was linked with the separate
+  mixed-DPI report #1892, while its original bisection identified the
+  CanvasItems rewrite. Varve's Linux browser checks cover rotated canvas
+  interaction, but its native macOS coordinate path is not validated here;
+  this remains a platform-specific verification lead rather than a confirmed
+  Varve defect.
+- [#1914](https://gitlab.com/inkscape/inkscape/-/issues/1914) reports a crash
+  when switching away from Inkscape's Connector tool, with a destructor
+  backtrace in its legacy knot object. Varve has no corresponding connector
+  tool or knot lifetime path.
+- [#1915](https://gitlab.com/inkscape/inkscape/-/issues/1915) is a
+  zero-length dashed-path crash in an Inkscape 1.0.x development package. It
+  was fixed in 1.1-dev through the Poppler/Cairo path-outline change; release
+  builds and later development builds did not reproduce it. Varve's
+  non-native SVG importer already guards single-point paths, and the focused
+  importer suite covers degenerate paths with dash data.
+- [#1916](https://gitlab.com/inkscape/inkscape/-/issues/1916) reports Roughen
+  live-path-effect parameters changing after duplicate, effect paste, or
+  reselect. The issue evolved from an early 1.0.1 report into a repeatable
+  effect-state bug in later releases. Varve does not have Inkscape's live path
+  effects or parameter-linking model, so a similar-looking duplicate would
+  require a separate Varve reproduction before changing state-copy behavior.
+- [#1917](https://gitlab.com/inkscape/inkscape/-/issues/1917) reports grouped
+  legacy dialogs painting blank on launch in Windows 10/Inkscape 1.0.x. The
+  thread confirms that the 1.1 dock system replaced the affected dialog
+  manager. Varve's dock panels and persistence system are unrelated; no
+  matching current issue was established.
+- [#1918](https://gitlab.com/inkscape/inkscape/-/issues/1918) concerns an
+  Aspell dependency missing from a third-party Ubuntu PPA build. The thread
+  confirms the package was updated and spellcheck returned. This is a
+  distribution packaging failure, not a Varve editor behavior regression.
+- [#1919](https://gitlab.com/inkscape/inkscape/-/issues/1919) reports a crash
+  duplicating text whose SVG2 `shape-inside` reference points to a nonexistent
+  element. Varve's importer retains the readable text and warns that
+  `shape-inside` layout is unsupported; an existing parser regression uses
+  the same `url(#missing-frame)` case and asserts the warning. No additional
+  code change was needed.
+- [#1920](https://gitlab.com/inkscape/inkscape/-/issues/1920) reports stale
+  nodes and status feedback after converting Spiro/BSpline live path effects
+  to ordinary paths in the Node tool. The thread says the issue was fixed by
+  Inkscape 1.1.2/1.3-dev. Varve has no matching live path-effect conversion
+  route.
+
+## IID 1921–1930 — import safety, packaging, and canvas behavior
+
+The discussion cache for these ten threads contains 91 notes (51 user
+comments and 40 system/history events); issue-level counts reconcile. Relevant
+linked evidence was followed for the clipping antialias fix, Scribus packaging
+reports, the earlier sticky context-menu report, and the SVG clipping-path
+rules.
+
+- [#1921](https://gitlab.com/inkscape/inkscape/-/issues/1921) reports masked
+  PNG exports remaining antialiased when antialiasing is disabled. The thread
+  points to [MR !2401](https://gitlab.com/inkscape/inkscape/-/merge_requests/2401),
+  which explicitly fixes clipping-path antialias. Varve has no matching
+  raster export toggle for clips/masks, so this is not evidence of a current
+  Varve defect.
+- [#1922](https://gitlab.com/inkscape/inkscape/-/issues/1922) describes
+  intermittent freezes with no stable reproduction. Its attached journal
+  output is platform-specific and does not identify a Varve subsystem or
+  actionable analogue.
+- [#1923](https://gitlab.com/inkscape/inkscape/-/issues/1923) is an Inkscape
+  Snap sandbox restriction: an external Scribus executable cannot be reached
+  from the confined package. The maintainer confirms there is no practical
+  workaround short of bundling Scribus; Varve does not shell out to Scribus.
+- [#1924](https://gitlab.com/inkscape/inkscape/-/issues/1924) reports a
+  Scribus CMYK export failure in an Inkscape AppImage. The investigation
+  traced it to the package's `PYTHONHOME`, and
+  [MR !2074](https://gitlab.com/inkscape/inkscape/-/merge_requests/2074)
+  addressed the AppImage environment. Varve has no comparable extension
+  process or environment to fix.
+- [#1925](https://gitlab.com/inkscape/inkscape/-/issues/1925) is a GNOME
+  Wayland titlebar-button artifact with normal X11 behavior. It depends on
+  GTK/window-manager decoration and is outside the browser canvas; Varve's
+  Linux native decoration path remains a platform verification area, not a
+  confirmed match.
+- [#1926](https://gitlab.com/inkscape/inkscape/-/issues/1926) is a crash in
+  the legacy clone/live-path-effect layer move path, fixed in 1.1-dev through
+  [MR !1979](https://gitlab.com/inkscape/inkscape/-/merge_requests/1979).
+  Varve has no equivalent live path effects or clone model.
+- [#1927](https://gitlab.com/inkscape/inkscape/-/issues/1927) reports a
+  canvas context menu that stays open after Paste on some X11/desktop
+  combinations; Wayland instead requires an extra click. The thread traces it
+  to duplicated popup handling and links the older sticky-menu
+  [#677](https://gitlab.com/inkscape/inkscape/-/issues/677). Varve's Paste
+  handler already closes its menu explicitly. A browser regression now checks
+  that Paste inserts the copied object and dismisses the menu; visual/browser
+  execution passed in Chromium, and the captured canvas showed the inserted
+  object with the menu dismissed.
+- [#1928](https://gitlab.com/inkscape/inkscape/-/issues/1928) concerns
+  crashes/freezes from Mirror live path effects with split elements and
+  chained clones; reports persisted in later development versions. Varve has
+  no equivalent feature model.
+- [#1929](https://gitlab.com/inkscape/inkscape/-/issues/1929) narrowed an
+  initially inconsistent “Simple Globe.svg” crash to a minimal `<use>` that
+  indirectly references a second `clipPath`. SVG 1.1 disallows indirect
+  references from `clipPath` children ([specification](https://www.w3.org/TR/SVG11/masking.html#ClipPathElement)),
+  but malformed content must not crash an importer. Varve currently skips
+  this unresolved clip definition with a warning and retains the remaining
+  document; a focused regression in the passing 446-test importer suite pins
+  that behavior. The public Wikimedia
+  sample itself contains a simple path clip and no `<use>`, so it does not
+  reproduce the reduced crash case.
+- [#1930](https://gitlab.com/inkscape/inkscape/-/issues/1930) requests
+  snapping on ellipse arc handles. Varve creates ellipses but has no editable
+  arc-handle workflow, so adding a specialized snapping mode is not justified
+  by a current user path.
+
+## IID 1931 — text alignment state after reopening autoflowed text
+
+- [#1931](https://gitlab.com/inkscape/inkscape/-/issues/1931) was confirmed
+  against Inkscape 1.1-dev and was reported still present in 1.3. A July 2025
+  comment only says it seems fixed in master and asks for confirmation; no
+  confirming reply appears in the retained discussion, so the issue remains
+  open. The maintainer-provided workaround is to highlight the text as well
+  as select it. The bisection points to a 2019 line-height selection-scope
+  change in [MR !796](https://gitlab.com/inkscape/inkscape/-/merge_requests/796),
+  but this is correlation, not a demonstrated alignment-specific root cause.
+  The original SVG attachment redirects to GitLab sign-in and could not be
+  inspected. Varve maps basic SVG `text-anchor` values to its `textAlign`
+  model, while its import guide explicitly reports legacy `flowRoot`,
+  `shape-inside`, and `inline-size` flow layouts as unsupported. The reported
+  autoflowed-text editing path therefore has no direct Varve equivalent; no
+  production change is justified by this report alone. Related Inkscape
+  [#1645](https://gitlab.com/inkscape/inkscape/-/issues/1645) describes a
+  distinct full-selection alignment bug and is not treated as the same cause.
+
+## IID 1932–1940 — markers, print tones, and editing regressions
+
+- [#1932](https://gitlab.com/inkscape/inkscape/-/issues/1932) is an ambiguous
+  request for `Object to Path` to separate a marker from its stroke. The thread
+  records a maintainer's preference to keep the marker attached, a correction
+  where the proposed behavior was confused with `Stroke to Path`, and later
+  browser-compatibility discussion around SVG2 `context-stroke` plus invalid
+  marker IDs split to [#2785](https://gitlab.com/inkscape/inkscape/-/issues/2785).
+  A later [#5315](https://gitlab.com/inkscape/inkscape/-/issues/5315) is a
+  distinct Stroke to Path complaint. Varve does not import/edit SVG markers or
+  offer either conversion route; implementing marker semantics would be a
+  substantial new subsystem, not a focused fix from this disputed report.
+- [#1933](https://gitlab.com/inkscape/inkscape/-/issues/1933) was a short-lived
+  Inkscape opacity info-bar regression bisected to a SpinButton refactor and
+  closed the same day. Varve's opacity control lives in its inspector and no
+  matching failure was reproduced, so no production change was selected.
+- [#1934](https://gitlab.com/inkscape/inkscape/-/issues/1934) documents a
+  grayscale PNG tone shift in Photoshop and print workflows. The issue's
+  ImageMagick evidence says the source grayscale PNG carried sRGB/perceptual
+  metadata, Scribus retained it, and Inkscape's PDF path emitted Gray with an
+  undefined profile; other viewers were reported to look correct. Varve's
+  desktop screen-PDF path decoded RGB canvas pixels and embedded them as
+  unprofiled `/DeviceRGB`. It now attaches the bundled sRGB profile to those
+  RGB image XObjects. A Rust structural test verifies the profile and image
+  samples, and Poppler rendered a synthetic four-patch gray ramp that was
+  visually inspected. This records the decoded sRGB values; it does not retain
+  arbitrary source ICC profiles/rendering intent, prove Photoshop equivalence,
+  or guarantee press output. The website now states that boundary on the print
+  production page. The original report attachments remain sign-in-gated.
+- [#1935](https://gitlab.com/inkscape/inkscape/-/issues/1935) reports confusing
+  lock behavior while editing swatch gradients, with a 2022 user saying that
+  selecting another gradient stop still edits the first in Inkscape 1.2.2.
+  Varve swatches currently store solid `ManagedColor` values and have no linked
+  gradient-swatch locking workflow; this is a feature gap rather than a defect
+  in an existing Varve route.
+- [#1936](https://gitlab.com/inkscape/inkscape/-/issues/1936) concerns marker
+  controls for rectangles. It was migrated from an older Launchpad patch and
+  has no Varve equivalent because SVG marker editing is not implemented.
+- [#1937](https://gitlab.com/inkscape/inkscape/-/issues/1937) reports last-used
+  style not applying during fill/stroke swap. MR !2437 fixed it and a user
+  confirmed the fix in Inkscape 1.1-dev. Varve has neither the same last-style
+  command nor swap operation, so no matching regression was found.
+- [#1938](https://gitlab.com/inkscape/inkscape/-/issues/1938) reports
+  `Stroke to Path` creating invisible marker shapes in 1.1-dev. The fix landed
+  in [MR !2410](https://gitlab.com/inkscape/inkscape/-/merge_requests/2410)
+  and was backported in [MR !2434](https://gitlab.com/inkscape/inkscape/-/merge_requests/2434).
+  Varve has no marker conversion path.
+- [#1939](https://gitlab.com/inkscape/inkscape/-/issues/1939) is a zero-comment
+  duplicate crash report; its Corners LPE / selected-node path is covered by
+  the follow-up [#1940](https://gitlab.com/inkscape/inkscape/-/issues/1940).
+- [#1940](https://gitlab.com/inkscape/inkscape/-/issues/1940) records a crash
+  when applying the Corners live path effect with the Node tool active, plus a
+  related Dynamic Offset sequence. Comments distinguish trunk fixes from the
+  1.0.x point release and link the LPE crash-fix series. Varve does not have a
+  live path effect runtime, so this cannot be applied as a bounded fix.
+
+The IID 1931–1940 discussion sweep covered 138 cached notes (45 user comments,
+93 system/history events) across nine note-bearing threads; each issue's
+reported user-comment count reconciles. The 32 retrieval mismatches elsewhere
+in the complete source snapshot remain an inventory-level reconciliation item.
+
+## Inkscape IID 1941–1950
+
+- [#1941](https://gitlab.com/inkscape/inkscape/-/work_items/1941) reports intermittent dragging of a PNG beneath an overlapping drawing despite selecting the drawing. The discussion is a migration to inbox #3833 and contains no fix record. Varve's selection tool preserves the selected leaf as the drag target and intentionally cycles through overlapping objects on repeated clicks; focused SelectTool tests cover both behaviors. No matching Varve failure was established, so this historical report did not prompt a code change.
+- [#1942](https://gitlab.com/inkscape/inkscape/-/work_items/1942) is a confirmed CLI regression where a zero `--export-background-opacity` value is lost while parsed and PNG becomes opaque. MR [!2775](https://gitlab.com/inkscape/inkscape/-/merge_requests/2775) changed the option parsing path. Varve's CLI currently has no raster export or export-background-opacity option, so this route has no direct analogue.
+- [#1943](https://gitlab.com/inkscape/inkscape/-/work_items/1943) reports duplicate close-without-save prompts when closing one of several Inkscape documents with Ctrl+W. The comments reproduce the keyboard route and link MRs [!2490](https://gitlab.com/inkscape/inkscape/-/merge_requests/2490) and [!2493](https://gitlab.com/inkscape/inkscape/-/merge_requests/2493). Varve has a separate multi-document lifecycle and one termination dialog host; no equivalent duplicate-prompt report was identified. Existing lifecycle unit tests cover multi-document save/discard scope, so no behavior change was selected.
+- [#1944](https://gitlab.com/inkscape/inkscape/-/work_items/1944) records a 1.0.x crash while closing multiple documents with the legacy floating Objects dialog. The reporter and maintainers narrowed it to that floating-window setup; it was closed as fixed by the 1.1 dialog-tracking rewrite. Varve's panels are hosted in the editor window and do not use the reported GTK floating-dialog path.
+- [#1945](https://gitlab.com/inkscape/inkscape/-/work_items/1945) concerns a disabled Redo menu after undoing ellipse creation. The discussion bisected an event-log name-change replay bug and closed it against commit `df5691b1`; the linked !4520 is a separate follow-up, not the reported fix. Varve uses its own history and action registry, and no corresponding failure was reported or reproduced, so no code change was selected.
+- [#1946](https://gitlab.com/inkscape/inkscape/-/work_items/1946) reports that the Objects panel stops reflecting canvas selection after drag-reordering rows. It remains open; the historical report was reproduced in GTK3 builds but not a normal build. Varve's equivalent Layers tree is driven by stable node IDs. A real-pointer Chromium regression now reorders rows, selects through the tree, then selects on canvas and asserts that the tree follows; the focused Chromium regression passed and both the canvas-selection and Layers-panel screenshots were inspected.
+- [#1947](https://gitlab.com/inkscape/inkscape/-/work_items/1947) reports the canvas shifting when opening a dock. MR [!2431](https://gitlab.com/inkscape/inkscape/-/merge_requests/2431) explicitly fixes #1947 by reverting part of the preceding resize change. Varve's dock alters the canvas viewport, so the visible world area necessarily changes; the issue mapping found no specific camera-reset defect to reproduce in Varve, so no behavior change was selected.
+- [#1948](https://gitlab.com/inkscape/inkscape/-/work_items/1948) reports delayed ICC color-managed redraw until the user switches tools. The issue was reproduced, bisected to the canvas rewrite, and fixed by [MR !2828](https://gitlab.com/inkscape/inkscape/-/merge_requests/2828). Varve includes `proofEnabled` in its render revision and requests a frame when the proof provider becomes ready. Existing proof-view browser coverage checks immediate view updates for available modes; no matching stale-frame defect was identified.
+- [#1949](https://gitlab.com/inkscape/inkscape/-/work_items/1949) reports a frozen canvas when dragging the Split View separator outside the canvas. [MR !2587](https://gitlab.com/inkscape/inkscape/-/merge_requests/2587) fixes the reported regression. Varve does not have Split View mode, so this specific interaction is not present.
+- [#1950](https://gitlab.com/inkscape/inkscape/-/work_items/1950) reports missing linked tutorial images when opening a tutorial as a new document because its document base was not retained. [MR !2640](https://gitlab.com/inkscape/inkscape/-/merge_requests/2640) fixes #1950. Varve's tutorial content does not use this external linked-image/base-path workflow.
+
+The IID 1941–1950 discussion sweep covers 120 cached notes (48 user comments, 72 system/history events) across ten threads; each issue's reported user-comment count reconciles. The separate corpus retrieval mismatch count remains 32.
+
+## Inkscape IID 1951–1960
+
+- [#1951](https://gitlab.com/inkscape/inkscape/-/work_items/1951) reports missing linked images in the pixel-art tracing tutorial. The discussion connects it to [#1950](https://gitlab.com/inkscape/inkscape/-/work_items/1950) and [MR !2640](https://gitlab.com/inkscape/inkscape/-/merge_requests/2640), which fixed retaining the tutorial document base. Varve's tutorials do not use that linked-asset workflow.
+- [#1952](https://gitlab.com/inkscape/inkscape/-/work_items/1952) is a Python error in the separate Printing Marks extension's bleed-mark action. The issue confirms the fix landed in the extensions repository. Varve has no matching extension host or execution route.
+- [#1953](https://gitlab.com/inkscape/inkscape/-/work_items/1953) reports that Inkscape's View checkbox and canvas status icon disagree about color-managed proof availability. The discussion includes reproductions but the precise state transition varies with display/profile setup. Varve has no matching bottom-right status icon, but source review found its View-menu “Soft Proofing” shortcut invokes a fixed analytical CMYK approximation while the Document panel's “Soft Proof” control invokes profile-aware output simulation. The same label blurred two distinct previews, so the shortcut and menu now say “Approximate CMYK Preview.” Verify the menu wording visually before treating this slice as complete.
+- [#1954](https://gitlab.com/inkscape/inkscape/-/work_items/1954) is a long-running Windows text-entry complaint: with NumLock on, keypad plus/minus can trigger zoom instead of entering text. Varve routes text editing through a native textarea overlay and suppresses editor shortcuts for text-entry targets; keypad canonicalization has unit coverage. Windows text entry and IME behavior remain platform-unverified, so parity is not claimed.
+- [#1955](https://gitlab.com/inkscape/inkscape/-/work_items/1955) reports a copy/export crash caused by an invalid legacy `shape-inside` reference. Varve explicitly reports and skips unsupported `flowRoot`/`shape-inside` text-flow constructs during SVG import; no corresponding copy/export crash path was established.
+- [#1956](https://gitlab.com/inkscape/inkscape/-/work_items/1956) asks that a preference disclose when icon-size changes need an application restart. No matching restart-required icon-size preference was found in Varve's current settings UI.
+- [#1957](https://gitlab.com/inkscape/inkscape/-/work_items/1957) concerns state leaking between successive Inkscape CLI `--export-id-only` SVG exports. Varve's CLI has no equivalent subset-export option or repeated export-id lifecycle.
+- [#1958](https://gitlab.com/inkscape/inkscape/-/work_items/1958) reports an absolute-path script IRI being rewritten to `file://` while editing/saving SVG. Varve does not round-trip editable SVG scripts through that workflow; no equivalent mutation path was established.
+- [#1959](https://gitlab.com/inkscape/inkscape/-/work_items/1959) reports freezes and occasional crashes while dragging an envelope/perspective live-path-effect cage into a singular configuration. Varve has no live path effect runtime or matching cage interaction.
+- [#1960](https://gitlab.com/inkscape/inkscape/-/work_items/1960) reports incorrect Stroke to Path results for zero-length dash segments with round caps. Varve's `expandStrokeNode` passes the path centerline, width and cap into `expandStroke` without consulting `stroke.dashPattern`. This is a relevant candidate defect in Varve's stroke-expansion route; correct dashed-outline behavior and a focused regression remain to be implemented and visually verified.
+- [#1961](https://gitlab.com/inkscape/inkscape/-/work_items/1961) began as black tutorial footers after tutorials started opening as new documents. Its 13-user-comment discussion narrowed into SVG style propagation regressions: shorthand `#e5e` on clones and leading-decimal `fill-opacity=".1"`. Inkscape closed the report after [MR !3080](https://gitlab.com/inkscape/inkscape/-/merge_requests/3080) changed viewBox handling and [MR !3146](https://gitlab.com/inkscape/inkscape/-/merge_requests/3146) corrected style-source propagation; those upstream fixes do not map to Varve's import path. Varve already parses `#rgb`, but `applyStylesToNode` only applied fill-opacity to fill arrays, leaving the basic shape's `fill.a` unchanged. A repeated-`<use>` regression reproduced alpha 255 instead of 26 for `.1`; a local fix now clamps and applies the multiplier to top-level color alpha and existing fill opacity. The focused importer regression, full `@varve/import` suite, and Chromium visuals pass. The screenshot was inspected with selection overlays dismissed; it shows both repeated-use shapes with the expected faint magenta fill. The full file-import E2E (7), import domain (12), and export domain (14) pass; Chromium used the pure-TypeScript fallback, so this does not certify native rendering. The broader editor unit suite exceeded the affected lane's time limit and was stopped after exceeding 12 minutes under machine pressure.
+
+The IID 1951–1960 discussion sweep covers 145 cached notes (77 user comments, 68 system/history events) across ten threads. The #1954 cache has 31 user comments against 32 reported; this is one of the 32 unresolved inventory-level retrieval mismatches.
+
+The IID 1961 discussion contains 36 cached notes (13 user comments and 23 system/history events); the reported user-comment count reconciles.
+
+- [#1962](https://gitlab.com/inkscape/inkscape/-/issues/1962) reports PDF
+  fill/stroke displacement when a requested font face is missing; the two user
+  comments include a macOS reproduction and a Linux workaround that opens the
+  SVG in Firefox and prints through the system dialog. The issue remains open.
+  Varve had a related desktop-PDF fidelity gap: the compositor sent styled text
+  to the native vector writer, but its IPC font records are family-addressed
+  and the Rust text operators do not apply the requested weight or italic
+  state. Plain 400/normal text still uses the native vector route; non-regular
+  weight or italic text now goes through the live Canvas2D raster boundary so
+  faux styling cannot disappear or misalign at export. A unit regression and
+  Chromium native-boundary E2E verify the route and nonempty glyph pixels; the
+  captured PNG and canvas screenshot were inspected. The E2E stubs the final
+  native PDF command, so it verifies the pixels sent across IPC rather than a
+  Rust-produced PDF. Affinity users report bold fonts falling back to regular
+  and text strokes rendering badly in PDF; Affinity's own export docs offer
+  text-as-curves as a font-independent path, with the expected editability
+  tradeoff ([bold-weight report](https://www.reddit.com/r/Affinity/comments/nssgi2/publisher_doesnt_export_fonts_in_bold_weight/),
+  [variable-font report](https://www.reddit.com/r/Affinity/comments/z31ka8),
+  [stroke-export report](https://forum.affinity.serif.com/index.php?%2Ftopic%2F190385-text-and-curves-with-stroke-outlines-exports-badly-to-pdf%2F=),
+  [export options](https://s3-eu-west-1.amazonaws.com/affinity-docs/help/designer/en-US.lproj/pages/ShareSavePrint/export.html)).
+  The Varve settings documentation now discloses when styled PDF text becomes
+  image-based; no separate marketing claim required correction.
+
+
+## Inkscape IID 1963–1971
+
+The nine issue bodies and all available discussion history were reviewed on 2026-10-19. Every cached user-comment count reconciles with the tracker count; #1970 reports zero comments and has no note cache. Cross-references and the relevant upstream fixes were checked for the linked path, page-border, mesh-gradient, tweak, bend-effect, and gspell reports.
+
+- [#1963](https://gitlab.com/inkscape/inkscape/-/issues/1963) and [#1965](https://gitlab.com/inkscape/inkscape/-/issues/1965) report reversal or simplification converting editable Spiro/B-spline curves into Beziers. #1963's reporter confirmed commit `b33c89181a261c99f51da0e3a887b239bc732c0a` fixed the 1.0.1 regression in Inkscape master. #1965 was reopened: the reporter repeated the Spiro-to-Bezier loss in 1.1.1, 1.2, 1.3-dev, 1.4, 1.4.3, and 1.5-dev through 2026-07-13. Varve has no Spiro/B-spline constraint model, so implementing those curve systems is not justified by this batch. However, SVG Live Path Effects store the visible result in ordinary `d` path data and the editable source and effect reference in `inkscape:original-d` / `inkscape:path-effect`; other editors see the visible `d` but cannot recover those controls ([Inkscape LPE format explanation](https://wiki.inkscape.org/wiki/TeamInterview046)). Varve already imported that standard visible path while dropping those Inkscape attributes silently, contrary to its own fidelity-report contract. The importer now marks these files partial and says the visible path is editable while the original path and effect controls are not preserved. The detection is de-duplicated per SVG and covers either nonempty `inkscape:path-effect` or `inkscape:original-d` metadata.
+- [#1968](https://gitlab.com/inkscape/inkscape/-/issues/1968) reports an offset effect changing after an Inkscape save/reopen and was closed after the reporter verified an Inkscape 1.1-dev fix. Varve does not provide editable offset LPEs. It shares the same import editability disclosure above; no attempt is made to emulate Inkscape's effect engine.
+- [#1969](https://gitlab.com/inkscape/inkscape/-/issues/1969) reports a BendPath LPE use-after-free while ungrouping. The discussion distinguishes the initial MR from a later cut/paste/undo variant fixed by !2465. Varve imports the standard rendered path and has no BendPath LPE recomputation route, so the native object-lifetime crash is not transferable.
+- [#1964](https://gitlab.com/inkscape/inkscape/-/issues/1964) documents an AddressSanitizer-confirmed stale-item use-after-free in Inkscape's Tweak tool; !6111 invalidated the node cache after deletion. Varve has no path Tweak/Attract tool. [#1966](https://gitlab.com/inkscape/inkscape/-/issues/1966) is a page-border/shadow visibility regression fixed by [MR !2458](https://gitlab.com/inkscape/inkscape/-/merge_requests/2458); Varve has no matching Document Properties control. [#1967](https://gitlab.com/inkscape/inkscape/-/issues/1967) dereferenced a null mesh dragger and is linked to [MR !2482](https://gitlab.com/inkscape/inkscape/-/merge_requests/2482); Varve has no mesh-gradient editor. These issues do not establish defects in the corresponding Varve paths because those tools or controls do not exist.
+- [#1970](https://gitlab.com/inkscape/inkscape/-/issues/1970) has no discussion or resolution evidence and describes repeated vector erasing changing into painting. Varve's documented eraser edits raster pixels or masks; vector erasing would require a new subsystem, so this report alone does not justify adding one. Affinity Designer's official workflow also implements erasing on vector artwork with a pixel mask in Pixel Persona rather than modifying the vector geometry ([Affinity erasing guide](https://s3-eu-west-1.amazonaws.com/affinity-docs/help/designer/en-US.lproj/pages/Painting/erasing.html)). A separate Krita user complaint describes the pen eraser suddenly painting instead of erasing, with the reporter resolving it by changing tablet input mode; this is a hardware/input-mode failure and not evidence of the same vector-erasure defect ([Krita user report and fix](https://www.reddit.com/r/krita/comments/1drxlze/)).
+- [#1971](https://gitlab.com/inkscape/inkscape/-/issues/1971) reports missing `iso_639.xml` / `iso_3166.xml` files from Windows gspell packaging. Its only commenter suspected the warnings had already become obsolete after gspell 1.9.1 switched from iso-codes to ICU. Varve does not depend on gspell or ship those locale XML files, so there is no matching packaging issue.
+
+The actual File → Import flow now covers the transferable part: an SVG with distinct rendered `d` and source `original-d` retains the standard visible path, reports the semantic loss as partial, and shows the explanation in Import Results. The File Formats documentation now states this SVG limitation. An [Adobe Community discussion](https://community.adobe.com/questions-652/svg-files-messed-up-when-i-import-into-illustrator-787222) is another user report of missing SVG-imported content; it is treated as a report about a particular file/workflow, not evidence of a current general Illustrator defect. No separate promotional-page claim about LPE support existed, so no broader marketing claim was changed.

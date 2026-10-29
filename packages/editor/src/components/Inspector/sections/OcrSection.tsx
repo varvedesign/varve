@@ -14,6 +14,7 @@
  *   4. createTextNodeAt() places the text layer at the correct world
  *      position in a single undoable transaction.
  */
+
 import type { OcrResult, OcrWord } from '@varve/engine';
 import {
   computeImagePlacement,
@@ -31,6 +32,7 @@ import {
   nextNodeId,
   nodeWorldTransform,
 } from '@varve/scene';
+import { truncateGraphemes } from '@varve/shared';
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -248,7 +250,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
 
         const { id, doc: afterAlloc } = nextNodeId(workingDoc);
         const textNode = makeTextNode(id, word.text, {
-          name: `OCR: ${word.text.slice(0, 20)}`,
+          name: `OCR: ${truncateGraphemes(word.text, 20, '')}`,
           transform: [1, 0, 0, 1, worldX, worldY],
           fontSize: estimatedFontSize,
           w: Math.max(wordW, 10),

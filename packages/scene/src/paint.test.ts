@@ -18,7 +18,12 @@ import {
   updatePaintInDocument,
 } from './document';
 import { imageFill, solidFill } from './fills';
-import { deriveGeometryFromPaints, getPaintImageDimensions, resolveNodePaints } from './paint';
+import {
+  deriveGeometryFromPaints,
+  fillPaintsVisibleArea,
+  getPaintImageDimensions,
+  resolveNodePaints,
+} from './paint';
 import type { Paint, ShapeNode } from './types';
 import { CURRENT_DOCUMENT_VERSION, migrateDocument } from './version';
 
@@ -375,5 +380,34 @@ describe('v1.7 → v1.8 migration', () => {
     expect(result).not.toBeNull();
     expect(result!.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     expect(result).toHaveProperty('paints');
+  });
+});
+
+describe('fillPaintsVisibleArea', () => {
+  it('accepts an opaque solid fill', () => {
+    expect(fillPaintsVisibleArea(solidFill({ space: 'rgb', r: 0, g: 0, b: 0, a: 255 }))).toBe(true);
+  });
+
+  it('rejects a fully transparent solid fill', () => {
+    expect(fillPaintsVisibleArea(solidFill({ space: 'rgb', r: 0, g: 0, b: 0, a: 0 }))).toBe(false);
+  });
+
+  it('rejects a solid fill with no colour at all', () => {
+    expect(
+      fillPaintsVisibleArea(solidFill(undefined as unknown as Parameters<typeof solidFill>[0])),
+    ).toBe(false);
+  });
+
+  it('rejects hidden or zero-opacity fills', () => {
+    const base = solidFill({ space: 'rgb', r: 10, g: 10, b: 10, a: 255 });
+    expect(fillPaintsVisibleArea({ ...base, visible: false })).toBe(false);
+    expect(fillPaintsVisibleArea({ ...base, opacity: 0 })).toBe(false);
+  });
+
+  it('accepts gradient, image and pattern fills on their own content', () => {
+    const base = solidFill({ space: 'rgb', r: 10, g: 10, b: 10, a: 255 });
+    expect(fillPaintsVisibleArea({ ...base, type: 'gradient' })).toBe(true);
+    expect(fillPaintsVisibleArea({ ...base, type: 'image' })).toBe(true);
+    expect(fillPaintsVisibleArea({ ...base, type: 'pattern' })).toBe(true);
   });
 });

@@ -25,6 +25,7 @@ import {
 } from '@varve/engine';
 import type { SceneNode, TextNode } from '@varve/scene';
 import { getImageFill, imageShapeSrc, isImageShape, richTextToPlainText } from '@varve/scene';
+import { truncateGraphemes } from '@varve/shared';
 import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -141,7 +142,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
       targets.push({
         id: node.id,
         label: node.name || 'Text layer',
-        preview: preview.length > 36 ? `${preview.slice(0, 36)}…` : preview,
+        preview: truncateGraphemes(preview, 36),
         node,
       });
     }

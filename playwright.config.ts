@@ -8,10 +8,11 @@ const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10
 // Node 26's V8 fast-API deoptimizer can abort Vite's response path under the
 // full Chromium matrix. Keep the workaround scoped to the dev server process;
 // application and browser code still run with their normal JIT settings.
+const viteAnalyticsDomain = 'ANALYTICS_DOMAIN=varve.studio';
 const viteServerCommand =
   nodeMajor >= 26
-    ? `pnpm --filter @varve/desktop exec node --no-turbofan node_modules/vite/bin/vite.js --port ${e2ePort} --strictPort`
-    : `pnpm --filter @varve/desktop exec vite --port ${e2ePort} --strictPort`;
+    ? `${viteAnalyticsDomain} pnpm --filter @varve/desktop exec node --no-turbofan node_modules/vite/bin/vite.js --port ${e2ePort} --strictPort`
+    : `${viteAnalyticsDomain} pnpm --filter @varve/desktop exec vite --port ${e2ePort} --strictPort`;
 // Canvas E2E includes software-rendered canvases and on-device model
 // inference. Two local browser workers can contend for those resources hard
 // enough to terminate an unrelated page mid-test. Keep the reliable default
@@ -187,6 +188,21 @@ export default defineConfig({
             name: 'webkit-visual',
             use: { ...devices['Desktop Safari'] },
             testMatch: /visual\/replay\.spec\.ts/,
+          },
+        ]
+      : []),
+    // Playwright's WebKit is the WPE build: headless-only, and it needs the
+    // whole WPE stack (libWPEWebKit-2.0, libwpe, libWPEBackend-fdo) which a
+    // rolling distribution does not ship. The GTK build is the engine the Tauri
+    // desktop app actually embeds, and it runs headed — so this lane is opt-in,
+    // needs a display (xvfb-run in CI), and needs
+    // `node scripts/quality/prepare-playwright-webkit.mjs` once to supply the
+    // ICU 74 / flite libraries the archive was built against.
+    ...(process.env.VARVE_WEBKIT_GTK
+      ? [
+          {
+            name: 'webkit-gtk',
+            use: { ...devices['Desktop Safari'], headless: false },
           },
         ]
       : []),

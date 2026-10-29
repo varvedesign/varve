@@ -56,6 +56,7 @@ export const LANES = {
   // pattern (the only gate over packages/ui/src CSS beyond Biome).
   'lint:css': 'pnpm lint:css',
   'audit:docs': 'pnpm audit:docs',
+  'audit:claims': 'pnpm audit:claims',
   'audit:emoji': 'pnpm audit:emoji',
   'audit:tokens': 'pnpm audit:tokens',
   'audit:radius': 'pnpm audit:radius',
@@ -264,6 +265,7 @@ export function laneArgv(lane, { files = [], pkgDir } = {}) {
     models: ['node', 'scripts/models/validate-manifest.mjs'],
     'ci-tools': ['pnpm', 'test:ci:tools'],
     'audit:docs': ['pnpm', 'audit:docs'],
+    'audit:claims': ['pnpm', 'audit:claims'],
     'audit:emoji': ['pnpm', 'audit:emoji'],
     'audit:tokens': ['pnpm', 'audit:tokens'],
     'audit:radius': ['pnpm', 'audit:radius'],

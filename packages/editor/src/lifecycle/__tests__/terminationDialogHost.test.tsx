@@ -161,3 +161,38 @@ describe('TerminationDialogHost', () => {
     expect(onResponded).toHaveBeenCalledWith(request);
   });
 });
+
+/**
+ * Evidence: storytold/lightcraft#266 — a name truncation cut into a multi-byte
+ * character and panicked. Varve's dialog truncated by UTF-16 code unit, which
+ * splits surrogate pairs and ZWJ sequences in the one surface where the user
+ * must identify which document is being closed.
+ */
+describe('TerminationDialogHost name truncation', () => {
+  const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
+
+  it('keeps an emoji name whole instead of splitting a surrogate pair', () => {
+    const name = `${family.repeat(20)}.varve`;
+    const { request } = makeRequest({
+      docs: [{ sessionId: 'a', name, filePath: `/p/${name}`, untitled: false }],
+    });
+    const { container } = render(<TerminationDialogHost request={request} onResponded={vi.fn()} />);
+    const text = container.textContent ?? '';
+    expect(text).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+    expect(text).not.toMatch(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/);
+    // The family emoji must never appear as a partial sequence: every
+    // occurrence keeps its two ZWJ joiners.
+    for (const match of text.matchAll(/\u{1F468}/gu)) {
+      const rest = text.slice(match.index + 2, match.index + 2 + 6);
+      expect(rest.startsWith('\u200D\u{1F469}')).toBe(true);
+    }
+  });
+
+  it('leaves short names untouched', () => {
+    const { request } = makeRequest({
+      docs: [{ sessionId: 'a', name: 'Sh\u00f6rt.varve', filePath: '/p/a.varve', untitled: false }],
+    });
+    render(<TerminationDialogHost request={request} onResponded={vi.fn()} />);
+    expect(screen.getByText(/Sh\u00f6rt\.varve/)).toBeTruthy();
+  });
+});

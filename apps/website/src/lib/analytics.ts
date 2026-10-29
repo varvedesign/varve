@@ -290,10 +290,9 @@ export function initWebsiteAnalytics(options: WebsiteAnalyticsOptions): void {
       passive: true,
     });
   });
-  // The demo itself is a separate bundle with analytics disabled, so a launch
-  // can only be counted from the site that sends the visitor there. That makes
-  // 'website' the sole entry value this listener can honestly report — someone
-  // arriving at /try directly is not observable from here, by design.
+  // This listener only sees clicks on the marketing site. Direct /try loads
+  // are counted by the demo bundle as demo-launch-direct after Allow. That
+  // makes 'website' the sole entry value this listener can honestly report.
   document.querySelectorAll('[data-analytics-demo-launch]').forEach((element) => {
     element.addEventListener('click', () => controller.trackDemoLaunch('website'), {
       passive: true,

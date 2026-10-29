@@ -38,7 +38,7 @@ The published v0.5.0 ARM64 `.deb` is **83.7 MB** and declares
 dependency closure. The prior v0.2.1 dependency-closure model estimated 287
 packages on an arm64 Debian 12 root; that count has not been recomputed for
 v0.5.0. Keep at least **2 GB** free before installing, with more room for
-projects, recovery records, and optional AI models. Large optional models
+projects, recovery records, and AI models you download later. Large models
 (up to ~1 GB each) download on demand and are not part of the package. If the
 setup flow offers a disk-size choice, choose 10 GB or more.
 

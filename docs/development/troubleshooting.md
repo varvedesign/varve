@@ -35,8 +35,8 @@ manually, set `NO_STRIP=1` in the environment.
 `tauri.conf.json` enables `createUpdaterArtifacts` for the release pipeline,
 which signs updater artifacts with `TAURI_SIGNING_PRIVATE_KEY`. That secret
 is not present locally, so the bundler writes the AppImage and then aborts,
-skipping the platform-library prune step (which is what keeps the AppImage
-from white-screening on modern Mesa/EGL). The `just package-appimage` /
+skipping the platform-library prune step (which drops bundled Mesa/EGL so
+the AppImage does not white-screen on modern hosts). The `just package-appimage` /
 `package-linux` / `package-linux-dev` recipes already merge
 `{"bundle":{"createUpdaterArtifacts":false}}` for the local invocation; if
 you build with raw `pnpm tauri build`, pass the same `--config`, or set a
@@ -44,11 +44,13 @@ release key deliberately (do not commit it).
 
 ### AppImage shows blank white screen
 
-On distros with newer Mesa/EGL stacks (Arch, CachyOS, Fedora), the bundled
-WebKitGTK fails EGL display creation. The AppImage build pipeline runs
-`scripts/release/prune-appimage-bundled-libs.mjs` to remove the bundled
-`usr/lib` stack so the host's libraries are used. Locally, run the app via
-`pnpm tauri:dev` instead of the AppImage.
+On distros with newer Mesa/EGL stacks (Arch, CachyOS, Fedora), a bundled
+copy of the *build host's* libEGL fails display creation. The AppImage
+pipeline (`scripts/release/prune-appimage-bundled-libs.mjs`) keeps WebKitGTK
+and deletes only GPU/EGL/Mesa libraries so the host GPU stack is used.
+`WEBKIT_DISABLE_DMABUF_RENDERER=1` is set automatically when `APPIMAGE` is
+in the environment. Locally, run via `pnpm tauri:dev` instead of a
+hand-built AppImage.
 
 ### LFS models not fetched
 

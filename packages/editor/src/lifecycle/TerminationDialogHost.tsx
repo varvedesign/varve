@@ -12,6 +12,7 @@
  * affordances, long names truncate with the full name in the title tooltip.
  */
 
+import { truncateGraphemes } from '@varve/shared';
 import { Button, Dialog } from '@varve/ui';
 import { useState } from 'react';
 import './termination-dialog.css';
@@ -27,8 +28,15 @@ const INTENT_TITLES: Record<PromptRequest['intent'], string> = {
 
 const NAME_TRUNCATE_AT = 48;
 
+/**
+ * Truncate a document name by grapheme cluster. Slicing by code unit split
+ * emoji, ZWJ sequences and combining marks in the one dialog where the user
+ * must identify exactly which document is being closed
+ * (storytold/lightcraft#266 is the same class, where a name truncation on a
+ * byte index panicked outright).
+ */
 function truncate(name: string): string {
-  return name.length > NAME_TRUNCATE_AT ? `${name.slice(0, NAME_TRUNCATE_AT - 3)}\u2026` : name;
+  return truncateGraphemes(name, NAME_TRUNCATE_AT);
 }
 
 export function TerminationDialogHost({

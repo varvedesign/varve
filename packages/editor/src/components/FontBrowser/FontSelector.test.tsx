@@ -108,6 +108,23 @@ describe('FontSelector', () => {
     ).toBeInTheDocument();
   });
 
+  it('commits a literal family query with Enter when the accessible name is not exact', async () => {
+    const onChange = vi.fn();
+    render(<FontSelector value="Inter" onChange={onChange} />);
+    const input = screen.getByRole('combobox', { name: 'Font family' });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'IBM Plex Sans Variable' } });
+
+    const option = await screen.findByRole('option', { name: /IBM Plex Sans Variable/ });
+    expect(option).toHaveTextContent('IBM Plex Sans Variable');
+    expect(
+      screen.queryByRole('option', { name: /^IBM Plex Sans Variable$/ }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith('IBM Plex Sans Variable');
+  });
+
   it('bounds the pre-measure menu while retaining the active option', async () => {
     render(<FontSelector value="Inter" onChange={() => {}} />);
     const input = screen.getByRole('combobox', { name: 'Font family' });

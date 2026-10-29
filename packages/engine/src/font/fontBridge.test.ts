@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { FontRegistry } from '../fontRegistry';
 import { createFontCatalogFromRegistry } from './fontBridge';
+import { FontResolver } from './fontResolver';
+import { setFontAvailabilityProbeForTest } from './systemFontProbe';
 
 const FIRST_HASH = 'a'.repeat(64);
 const SECOND_HASH = 'b'.repeat(64);
@@ -80,4 +82,57 @@ describe('createFontCatalogFromRegistry', () => {
     expect(entries[0]?.identity.contentHash).toContain('registry:Legacy Sans:system');
     expect(new Set(entries.map((entry) => entry.id)).size).toBe(2);
   });
+
+  it('withholds a seed family the host cannot resolve', () => {
+    // The registry seeds Meiryo; this host does not have it. Projecting it into
+    // the catalog made `detectMissing` treat the fallback as faithful
+    // typography, so the user saw wrong glyphs with no warning.
+    setFontAvailabilityProbeForTest(
+      (families) => new Set([...families].filter((family) => family !== 'Meiryo')),
+    );
+
+    const catalog = createFontCatalogFromRegistry(new FontRegistry());
+
+    expect(catalog.getEntriesForFamily('Meiryo')).toHaveLength(0);
+    expect(catalog.getEntriesForFamily('Arial').length).toBeGreaterThan(0);
+  });
+
+  it('makes an unresolvable seed family report as a missing font', () => {
+    setFontAvailabilityProbeForTest(
+      (families) => new Set([...families].filter((family) => family !== 'Meiryo')),
+    );
+    const catalog = createFontCatalogFromRegistry(new FontRegistry());
+    const resolver = new FontResolver();
+
+    const missing = resolver.detectMissing(
+      {
+        nodes: [
+          {
+            id: 't1',
+            kind: 'text',
+            fontFamily: 'Meiryo',
+            runs: [],
+          },
+        ],
+        styles: {},
+        stories: [],
+      } as never,
+      catalog,
+    );
+
+    expect(missing.map((entry) => entry.familyName)).toContain('Meiryo');
+    expect(missing[0]?.status).toBe('missing-family');
+  });
+
+  it('keeps seed families when the host cannot be probed', () => {
+    setFontAvailabilityProbeForTest(() => null);
+
+    const catalog = createFontCatalogFromRegistry(new FontRegistry());
+
+    expect(catalog.getEntriesForFamily('Meiryo').length).toBeGreaterThan(0);
+  });
+});
+
+afterEach(() => {
+  setFontAvailabilityProbeForTest(null);
 });

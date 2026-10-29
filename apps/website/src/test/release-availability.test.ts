@@ -40,7 +40,7 @@ describe('prepared notes versus published installers', () => {
       '0.2.1',
     ]);
     expect(history[0]).toMatchObject({ published: false, latest: false, releaseUrl: null });
-    expect(history[1]?.releaseUrl).toBe('https://github.com/K-Arthur/varve/releases/tag/v0.2.1');
+    expect(history[1]?.releaseUrl).toBe('https://github.com/varvedesign/varve/releases/tag/v0.2.1');
     expect(history[2]).toMatchObject({ published: true, latest: false });
   });
 
@@ -52,7 +52,20 @@ describe('prepared notes versus published installers', () => {
     expect(history.filter((entry) => entry.latest).map((entry) => entry.version)).toEqual([
       '0.5.0',
     ]);
-    expect(history[0]?.releaseUrl).toBe('https://github.com/K-Arthur/varve/releases/tag/v0.5.0');
+    expect(history[0]?.releaseUrl).toBe('https://github.com/varvedesign/varve/releases/tag/v0.5.0');
+    expect(history[1]).toMatchObject({ published: true, latest: false });
+  });
+
+  it('makes 0.5.1 the sole latest entry once publication data includes it', () => {
+    const published = { hasRelease: true, version: '0.5.1' };
+    const history = ['0.5.1', '0.5.0'].map((version) => ({
+      version,
+      ...changelogReleaseState(version, published),
+    }));
+    expect(history.filter((entry) => entry.latest).map((entry) => entry.version)).toEqual([
+      '0.5.1',
+    ]);
+    expect(history[0]?.releaseUrl).toBe('https://github.com/varvedesign/varve/releases/tag/v0.5.1');
     expect(history[1]).toMatchObject({ published: true, latest: false });
   });
 

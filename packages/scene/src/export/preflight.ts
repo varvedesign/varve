@@ -13,6 +13,7 @@ import type { Document } from '../document';
 import { walkNodes } from '../document';
 import { isMockupFrame } from '../mockup/ops';
 import type { NodeId } from '../types';
+import { describeUnrepresentedBlends, findUnrepresentedBlends } from './blendFidelity';
 import {
   capabilitiesForFormat,
   type FormatCapability,
@@ -22,6 +23,7 @@ import {
 import type { ExportBatchRequest, ExportFormat, ExportJobSpec } from './model';
 import { buildExportPlan, type ExportPlan } from './plan';
 import { effectiveRasterPpiForNode } from './resolution';
+import { hasPdfX1aTransparency } from './transparencyFidelity';
 
 // ── Findings ────────────────────────────────────────────────────────────────
 
@@ -394,8 +396,21 @@ function pushRasterizationFindings(
   if (!item.nodeId) return;
 
   const needsRaster: NodeId[] = [];
+  const blockedTransparency: NodeId[] = [];
+  // Every walked node, in the shape the shared blend-fidelity rule reads, so
+  // the preflight and the encoder answer "can this target carry the mode?"
+  // from one implementation.
+  const walked: Array<{
+    id: NodeId;
+    name?: string;
+    blendMode?: string;
+    fills?: readonly { visible?: boolean; blendMode?: string }[];
+  }> = [];
   for (const entry of walkNodes(document, [item.nodeId]).values()) {
     const node = entry.node;
+    if (item.format === 'pdf-x1a' && hasPdfX1aTransparency(node)) {
+      blockedTransparency.push(node.id);
+    }
     const hasEffects =
       'effects' in node &&
       Array.isArray(node.effects) &&
@@ -403,7 +418,25 @@ function pushRasterizationFindings(
     const hasBlend =
       'blendMode' in node && node.blendMode !== 'normal' && node.blendMode !== 'passThrough';
     if (hasEffects && capability.filters !== 'native') needsRaster.push(node.id);
-    if (hasBlend && capability.blendModes !== 'native') needsRaster.push(node.id);
+    // `native` means the encoder writes the mode itself; `flatten`/`rasterized`
+    // mean the subtree is rasterized, which preserves any mode; `blocked` is
+    // reported separately below because nothing compensates for it.
+    if (hasBlend && capability.blendModes !== 'native' && capability.blendModes !== 'blocked') {
+      needsRaster.push(node.id);
+    }
+    walked.push({
+      id: node.id,
+      name: node.name,
+      ...('blendMode' in node ? { blendMode: node.blendMode as string } : {}),
+      ...('fills' in node && Array.isArray(node.fills)
+        ? { fills: node.fills as readonly { visible?: boolean; blendMode?: string }[] }
+        : {}),
+    } as {
+      id: NodeId;
+      name?: string;
+      blendMode?: string;
+      fills?: readonly { visible?: boolean; blendMode?: string }[];
+    });
     if (node.kind === 'adjustment' && capability.adjustmentLayers === 'blocked') {
       findings.push({
         id: findingId('adjustment-blocked', item.configurationId, [node.id]),
@@ -432,6 +465,51 @@ function pushRasterizationFindings(
       nodeIds: needsRaster,
       fixAction: { type: 'flatten-raster', nodeIds: needsRaster },
       canIgnore: true,
+    });
+  }
+
+  // One rule for "can this target carry the mode?", shared with the encoders.
+  const blockedBlends = [
+    ...new Set(findUnrepresentedBlends(walked, capability.blendModes).map((e) => e.nodeId)),
+  ];
+  // Saying these "will be rasterized" would be untrue, and an export that
+  // proceeds would place them as Normal while the canvas shows the blend, so
+  // they are reported as blocking with the objects that cause them.
+  if (blockedBlends.length > 0) {
+    findings.push({
+      id: findingId('blend-mode-blocked', item.configurationId, blockedBlends),
+      code: 'blend-mode-blocked',
+      severity: 'error',
+      title: `${capability.label} cannot preserve these blend modes`,
+      // Same message the encoders refuse with, so the dialog and the export
+      // path name the same objects and the same way out.
+      description:
+        describeUnrepresentedBlends(walked, capability.blendModes, {
+          formatLabel: capability.label,
+          alternative:
+            item.format === 'pdf-x1a'
+              ? 'Export PDF/X-4, which carries blend modes, or flatten the complete composite against its opaque background.'
+              : 'Flatten the complete composite against its opaque background, or export PDF (screen) instead.',
+        }) ?? `${blockedBlends.length} node(s) use a blend mode this format cannot carry.`,
+      configurationId: item.configurationId,
+      nodeIds: blockedBlends,
+      canIgnore: false,
+    });
+  }
+
+  if (blockedTransparency.length > 0) {
+    const nodeIds = [...new Set(blockedTransparency)];
+    findings.push({
+      id: findingId('transparency-blocked', item.configurationId, nodeIds),
+      code: 'transparency-blocked',
+      severity: 'error',
+      title: `${capability.label} cannot carry live transparency`,
+      description:
+        `${nodeIds.length} object(s) use node or fill opacity that PDF/X-1a cannot preserve. ` +
+        'Flatten the affected artwork against an opaque background, or export PDF/X-4.',
+      configurationId: item.configurationId,
+      nodeIds,
+      canIgnore: false,
     });
   }
 }

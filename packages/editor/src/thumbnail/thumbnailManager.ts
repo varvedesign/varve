@@ -9,7 +9,7 @@
 
 import type { Platform, ThumbnailSourcePreference } from '@varve/platform';
 import type { Document } from '@varve/scene';
-import { THUMBNAIL_VARIANTS, type ThumbnailSourceSpec } from '@varve/shared';
+import { type ThumbnailSourceSpec, thumbnailVariantForDevice } from '@varve/shared';
 import { getThumbnailScheduler } from './scheduler';
 import { persistDocThumbnail, renderDocThumbnail } from './thumbnailService';
 
@@ -68,13 +68,19 @@ export function persistProjectThumbnail(
       await persistDocThumbnail(platform, doc, {
         fileId: options.fileId,
         source,
-        variant: THUMBNAIL_VARIANTS['home-card'],
+        variant: homeCardVariantForDisplay(),
         revisionHash: options.revisionHash,
         signal,
       });
     },
   });
   return true;
+}
+
+/** Home-card profile at this display's pixel density (2x on HiDPI). */
+function homeCardVariantForDisplay() {
+  const ratio = typeof globalThis.devicePixelRatio === 'number' ? globalThis.devicePixelRatio : 1;
+  return thumbnailVariantForDevice('home-card', ratio);
 }
 
 /**
@@ -94,7 +100,7 @@ export async function renderProjectThumbnailNow(
       const outcome = await persistDocThumbnail(platform, doc, {
         fileId: options.fileId,
         source,
-        variant: THUMBNAIL_VARIANTS['home-card'],
+        variant: homeCardVariantForDisplay(),
         revisionHash: options.revisionHash,
       });
       if (!outcome?.result?.dataUrl) return null;
@@ -103,7 +109,7 @@ export async function renderProjectThumbnailNow(
     const outcome = await renderDocThumbnail(doc, {
       fileId: options.fileId,
       source,
-      variant: THUMBNAIL_VARIANTS['home-card'],
+      variant: homeCardVariantForDisplay(),
     });
     if (!outcome.result?.dataUrl) return null;
     return { dataUrl: outcome.result.dataUrl, key: outcome.identity.key };

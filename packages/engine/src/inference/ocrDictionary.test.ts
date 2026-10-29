@@ -62,4 +62,35 @@ describe('loadOcrDictionary', () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it('rejects a dictionary whose SHA-256 does not match', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response('tampered\n')) as typeof fetch;
+    try {
+      await expect(
+        loadOcrDictionary('https://example.com/dict.txt', 0, undefined, {
+          sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        }),
+      ).rejects.toThrow(/checksum mismatch/);
+      expect(getCachedDictionary('https://example.com/dict.txt')).toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('accepts a dictionary whose SHA-256 matches', async () => {
+    const body = '0\n1\n2\n';
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body));
+    const sha256 = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(body)) as typeof fetch;
+    try {
+      const dict = await loadOcrDictionary('https://example.com/good.txt', 0, undefined, {
+        sha256,
+      });
+      expect(dict).toEqual(['0', '1', '2']);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

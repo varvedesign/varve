@@ -23,10 +23,11 @@ default where no approved endpoint is configured.
 
 ## Consent
 
-Desktop settings persist `privacy.usageAnalytics` and
-`privacy.diagnostics` as `unknown | granted | denied`. The existing crash UI
-keeps its own versioned consent state. Website consent is stored separately in
-`varve:website-analytics-consent`; GPC and DNT fail closed for the page.
+The desktop app sends no usage stats. Leftover `privacy.diagnostics` keys may
+still persist in settings; the desktop app ignores them for transmission. The
+existing crash UI keeps its own versioned consent state. Website and browser-demo
+consent share `varve:website-analytics-consent:goatcounter-v1`. GPC and DNT fail
+closed for those surfaces.
 
 Revocation updates the client immediately, drops queued events in revoked
 categories, and shuts down the provider when no category remains granted.
@@ -36,17 +37,16 @@ categories, and shuts down the provider when no category remains granted.
 Feature code uses `AnalyticsClient.track(name, payload)`. It never imports a
 vendor. `NoopAnalyticsProvider` is the default. `HttpAnalyticsProvider` exists
 for a future Varve-owned aggregate endpoint and accepts only HTTPS endpoints.
-The website loads the supplied Plausible script only after website consent. Its
-automatic pageviews, file-download, outbound-link, and form-submission capture
-are disabled; Varve sends only the manually normalized events registered in the
-shared schema. The loader is therefore not present in denied or unknown states.
 
-The production desktop build uses the public `varve.studio` domain with the
-Plausible Events API. `VITE_VARVE_ANALYTICS_DOMAIN` is public configuration;
-it is not a secret and must never be replaced with an administrative key. A
-custom Varve endpoint may still be supplied through
-`VITE_VARVE_ANALYTICS_ENDPOINT`, but requires a deliberate Tauri CSP change
-and operational review.
+The website and the `/try` browser demo send consented counts to GoatCounter
+only after the visitor clicks Allow. There is no remote analytics script.
+Automatic pageviews, file-download, outbound-link, and form-submission capture
+are disabled; Varve sends only the manually normalized events listed in
+`docs/privacy/analytics.md`. Denied, unknown, DNT, and GPC states send nothing.
+
+The production desktop app sends no usage analytics. There is no desktop
+collector and no `VITE_VARVE_ANALYTICS_DOMAIN` wiring. Stored leftover consent
+keys are ignored.
 
 ## Adding an event
 

@@ -162,7 +162,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.toggleMinimap': 'Minimap',
   'menu.view.variablesPanel': 'Variables and Tokens…',
   'menu.view.distractionFree': 'Distraction-Free Mode',
-  'menu.view.softProof': 'Soft Proof',
+  'menu.view.softProof': 'Approximate CMYK Preview',
   'menu.view.beforeAfterCompare': 'Before/After Compare',
   'menu.view.colorBlindnessNone': 'No Color-Blindness Filter',
   'menu.view.colorBlindnessProtanopia': 'Protanopia',

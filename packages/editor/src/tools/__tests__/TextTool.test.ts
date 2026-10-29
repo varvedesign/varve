@@ -107,6 +107,78 @@ function makePointerEvent(
   } as unknown as PointerEvent;
 }
 
+describe('TextTool Enter starts editing', () => {
+  let tool: TextTool;
+  const textNode = { id: 't1', kind: 'text' as const, name: 'Text 1' };
+  const rectNode = { id: 'r1', kind: 'shape' as const, name: 'Rect 1' };
+
+  beforeEach(() => {
+    tool = new TextTool();
+  });
+
+  function ctxFor(selection: string[], nodes: Record<string, unknown>, extra = {}) {
+    return makeCtx({
+      selection,
+      document: { nodes, rootChildren: selection, name: 'Test' } as never,
+      getNode: (id: string) => nodes[id] as never,
+      textEditTargetId: null,
+      flushPendingEdits: vi.fn(),
+      setTextEditTargetId: vi.fn(),
+      commitTransaction: vi.fn(),
+      ...extra,
+    });
+  }
+
+  it('begins editing the single selected text layer on Ctrl+Enter', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: false, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(true);
+    expect(ctx.setTextEditTargetId).toHaveBeenCalledWith('t1');
+  });
+
+  it('leaves plain Enter to the layer-rename binding', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode });
+    expect(tool.onKeyDown?.({ key: 'Enter', repeat: false } as KeyboardEvent, ctx)).toBe(false);
+    expect(ctx.setTextEditTargetId).not.toHaveBeenCalled();
+  });
+
+  it('leaves a multi-selection alone: there is no single caret', () => {
+    const ctx = ctxFor(['t1', 't2'], { t1: textNode, t2: { ...textNode, id: 't2' } });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: false, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(false);
+    expect(ctx.setTextEditTargetId).not.toHaveBeenCalled();
+  });
+
+  it('ignores a selection that is not text', () => {
+    const ctx = ctxFor(['r1'], { r1: rectNode });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: false, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(false);
+    expect(ctx.setTextEditTargetId).not.toHaveBeenCalled();
+  });
+
+  it('does not re-enter a session that is already editing', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode }, { textEditTargetId: 't1' });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: false, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(false);
+  });
+
+  it('ignores held-key repeats', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode });
+    expect(
+      tool.onKeyDown?.({ key: 'Enter', repeat: true, ctrlKey: true } as KeyboardEvent, ctx),
+    ).toBe(false);
+  });
+
+  it('ignores other keys', () => {
+    const ctx = ctxFor(['t1'], { t1: textNode });
+    expect(tool.onKeyDown?.({ key: 'a', repeat: false } as KeyboardEvent, ctx)).toBe(false);
+  });
+});
+
 describe('TextTool', () => {
   let tool: TextTool;
 
@@ -122,6 +194,45 @@ describe('TextTool', () => {
     expect(ctx.createTextNodeAt).toHaveBeenCalledTimes(1);
     // No size argument: point text derives its box from its content.
     expect(vi.mocked(ctx.createTextNodeAt).mock.calls[0]?.[1]).toBeUndefined();
+  });
+
+  it('switches to a hit text node on click instead of creating over it', () => {
+    const textNode = { id: 'second-text', kind: 'text' } as unknown as NonNullable<
+      ReturnType<ToolContext['hitTest']>
+    >['node'];
+    const flushPendingEdits = vi.fn();
+    const commitTransaction = vi.fn();
+    const ctx = makeCtx({
+      textEditTargetId: 'first-text',
+      flushPendingEdits,
+      commitTransaction,
+      hitTest: vi.fn(() => ({ nodeId: textNode.id, node: textNode })),
+    });
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(101, 100), ctx);
+
+    expect(ctx.setSelection).toHaveBeenCalledWith(textNode.id);
+    expect(ctx.setTextEditTargetId).toHaveBeenCalledWith(textNode.id);
+    expect(flushPendingEdits).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).toHaveBeenCalledTimes(1);
+    expect(flushPendingEdits.mock.invocationCallOrder[0]).toBeLessThan(
+      commitTransaction.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(ctx.createTextNodeAt).not.toHaveBeenCalled();
+  });
+
+  it('still creates new point text over existing text outside an edit session', () => {
+    const textNode = { id: 'existing-text', kind: 'text' } as unknown as NonNullable<
+      ReturnType<ToolContext['hitTest']>
+    >['node'];
+    const ctx = makeCtx({ hitTest: vi.fn(() => ({ nodeId: textNode.id, node: textNode })) });
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(101, 100), ctx);
+
+    expect(ctx.setTextEditTargetId).not.toHaveBeenCalled();
+    expect(ctx.createTextNodeAt).toHaveBeenCalledTimes(1);
   });
 
   it('creates a sized container on a drag', () => {

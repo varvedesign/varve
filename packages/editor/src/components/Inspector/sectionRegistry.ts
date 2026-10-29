@@ -52,6 +52,7 @@ export type SectionId =
   | 'warp'
   | 'mockups'
   | 'typography'
+  | 'text-frame'
   | 'callout'
   | 'text-on-path'
   | 'interaction'
@@ -468,6 +469,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 300,
     category: 'content',
+    isAvailable: (ctx) => isAllTextNodes(ctx.selectedNodes),
+  },
+  {
+    id: 'text-frame',
+    title: 'Text Frame',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 306,
+    category: 'appearance',
     isAvailable: (ctx) => isAllTextNodes(ctx.selectedNodes),
   },
   {
@@ -1122,6 +1133,7 @@ export function getSectionRegistryIntegrityIssues(): string[] {
 const TEXT_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
   typography: 70,
   'text-on-path': 71,
+  'text-frame': 72,
 };
 
 /**
@@ -1170,7 +1182,8 @@ export function isContextualPrimarySection(
 ): boolean {
   const textOnly =
     ctx.selectedNodes.length > 0 && ctx.selectedNodes.every((node) => node.kind === 'text');
-  if (textOnly && (id === 'typography' || id === 'text-on-path')) return true;
+  if (textOnly && (id === 'typography' || id === 'text-on-path' || id === 'text-frame'))
+    return true;
 
   const tableOnly = isSingleSelection(ctx) && isTableNode(ctx.selectedNodes);
   if (tableOnly && id in TABLE_SELECTION_ORDER) return true;

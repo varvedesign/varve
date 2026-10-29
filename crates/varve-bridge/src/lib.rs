@@ -94,6 +94,8 @@ pub struct IpcTextShape {
     text_align: String,
     #[serde(default, rename = "textAlignVertical")]
     text_align_vertical: Option<String>,
+    #[serde(default, rename = "textFrame")]
+    text_frame: Option<varve_core::TextFrameStyle>,
     x: f64,
     y: f64,
     w: f64,
@@ -406,6 +408,7 @@ impl IpcShape {
                     font_style,
                     text_align,
                     text_align_vertical,
+                    text_frame,
                     x,
                     y,
                     w,
@@ -432,6 +435,7 @@ impl IpcShape {
                     font_style,
                     text_align,
                     text_align_vertical,
+                    text_frame,
                     x,
                     y,
                     w,
@@ -798,6 +802,10 @@ mod tests {
                 "y": 0.0,
                 "w": 240.0,
                 "h": 120.0,
+                "textFrame": {
+                    "fill": {"space": "rgb", "r": 250.0, "g": 249.0, "b": 240.0, "a": 255.0},
+                    "border": {"color": {"space": "rgb", "r": 20.0, "g": 30.0, "b": 40.0, "a": 255.0}, "width": 0.0}
+                },
                 "letterSpacing": 0.5,
                 "lineHeight": 1.6,
                 "textCase": "none",
@@ -827,6 +835,8 @@ mod tests {
         assert_eq!(text["listStyle"], "decimal");
         assert_eq!(text["richText"], serde_json::json!({ "paragraphs": [] }));
         assert_eq!(text["pathTextSettings"]["pathNodeId"], "path-1");
+        assert_eq!(text["textFrame"]["fill"]["r"], 250.0);
+        assert_eq!(text["textFrame"]["border"]["width"], 0.0);
     }
 
     #[test]

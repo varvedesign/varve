@@ -1,5 +1,8 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseChangelog } from '../lib/changelog.js';
+import { parseChangelog, parseChangelogFile } from '../lib/changelog.js';
 
 /* -------------------------------------------------------------------------- */
 /* Test fixtures                                                               */
@@ -112,6 +115,26 @@ describe('parseChangelog', () => {
   it('parses a basic changelog', () => {
     const releases = parseChangelog(BASIC);
     expect(releases.length).toBe(3);
+  });
+
+  it('keeps the summary paragraphs written under a version heading', () => {
+    const markdown = [
+      '## [1.2.3] - 2026-01-02',
+      '',
+      'A short release summary that readers need.',
+      '',
+      'It can run to a second paragraph.',
+      '',
+      '### Added',
+      '',
+      '- **Thing** — does the thing.',
+    ].join('\n');
+    const [release] = parseChangelog(markdown);
+    expect(release?.sections[0]?.category).toBe('Summary');
+    const summary = release?.sections[0]?.entries.map((entry) => entry.html).join(' ') ?? '';
+    expect(summary).toContain('A short release summary that readers need.');
+    expect(summary).toContain('It can run to a second paragraph.');
+    expect(release?.sections[1]?.category).toBe('Added');
   });
 
   it('Unreleased section first', () => {
@@ -298,6 +321,36 @@ describe('parseChangelog', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('parseChangelogFile', () => {
+  it('reads the nearest checkout when the working directory is nested', () => {
+    // A git worktree under `.worktrees/<name>` sits two levels below the
+    // primary checkout. Resolving `cwd/../..` there reads the *other*
+    // checkout's changelog, so the site could publish another branch's
+    // release notes. The nearest directory with CHANGELOG.md + package.json
+    // must win.
+    const outer = mkdtempSync(join(tmpdir(), 'varve-changelog-outer-'));
+    const inner = join(outer, '.worktrees', 'inner');
+    mkdirSync(inner, { recursive: true });
+    for (const [directory, version] of [
+      [outer, '9.9.9'],
+      [inner, '1.2.3'],
+    ] as const) {
+      writeFileSync(join(directory, 'package.json'), '{"name":"fixture"}');
+      writeFileSync(
+        join(directory, 'CHANGELOG.md'),
+        `# Changelog\n\n## [${version}] - 2026-01-01\n\n### Fixed\n\n- Fixture entry.\n`,
+      );
+    }
+    const previous = process.cwd();
+    try {
+      process.chdir(inner);
+      const releases = parseChangelogFile();
+      expect(releases.map((release) => release.version)).toEqual(['1.2.3']);
+    } finally {
+      process.chdir(previous);
+      rmSync(outer, { recursive: true, force: true });
+    }
+  });
+
   it('parses the actual CHANGELOG.md', async () => {
     const { parseChangelogFile } = await import('../lib/changelog.js');
     const releases = parseChangelogFile();
@@ -305,8 +358,29 @@ describe('parseChangelogFile', () => {
 
     // Should contain known versions
     const versions = releases.filter((r) => !r.isUnreleased).map((r) => r.version);
+    expect(versions).toContain('0.5.1');
+    expect(versions).toContain('0.5.0');
     expect(versions).toContain('0.2.1');
     expect(versions).toContain('0.1.0');
+
+    const v051 = releases.find((r) => r.version === '0.5.1');
+    expect(v051?.date).toBe('2026-10-15');
+    const v051Text =
+      v051?.sections.map((s) => s.entries.map((e) => e.html).join(' ')).join(' ') ?? '';
+    expect(v051Text).toMatch(/Tauri updater/);
+    expect(v051Text).toMatch(/toggling Settings/);
+    expect(v051Text).toMatch(/crash dialog/);
+    expect(v051Text).toMatch(/setting persists/);
+    expect(v051Text).not.toMatch(/honored at inference/);
+    expect(v051Text).not.toMatch(/background-removal entry points/);
+    expect(v051Text).not.toMatch(/Generative Edit/);
+
+    const v050 = releases.find((r) => r.version === '0.5.0');
+    expect(v050?.date).toBe('2026-10-09');
+    const v050Text =
+      v050?.sections.map((s) => s.entries.map((e) => e.html).join(' ')).join(' ') ?? '';
+    expect(v050Text).toMatch(/Generative Edit/);
+    expect(v050Text).toMatch(/Consent-first desktop updates/);
   });
 
   it('Unreleased is first when present', async () => {

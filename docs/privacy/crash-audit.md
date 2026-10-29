@@ -23,9 +23,9 @@ integrations) builds on.
 - **No third-party telemetry, analytics, or crash SDKs are bundled.** No Sentry,
   Crashpad, Breakpad, Bugsnag, Rollbar, OpenTelemetry, PostHog, Mixpanel,
   Amplitude, GA4, Plausible SDK, or Segment appears in `package.json`,
-  `pnpm-lock.yaml`, `Cargo.toml`, or `Cargo.lock`. The website has a
-  provider-neutral, explicit Plausible Events API adapter in its own app
-  boundary; it is disabled unless configured and consented.
+  `pnpm-lock.yaml`, `Cargo.toml`, or `Cargo.lock`. The website and `/try`
+  demo have a consent-gated GoatCounter transport in their own app
+  boundary; it is disabled unless configured and the visitor clicks Allow.
 - Local product signals remain local-only and consent-free:
   - `ActionTracker` — localStorage `strata:actions` (editor intelligence).
   - Template usage — localStorage `varve-template-usage`.

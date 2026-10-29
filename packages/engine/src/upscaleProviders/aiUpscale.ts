@@ -6,6 +6,7 @@
  * their non-overlapping cores so each destination pixel is written once.
  */
 import type { InferenceSession } from 'onnxruntime-web';
+import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
 
 const MODEL_SCALE = 4;
 const TILE_CORE = 256;
@@ -116,6 +117,7 @@ interface RealEsrganSession {
 }
 
 async function createSession(modelPath: string): Promise<RealEsrganSession> {
+  assertAiFeaturesEnabled();
   const ort = await import('onnxruntime-web');
   // Keep the standalone enhancement worker on the same runtime policy as the
   // shared inference worker. In Chromium/headless, ORT's pthread pool can
@@ -268,6 +270,7 @@ async function createWasmSession(
   ort: typeof import('onnxruntime-web'),
   modelPath: string,
 ): Promise<InferenceSession> {
+  assertAiFeaturesEnabled();
   return ort.InferenceSession.create(modelPath, { executionProviders: ['wasm'] });
 }
 
