@@ -47,6 +47,30 @@ function schemaQuestions(source: string): string[] {
   return [...block.matchAll(/name: '((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]!.replace(/\\'/g, "'"));
 }
 
+function firstSchemaAnswer(source: string): string {
+  const question = source.indexOf("name: 'Is Varve free?'");
+  expect(question, 'free-question schema question present').toBeGreaterThan(-1);
+  const match = source.slice(question).match(/text:\s*'((?:[^'\\]|\\.)*)'/);
+  expect(match, 'free-question schema answer present').not.toBeNull();
+  return match![1]!.replace(/\\'/g, "'");
+}
+
+function firstVisibleAnswer(source: string): string {
+  const question = source.indexOf('<h3 class="faq-item__question-text">Is Varve free?</h3>');
+  expect(question, 'free-question visible heading present').toBeGreaterThan(-1);
+  const answerStart = source.indexOf('<div class="faq-item__answer">', question);
+  expect(answerStart, 'free-question visible answer container present').toBeGreaterThan(-1);
+  const paragraphStart = source.indexOf('<p>', answerStart);
+  const paragraphEnd = source.indexOf('</p>', paragraphStart);
+  expect(paragraphStart, 'free-question visible paragraph present').toBeGreaterThan(-1);
+  expect(paragraphEnd, 'free-question visible paragraph closed').toBeGreaterThan(paragraphStart);
+  return decodeEntities(
+    source.slice(paragraphStart + '<p>'.length, paragraphEnd).replace(/<[^>]+>/g, ''),
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Questions from a page that defines one `faqs` array (markup + schema both map it). */
 function arrayQuestions(source: string): string[] {
   const start = source.indexOf('const faqs = [');
@@ -73,6 +97,43 @@ describe('FAQ disclosure contract', () => {
   it('keeps the support FAQ questions in sync between schema and markup', () => {
     const source = read('pages/support/faq.astro');
     expectQuestionParity(visibleQuestions(source), schemaQuestions(source), 'faq.astro');
+  });
+
+  it('uses the approved free-today answer in both schema and visible copy', () => {
+    const source = read('pages/support/faq.astro');
+    const approved =
+      'Free today — the Community Edition, with no subscription and no feature paywall. The source code is available on GitHub under FSL-1.1-MIT.';
+    const approvedCore =
+      'Free today — the Community Edition, with no subscription and no feature paywall.';
+
+    expect(
+      source.split(approvedCore).length - 1,
+      'C-01 core sentence appears in schema and visible copy',
+    ).toBe(2);
+
+    const schemaAnswer = firstSchemaAnswer(source);
+    const visibleAnswer = firstVisibleAnswer(source);
+    expect(schemaAnswer, 'FAQPage answer is the approved C-01 sentence').toBe(approved);
+    expect(visibleAnswer, 'visible answer equals the FAQPage answer').toBe(schemaAnswer);
+
+    for (const prohibited of [
+      'stays free',
+      'remains free',
+      'never this one',
+      'free forever',
+      'always free',
+      'will never charge',
+      'separate pro edition',
+      'paid pro edition',
+    ]) {
+      expect(source.toLowerCase(), `prohibited C-02 wording: ${prohibited}`).not.toContain(
+        prohibited,
+      );
+    }
+
+    expect(visibleAnswer, 'old C-02 forward promise removed from the first answer').not.toContain(
+      'pro edition',
+    );
   });
 
   it('gates the financial-support FAQ with SHOW_SUPPORT_PROJECT, not the offline FAQ', () => {

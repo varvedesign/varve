@@ -144,9 +144,11 @@ When a new phrase is proposed, check it against both lists before it ships.
 
 - “Free” means the current Community Edition has no subscription or feature
   paywall; it does not promise that every future edition will have the same
-  terms. The committed scope is narrower and stronger than a slogan: the
-  Community Edition stays free, and capabilities already in it are not moved
-  behind a future paid tier ([COMMERCIAL.md](../../COMMERCIAL.md)).
+  terms. The committed scope is narrower than a slogan: the Community Edition
+  is free today, and [COMMERCIAL.md](../../COMMERCIAL.md) commits that a future
+  Pro edition is separate and does not remove existing Community functionality.
+  It does not promise perpetual free pricing, so public copy states the current
+  price and does not say “stays free” or “free forever”.
 - “Local-first” means no account or mandatory cloud sync is required and core
   editing works offline. Optional model/font downloads, update checks,
   user-configured providers, and consented aggregate measurements remain
