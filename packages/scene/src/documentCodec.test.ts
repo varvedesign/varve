@@ -628,6 +628,63 @@ describe('DocumentCodec', () => {
     expect(next.effects?.[0]).not.toHaveProperty('sfxRestoreFills');
   });
 
+  it('drops non-solid and invalid restoreFills on decode', () => {
+    const ink = { space: 'rgb' as const, r: 16, g: 21, b: 31, a: 255 };
+    const text = {
+      ...makeTextNode('sfx', 'POW', { fill: ink }),
+      textEffect: {
+        preset: 'sfx-impact',
+        restoreFill: ink,
+        restoreFills: [
+          {
+            type: 'solid' as const,
+            color: ink,
+            opacity: 1,
+            blendMode: 'normal' as const,
+            visible: true,
+          },
+        ],
+      },
+    };
+    const encoded = DocumentCodec.encode(addNode(createDocument('SFX restore fills', true), text));
+    const parsed = JSON.parse(encoded) as {
+      nodes: { sfx: { textEffect: { restoreFills: unknown[] } } };
+    };
+    parsed.nodes.sfx.textEffect.restoreFills = [
+      {
+        type: 'solid',
+        color: ink,
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+      {
+        type: 'image',
+        image: { src: 'https://example.invalid/x.png', assetId: 'missing' },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+      { type: 'solid' },
+      42,
+    ];
+    const decoded = DocumentCodec.decode(JSON.stringify(parsed));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const next = decoded.document.nodes.sfx;
+    expect(next?.kind).toBe('text');
+    if (next?.kind !== 'text') return;
+    expect(next.textEffect?.restoreFills).toEqual([
+      {
+        type: 'solid',
+        color: ink,
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ]);
+  });
+
   it('collects the full dependency closure for imported subtrees', () => {
     let doc = createDocument('Closure', true);
     doc = addNode(

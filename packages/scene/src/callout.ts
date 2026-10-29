@@ -327,6 +327,37 @@ function withCalloutPaint(node: ShapeNode, paint: CalloutPaint | 'clear'): Shape
   return next;
 }
 
+function defaultCalloutPaint(): CalloutPaint {
+  return { fill: WHITE, fills: [solidWhiteFill()] };
+}
+
+function bodyHasCustomCalloutPaint(body: ShapeNode): boolean {
+  return !isDefaultWhitePaint(body) && !isClearCalloutPaint(body);
+}
+
+/**
+ * Paint that travels with the silhouette on a kind switch. Legacy files (no
+ * fillLayout) and bodies that still carry a custom colour keep the body paint
+ * even when the outline is default white. A shaped balloon with no outline
+ * falls back to white rather than the cleared body fill.
+ */
+function movingCalloutPaint(
+  wasShaped: boolean,
+  fillLayout: CalloutRecipe['fillLayout'],
+  body: ShapeNode,
+  bodyPaint: CalloutPaint,
+  outlinePaint: CalloutPaint | undefined,
+): CalloutPaint {
+  const customBody = bodyHasCustomCalloutPaint(body);
+  if (wasShaped && !outlinePaint) {
+    return customBody ? bodyPaint : defaultCalloutPaint();
+  }
+  if (wasShaped && (fillLayout !== 'outline' || customBody)) {
+    return bodyPaint;
+  }
+  return wasShaped ? (outlinePaint ?? bodyPaint) : bodyPaint;
+}
+
 function point(x: number, y: number): PathPoint {
   return { x, y, handleIn: null, handleOut: null };
 }
@@ -1223,7 +1254,13 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
     hasStarOutline && existingOutline?.kind === 'shape'
       ? readCalloutPaint(existingOutline)
       : undefined;
-  const movingPaint = wasShaped ? (outlinePaint ?? bodyPaint) : bodyPaint;
+  const movingPaint = movingCalloutPaint(
+    wasShaped,
+    group.callout.fillLayout,
+    body,
+    bodyPaint,
+    outlinePaint,
+  );
 
   if (shaped && outlineId && hasStarOutline) {
     nodes[outlineId] = {

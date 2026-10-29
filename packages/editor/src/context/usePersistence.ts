@@ -9,7 +9,7 @@ import {
 } from '@varve/platform';
 import { type Document, DocumentCodec, validateDocument } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { commitLibrarySave } from '../persistence/librarySave';
 import { createSaveCoordinator } from '../persistence/saveCoordinator';
 import { flushPendingEdits } from './pendingEdits';
@@ -24,7 +24,11 @@ import {
   getPersistenceFontCatalog,
   serializeDocumentSnapshot as serializeDocumentSnapshotPure,
 } from '../persistence/documentRevision';
-import { encodeDocumentJson, setEncodeWarningToast } from '../persistence/encodeWarnings';
+import {
+  clearEncodeWarningState,
+  encodeDocumentJson,
+  setEncodeWarningToast,
+} from '../persistence/encodeWarnings';
 import { type SaveIntent, type SaveOutcome, saveTargetFromSession } from '../persistence/saveTypes';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
@@ -78,7 +82,10 @@ export function usePersistence(
   ) => { zoom: number; pan: { x: number; y: number } } | null,
   reportEncodeWarning?: (message: string) => void,
 ): PersistenceAPI {
-  setEncodeWarningToast(reportEncodeWarning);
+  useEffect(() => {
+    setEncodeWarningToast(reportEncodeWarning);
+    return () => setEncodeWarningToast(undefined);
+  }, [reportEncodeWarning]);
   const serializeDocument = useCallback(() => {
     return serializeDocumentSnapshot(stateRef.current.document);
   }, [stateRef]);
@@ -185,6 +192,7 @@ export function usePersistence(
       try {
         const decoded = DocumentCodec.decode(json);
         if (!decoded.ok) throw new Error(decoded.error);
+        clearEncodeWarningState();
         const doc = decoded.document;
         const result = validateDocument(doc);
         if (!result.valid && typeof console !== 'undefined') {

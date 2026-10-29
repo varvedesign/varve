@@ -772,11 +772,32 @@ function isManagedColorValue(value: unknown): value is ManagedColor {
   return isRecord(value) && typeof value.space === 'string';
 }
 
+function normalizeSolidRestoreFill(value: unknown): Fill | undefined {
+  if (!isRecord(value) || value.type !== 'solid') return undefined;
+  if (!isManagedColorValue(value.color)) return undefined;
+  const opacity =
+    typeof value.opacity === 'number' && Number.isFinite(value.opacity)
+      ? Math.min(1, Math.max(0, value.opacity))
+      : 1;
+  return {
+    type: 'solid',
+    color: value.color,
+    opacity,
+    blendMode: 'normal',
+    visible: value.visible !== false,
+  };
+}
+
 function normalizeTextEffectValue(raw: unknown): TextEffectState | undefined {
   if (!isRecord(raw) || typeof raw.preset !== 'string' || raw.preset.length === 0) return undefined;
   const next: TextEffectState = { preset: raw.preset };
   if (isManagedColorValue(raw.restoreFill)) next.restoreFill = raw.restoreFill;
-  if (Array.isArray(raw.restoreFills)) next.restoreFills = raw.restoreFills as Fill[];
+  if (Array.isArray(raw.restoreFills)) {
+    const fills = raw.restoreFills
+      .map(normalizeSolidRestoreFill)
+      .filter((fill): fill is Fill => fill !== undefined);
+    if (fills.length > 0) next.restoreFills = fills;
+  }
   return next;
 }
 

@@ -710,6 +710,70 @@ describe('shaped balloons (burst and cloud)', () => {
     expect(speechGroup.callout?.outlineNodeId).toBeUndefined();
   });
 
+  it('keeps a legacy shaped custom body colour after decode and kind switch', () => {
+    const red = { space: 'rgb' as const, r: 200, g: 0, b: 0, a: 255 };
+    const created = createCallout(createDocument('legacy-body-colour', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    const body = created.document.nodes[created.bodyId] as ShapeNode;
+    const { fillLayout: _fillLayout, ...legacyRecipe } = group.callout!;
+    const legacy = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.groupId]: { ...group, callout: legacyRecipe },
+        [created.bodyId]: { ...body, fill: red, fills: [] },
+      },
+    };
+    const decoded = DocumentCodec.decode(DocumentCodec.encode(legacy));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const speech = updateCalloutKind(decoded.document, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId];
+    expect(speechBody?.kind).toBe('shape');
+    if (speechBody?.kind !== 'shape') return;
+    expect(speechBody.fill).toMatchObject(red);
+  });
+
+  it('falls back to default paint when a shaped callout has no outline', () => {
+    const created = createCallout(createDocument('missing-outline', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    const outlineId = group.callout?.outlineNodeId;
+    expect(outlineId).toBeDefined();
+    const { outlineNodeId: _outlineNodeId, ...recipe } = group.callout!;
+    const nodes = { ...created.document.nodes };
+    if (outlineId) delete nodes[outlineId];
+    const stripped = {
+      ...created.document,
+      nodes: {
+        ...nodes,
+        [created.groupId]: { ...group, callout: recipe },
+      },
+    };
+    const speech = updateCalloutKind(stripped, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId];
+    expect(speechBody?.kind).toBe('shape');
+    if (speechBody?.kind !== 'shape') return;
+    expect(speechBody.fill).toMatchObject({ r: 255, g: 255, b: 255, a: 255 });
+    expect(speechBody.fills?.[0]).toMatchObject({
+      type: 'solid',
+      color: { r: 255, g: 255, b: 255, a: 255 },
+    });
+  });
+
   it('moves paintRefs with the silhouette when switching kind both ways', () => {
     const created = createCallout(createDocument('paintrefs-kind', true), {
       x: 0,
