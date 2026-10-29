@@ -6,7 +6,6 @@
     "apps/desktop/src-tauri/src/font_storage.rs": 1071,
     "apps/desktop/src-tauri/src/generative_resources.rs": 522,
     "apps/desktop/src-tauri/src/inference_models.rs": 556,
-    "apps/desktop/src-tauri/src/lib.rs": 7376,
     "apps/desktop/src/App.tsx": 621,
     "apps/desktop/src/visual-harness-main.ts": 440,
     "apps/website/src/test/tokens.test.ts": 512,
