@@ -33,13 +33,10 @@ async function enableAnalyticsFixture(page: Page): Promise<void> {
 
 test('the built website sends nothing before consent', async ({ page }) => {
   const requests: string[] = [];
-  await page.route(
-    /https:\/\/(.*\.goatcounter\.com|plausible\.io|gc\.zgo\.at)\//,
-    async (route) => {
-      requests.push(route.request().url());
-      await route.abort();
-    },
-  );
+  await page.route(/https:\/\/(.*\.goatcounter\.com|gc\.zgo\.at)\//, async (route) => {
+    requests.push(route.request().url());
+    await route.abort();
+  });
   await page.goto('/');
   await page.waitForTimeout(200);
   expect(requests).toEqual([]);
@@ -111,7 +108,7 @@ for (const signal of ['globalPrivacyControl', 'doNotTrack'] as const) {
       });
       localStorage.setItem('varve:website-analytics-consent:goatcounter-v1', 'granted');
     }, signal);
-    await page.route(/https:\/\/(.*\.goatcounter\.com|plausible\.io)\//, async (route) => {
+    await page.route(/https:\/\/(.*\.goatcounter\.com|gc\.zgo\.at)\//, async (route) => {
       requests.push(route.request().url());
       await route.abort();
     });

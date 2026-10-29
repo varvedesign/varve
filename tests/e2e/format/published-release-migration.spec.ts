@@ -111,7 +111,7 @@ async function saveDocument(page: Page): Promise<SavedDocument> {
 function assertRetainedArtwork(saved: SavedDocument) {
   const legacyFill = original.nodes['published-embedded-image']!.fills![0]!;
   const { src: _redundantLegacySource, ...canonicalImage } = legacyFill.image!;
-  expect(saved.formatVersion).toBe('2.33');
+  expect(saved.formatVersion).toBe('2.34');
   expect(saved.designCanvases).toHaveLength(1);
   expect(saved.nodes['poster-title']?.text).toBe(original.nodes['poster-title']?.text);
   expect(saved.nodes['poster-curve']).toMatchObject(original.nodes['poster-curve']!);

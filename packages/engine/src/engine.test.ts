@@ -544,7 +544,11 @@ describe('createEngine (stub)', () => {
     }
   });
 
-  it('buildIr filters invisible fills from stack', async () => {
+  it('buildIr keeps invisible fills in the stack instead of dropping them', async () => {
+    // Dropping them made an all-hidden stack look like "no stack", and replay
+    // then painted the node's legacy `fill` — the exact fill the user hid. The
+    // native builder clones the stack verbatim, so keeping the entry also
+    // restores native/web agreement.
     const eng = await createEngine();
     const ir = await eng.buildIr({
       nodes: [
@@ -573,11 +577,35 @@ describe('createEngine (stub)', () => {
         },
       ],
     });
+    expect(ir[0]?.fills).toHaveLength(2);
+    expect(ir[0]?.fills?.[0]?.visible).toBe(false);
+    expect(ir[0]?.fills?.[1]?.visible).toBe(true);
+  });
+
+  it('buildIr keeps an all-hidden stack so replay paints nothing', async () => {
+    const eng = await createEngine();
+    const ir = await eng.buildIr({
+      nodes: [
+        {
+          id: 'hidden',
+          name: 'hidden',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+          fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
+          fills: [
+            {
+              type: 'solid',
+              color: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: false,
+            },
+          ],
+        },
+      ],
+    });
     expect(ir[0]?.fills).toHaveLength(1);
-    expect(ir[0]?.fills?.[0]?.type).toBe('solid');
-    if (ir[0]?.fills?.[0]?.type === 'solid') {
-      expect(ir[0]?.fills?.[0]?.color).toEqual({ space: 'rgb', r: 0, g: 255, b: 0, a: 255 });
-    }
+    expect(ir[0]?.fills?.[0]?.visible).toBe(false);
   });
 
   it('buildIr falls back to legacy fill when fills[] is empty', async () => {
@@ -738,7 +766,7 @@ describe('createEngine (stub)', () => {
     }
   });
 
-  it('buildIr filters invisible image fill', async () => {
+  it('buildIr keeps an invisible image fill in the stack', async () => {
     const eng = await createEngine();
     const ir = await eng.buildIr({
       nodes: [
@@ -760,8 +788,10 @@ describe('createEngine (stub)', () => {
         },
       ],
     });
-    // Invisible fill is filtered out; fills becomes empty array
-    expect(ir[0]?.fills).toEqual([]);
+    // The entry stays so replay can skip it; an empty array would make the
+    // node look like it has no fill stack and paint the legacy colour.
+    expect(ir[0]?.fills).toHaveLength(1);
+    expect(ir[0]?.fills?.[0]?.visible).toBe(false);
   });
 });
 

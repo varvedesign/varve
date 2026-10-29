@@ -36,12 +36,12 @@ little_exif = { path = "vendor/little_exif" }
 bindgen = { path = "vendor/bindgen" }
 
 [workspace.package]
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 rust-version = "1.82"
 license = "FSL-1.1-MIT"
 authors = ["Varve"]
-repository = "https://github.com/K-Arthur/varve"
+repository = "https://github.com/varvedesign/varve"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

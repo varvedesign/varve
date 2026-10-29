@@ -54,9 +54,64 @@ const AI_ENTRY_POINTS = [
     description: 'Batch background removal',
   },
   {
+    file: 'packages/engine/src/backgroundRemoval/index.ts',
+    function: 'removeBackground',
+    description: 'Engine background-removal dispatch (all AI providers)',
+  },
+  {
     file: 'packages/engine/src/backgroundRemoval/providers/cloudProvider.ts',
     function: 'isAvailable',
-    description: 'Cloud background removal provider',
+    description: 'Cloud background removal provider availability',
+  },
+  {
+    file: 'packages/engine/src/backgroundRemoval/providers/cloudProvider.ts',
+    function: 'remove',
+    description: 'Cloud background removal inference',
+  },
+  {
+    file: 'packages/editor/src/context.tsx',
+    function: 'guardInference',
+    description: 'Editor inference choke point (background removal)',
+  },
+  {
+    file: 'packages/engine/src/inference/SessionManager.ts',
+    function: 'createSession',
+    description: 'ONNX session creation choke point',
+  },
+  {
+    file: 'packages/engine/src/inference/SessionManager.ts',
+    function: 'getSession',
+    description: 'ONNX session load choke point',
+  },
+  {
+    file: 'packages/engine/src/backgroundRemoval/modelLoader.ts',
+    function: 'downloadModel',
+    description: 'Unified model download choke point',
+  },
+  {
+    file: 'packages/engine/src/inference/core/DownloadManager.ts',
+    function: 'startDownload',
+    description: 'Catalog download-manager choke point',
+  },
+  {
+    file: 'packages/editor/src/context/useSam2Segmentation.ts',
+    function: 'applySam2Segmentation',
+    description: 'SAM2 object selection',
+  },
+  {
+    file: 'packages/engine/src/generativeEdit/pipeline.ts',
+    function: 'runGenerativeEdit',
+    description: 'Generative edit pipeline',
+  },
+  {
+    file: 'packages/engine/src/generativeEdit/nativeModel.ts',
+    function: 'downloadNativeGenerativeModel',
+    description: 'Native generative model download',
+  },
+  {
+    file: 'packages/engine/src/upscaleProviders/aiUpscale.ts',
+    function: 'createSession',
+    description: 'Real-ESRGAN ONNX session',
   },
 ] as const;
 
@@ -79,7 +134,8 @@ function extractEntryBody(content: string, name: string): string | null {
     new RegExp(`${name}:\\s*(?:async\\s+)?\\([^)]*\\)\\s*(?::[^{=]+)?=>\\s*\\{`),
     new RegExp(`(?:const|let)\\s+${name}\\s*=\\s*useCallback\\s*\\(`),
     new RegExp(`(?:const|let)\\s+${name}\\s*=\\s*(?:async\\s+)?\\(`),
-    new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`),
+    new RegExp(`(?:async\\s+)?function\\s+${name}\\s*(?:<[^>]*>)?\\s*\\(`),
+    new RegExp(`(?:async\\s+)?${name}\\s*\\([^)]*\\)\\s*(?::[^{]+)?\\{`),
   ];
   for (const pattern of starts) {
     const match = content.match(pattern);
@@ -92,15 +148,17 @@ function extractEntryBody(content: string, name: string): string | null {
 }
 
 /**
- * Patterns that indicate proper AI gating.
+ * Patterns that honour the user-facing AI master switch.
+ * Deployment capability restriction (`isCapabilityRestricted('inference')`)
+ * is not sufficient — a user who turned AI off must still be blocked.
  */
-const GATING_PATTERNS = [
+const USER_SWITCH_PATTERNS = [
   /settings\.ai\.enabled/,
   /checkAiFeaturesEnabled/,
   /getAiFeaturesEnabled/,
-  /isCapabilityRestricted\(['"]inference['"]\)/,
   /aiEnabled/, // From useAiFeaturesEnabled hook
   /aiFeaturesEnabled/, // Alternative naming
+  /assertAiFeaturesEnabled/,
 ] as const;
 
 describe('AI Entry Point Gating Audit', () => {
@@ -119,16 +177,25 @@ describe('AI Entry Point Gating Audit', () => {
       }
 
       const functionBody = extractEntryBody(content, entryPoint.function);
-      if (!functionBody) {
+      const implIndex = [
+        `async ${entryPoint.function}`,
+        `const ${entryPoint.function}`,
+        `function ${entryPoint.function}`,
+      ]
+        .map((marker) => content.indexOf(marker))
+        .find((index) => index !== -1);
+      const nearby = implIndex === undefined ? null : content.slice(implIndex, implIndex + 4000);
+      if (!functionBody && !nearby) {
         // Function not found - might have been refactored
         ungated.push(entryPoint);
         continue;
       }
 
-      // Check if any gating pattern is present in the function body
-      const hasGating = GATING_PATTERNS.some((pattern) => pattern.test(functionBody));
+      const hasUserSwitch = USER_SWITCH_PATTERNS.some(
+        (pattern) => pattern.test(functionBody ?? '') || pattern.test(nearby ?? ''),
+      );
 
-      if (!hasGating) {
+      if (!hasUserSwitch) {
         ungated.push(entryPoint);
       }
     }
@@ -139,8 +206,8 @@ describe('AI Entry Point Gating Audit', () => {
         .join('\n');
       throw new Error(
         `Found ${ungated.length} AI entry point(s) without proper gating:\n${report}\n\n` +
-          'Each AI entry point must check ai.enabled before executing.\n' +
-          'Use checkAiFeaturesEnabled() or getAiFeaturesEnabled() to gate access.',
+          'Each AI entry point must honour the user AI master switch before executing.\n' +
+          'Use checkAiFeaturesEnabled() or getAiFeaturesEnabled() — capability restriction alone is not enough.',
       );
     }
   });
@@ -180,6 +247,24 @@ describe('AI Entry Point Gating Audit', () => {
         );
       }
     }
+  });
+
+  it('uses the standard AI-disabled hint at leftover toast and announce sites', () => {
+    const hint = 'Turn on AI features in Settings to use this';
+    const context = readFileSync(join(process.cwd(), 'packages/editor/src/context.tsx'), 'utf-8');
+    const bgRemoval = readFileSync(
+      join(
+        process.cwd(),
+        'packages/editor/src/components/Inspector/sections/BackgroundRemovalSection.tsx',
+      ),
+      'utf-8',
+    );
+    const cafBody = extractEntryBody(context, 'openCafDialog');
+    const objectBody = extractEntryBody(bgRemoval, 'startObjectSelection');
+    expect(cafBody).toContain(hint);
+    expect(cafBody).not.toContain('Enable AI features in Settings to use Generative Edit.');
+    expect(objectBody).toContain('AI_DISABLED_HINT');
+    expect(objectBody).not.toContain('Object Selection requires AI features');
   });
 
   it('verifies the gating helper functions exist', () => {

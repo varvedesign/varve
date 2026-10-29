@@ -52,6 +52,7 @@ import { SmartFiltersSection } from './sections/SmartFiltersSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TableCellsSection, TableTracksSection } from './sections/TableCellsSection';
 import { TableSection } from './sections/TableSection';
+import { TextFrameSection } from './sections/TextFrameSection';
 import { TypographySection } from './sections/TypographySection';
 import { WarpSection } from './sections/WarpSection';
 
@@ -128,6 +129,7 @@ const SINGLE_MEMBERS: CompositionMember[] = [
   },
   { id: 'stroke', render: ({ nodes }) => <StrokeSection nodes={nodes} /> },
   { id: 'typography', render: ({ nodes }) => <TypographySection nodes={nodes} /> },
+  { id: 'text-frame', render: ({ nodes }) => <TextFrameSection nodes={nodes} /> },
   {
     id: 'callout',
     render: ({ node }) => <CalloutSection node={node as GroupNode} sectionId="callout" />,
@@ -180,6 +182,7 @@ const MULTI_MEMBERS: CompositionMember[] = [
   { id: 'selection-colors', render: ({ nodes }) => <SelectionColorsSection nodes={nodes} /> },
   { id: 'image-placement', render: ({ nodes }) => <ImagePlacementSection nodes={nodes} /> },
   { id: 'typography', render: ({ nodes }) => <TypographySection nodes={nodes} /> },
+  { id: 'text-frame', render: ({ nodes }) => <TextFrameSection nodes={nodes} /> },
   {
     id: 'warp',
     render: ({ nodes, node }) => <WarpSection nodes={nodes} node={node ?? nodes[0]} />,

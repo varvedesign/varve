@@ -266,10 +266,17 @@ export async function runOcrPipeline(
   if (!dictUrl) {
     throw new Error(`No dictionary configured for recognition model '${recognitionModelId}'`);
   }
+  if (!recModelConfig?.dictionarySha256) {
+    throw new Error(
+      `OCR dictionary for model '${recognitionModelId}' has no pinned SHA-256 checksum.`,
+    );
+  }
 
   let dict: readonly string[];
   try {
-    dict = await loadOcrDictionary(dictUrl, 0, signal);
+    dict = await loadOcrDictionary(dictUrl, 0, signal, {
+      sha256: recModelConfig.dictionarySha256,
+    });
     validateDictionary(recognitionModelId, dict);
   } catch (err) {
     throw new Error(

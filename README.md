@@ -10,33 +10,38 @@
 <p align="center"><strong>Local-first design software for vector, layout, typography, motion, prototyping, and print — one application, no subscription, no cloud account.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/K-Arthur/varve/actions/workflows/ci.yml"><img src="https://github.com/K-Arthur/varve/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/K-Arthur/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
+  <a href="https://github.com/varvedesign/varve/actions/workflows/ci.yml"><img src="https://github.com/varvedesign/varve/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/varvedesign/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-3b82f6" alt="License: FSL-1.1-MIT"></a>
   <a href="#project-status"><img src="https://img.shields.io/badge/status-public%20beta-C54B3A" alt="Status: public beta"></a>
+  <!-- Restored when SHOW_SUPPORT_PROJECT is true in apps/website/src/config/features.js:
   <a href="https://github.com/sponsors/K-Arthur"><img src="https://img.shields.io/github/sponsors/K-Arthur?label=sponsors" alt="GitHub Sponsors"></a>
+  -->
 </p>
 
-> **Public beta.** This repository contains the `0.5.0` update. The
+> **Public beta.** This repository contains the `0.5.1` update. The
 > [download page](https://varve.studio/download) lists verified published
 > application installers for Linux, macOS, and Windows, with their signing
 > status. Core workflows are usable today, but the `.varve` document format
 > and interfaces can still change. Platform signing and updater signatures
 > are verified separately; check the download guidance for the chosen build.
+> Update checks run only after you enable them.
 
 <p align="center">
   <a href="https://varve.studio/try/?ref=gh-readme-try"><img src="https://img.shields.io/badge/Try-Browser-3b82f6?style=flat&logo=webassembly&logoColor=white" alt="Try in Browser"></a>
   <a href="https://varve.studio/download?ref=gh-readme-download"><img src="https://img.shields.io/badge/Download-Latest-00c853?style=flat&logo=download&logoColor=white" alt="Download Latest"></a>
-  <a href="https://github.com/K-Arthur/varve/discussions"><img src="https://img.shields.io/badge/Feedback-Discussions-orange?style=flat&logo=github&logoColor=white" alt="Feedback"></a>
+  <a href="https://github.com/varvedesign/varve/discussions"><img src="https://img.shields.io/badge/Feedback-Discussions-orange?style=flat&logo=github&logoColor=white" alt="Feedback"></a>
 </p>
 
 <p align="center">
   <a href="https://varve.studio?ref=gh-readme-home"><strong>Website</strong></a> ·
   <a href="https://varve.studio/docs?ref=gh-readme-docs"><strong>Docs</strong></a> ·
   <a href="https://varve.studio/about/how-its-built?ref=gh-readme-about"><strong>How it's built</strong></a> ·
-  <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
-  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a> ·
-  <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>
+  <a href="https://github.com/varvedesign/varve/releases"><strong>Releases</strong></a> ·
+  <a href="https://github.com/varvedesign/varve/discussions"><strong>Discussions</strong></a>
+  <!-- Restored when SHOW_SUPPORT_PROJECT is true in apps/website/src/config/features.js:
+  · <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>
+  -->
 </p>
 
 **Design, illustrate, and publish — locally, without subscriptions.** Vector graphics, typography, layout, motion, and print production in one application. Free under FSL-1.1-MIT (converts to MIT after 2 years), runs on Linux, macOS, and Windows, with an experimental browser build.
@@ -77,8 +82,11 @@
 - **Export** — SVG, PDF, React, Svelte, Vue, Flutter, SwiftUI, email HTML,
   Web Components, Tailwind, and Lottie/CSS/SVG animation, computed locally.
 - **Images and local intelligence** — adjustments, effects, background removal,
-  palette extraction, object selection, depth blur, and optional on-device
-  enhancement. Optional models download only when requested.
+  palette extraction, object selection, depth blur, on-device enhancement, and
+  Generative Edit (mask-guided Fill, Remove, and Expand on one selected image;
+  Replace and prompt-conditioned modes stay gated until a qualified local model
+  exists). AI features are on in Settings by default and can be turned off.
+  Larger models download only when requested.
 
 **Not yet implemented:** real-time collaboration exists only as UI scaffolding.
 The native desktop application is the full product; an experimental browser build
@@ -160,7 +168,7 @@ product page.
 ## Download
 
 Get application installers from the [Varve download page](https://varve.studio/download?ref=gh-readme-download-section)
-or the [Varve v0.5.0 release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0).
+or the [Varve v0.5.1 release](https://github.com/varvedesign/varve/releases/tag/v0.5.1).
 Optional AI models are published as separate releases.
 
 ## Platform support
@@ -196,7 +204,8 @@ and may be used for:
   document data or device identifiers.
 - **Optional cloud providers**, only when you configure and invoke one (for
   example, a user-supplied background-removal endpoint).
-- **Consent-gated aggregate analytics**. Crash reports remain local unless a
+- **Website and browser-demo analytics**, GoatCounter only after Allow. The
+  desktop app sends no usage stats. Crash reports remain local unless a
   build explicitly configures an upload endpoint; the public build does not.
 
 ## Develop Varve
@@ -205,7 +214,7 @@ Full instructions, prerequisites, and per-OS system packages:
 [docs/development/setup.md](docs/development/setup.md).
 
 ```bash
-git clone https://github.com/K-Arthur/varve
+git clone https://github.com/varvedesign/varve
 cd varve
 pnpm install
 just check-env             # verify Rust, pnpm, just, and WebKitGTK pkg-config
@@ -290,10 +299,11 @@ scripts/    release, screenshot, and quality-gate tooling
 ## Project status
 
 Varve is in **public beta**. The latest published application release is
-`v0.5.0`, published on 2026-10-09 after the tagged candidate passed the
-release and publication gates. Published installers cover Linux, macOS
+`v0.5.1`, published on 2026-10-15 after the tagged candidate passed the
+release and publication gates. v0.5.0 shipped on 2026-10-09 as the previous
+public-beta release. Published installers cover Linux, macOS
 (Apple Silicon), and Windows. This checkout
-targets source version `<!-- VARVE_VERSION -->0.5.0<!-- /VARVE_VERSION -->`.
+targets source version `<!-- VARVE_VERSION -->0.5.1<!-- /VARVE_VERSION -->`.
 Versioning follows [SemVer](https://semver.org/); release notes are kept in
 [CHANGELOG.md](CHANGELOG.md). Published v0.2.1 used document schema 2.21; this
 source tree writes schema 2.33, including a migration that removes the
@@ -368,12 +378,14 @@ mandatory cloud sync.
 <details>
 <summary><strong>Does Varve include AI features?</strong></summary>
 <br>
-Yes, as optional local workflows. Depending on the build, these include
-background removal, image enhancement, object selection, depth-aware effects,
-palette extraction, and local asset search. Some small baseline models ship
-with the app; larger models are downloaded on demand, verified against a
-checksum when available, and run locally. There is no Varve-hosted inference
-service.
+Yes. Settings keep AI features on by default; turn them off if you do not
+want them. Depending on the build, they include background removal, image
+enhancement, object selection, depth-aware effects, palette extraction, local
+asset search, and Generative Edit (Fill, Remove, Expand). Replace and
+prompt-conditioned generation stay unavailable until a reviewed local model
+is qualified. Some small baseline models ship with the app; larger models
+are downloaded on demand, verified against a checksum when available, and
+run locally. There is no Varve-hosted inference service.
 </details>
 
 <details>
@@ -406,7 +418,7 @@ Chromebook</a> for the browser, installed-web-app, and ChromeOS Linux routes.
 <details>
 <summary><strong>How do I report a bug or a security vulnerability?</strong></summary>
 <br>
-Bugs and feature feedback: <a href="https://github.com/K-Arthur/varve/issues">GitHub Issues</a>.
+Bugs and feature feedback: <a href="https://github.com/varvedesign/varve/issues">GitHub Issues</a>.
 Security vulnerabilities: report privately per <a href="SECURITY.md">SECURITY.md</a>
 — do not open a public issue.
 </details>
@@ -418,21 +430,21 @@ stabilizes its build, release, and documentation foundations. See
 [CONTRIBUTING.md](CONTRIBUTING.md) and the [current contributor guide](docs/development/contributing.md)
 for the status and future PR workflow. Bug reports, feature ideas, testing,
 documentation, and design feedback are welcome now via
-[Issues](https://github.com/K-Arthur/varve/issues) and
-[Discussions](https://github.com/K-Arthur/varve/discussions).
+[Issues](https://github.com/varvedesign/varve/issues) and
+[Discussions](https://github.com/varvedesign/varve/discussions).
 
 ## Security
 
 Report vulnerabilities privately through
-[GitHub Security Advisories](https://github.com/K-Arthur/varve/security/advisories) —
+[GitHub Security Advisories](https://github.com/varvedesign/varve/security/advisories) —
 see [SECURITY.md](SECURITY.md) for scope and process. Do not file a public
 issue for a security report.
 
 ## Support
 
 [Product support](mailto:support@varve.studio) is available for private installation,
-download, troubleshooting, and usage questions. Use [GitHub Issues](https://github.com/K-Arthur/varve/issues)
-for reproducible non-sensitive bugs and [Discussions](https://github.com/K-Arthur/varve/discussions)
+download, troubleshooting, and usage questions. Use [GitHub Issues](https://github.com/varvedesign/varve/issues)
+for reproducible non-sensitive bugs and [Discussions](https://github.com/varvedesign/varve/discussions)
 for public questions and workflows. See [SUPPORT.md](SUPPORT.md) or the complete
 [contact directory](https://varve.studio/contact). This is an independently maintained project;
 availability and response times vary.
@@ -441,7 +453,7 @@ availability and response times vary.
 
 - General: [hello@varve.studio](mailto:hello@varve.studio)
 - Support: [support@varve.studio](mailto:support@varve.studio)
-- Security: [security@varve.studio](mailto:security@varve.studio), or GitHub [Private Vulnerability Reporting](https://github.com/K-Arthur/varve/security/advisories)
+- Security: [security@varve.studio](mailto:security@varve.studio), or GitHub [Private Vulnerability Reporting](https://github.com/varvedesign/varve/security/advisories)
 
 ## License
 

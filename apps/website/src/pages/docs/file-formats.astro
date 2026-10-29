@@ -109,9 +109,13 @@ const figmaImportFaq = {
           <li><code>&lt;use&gt;</code> and <code>&lt;defs&gt;</code> references</li>
           <li>Transform attributes (matrix, translate, rotate, scale, skew)</li>
           <li>Fill, stroke, opacity, and style attributes</li>
+          <li>Hidden SVG content and explicit visible overrides are preserved; inline <code>display="none"</code> content is omitted</li>
         </ul>
         <p>
           Imported SVG keeps the source's ordered sibling roots and nested groups as logical artifacts. Their transforms (including nested scale and rotation), viewBox origin, and relative spacing are resolved once before placement, so separate groups are not pasted as an unordered stack or given independent offsets. Unsupported effects and semantics remain visible in Import Results instead of being silently flattened.
+        </p>
+        <p>
+          Inkscape live path effects keep their visible SVG path geometry on import, but Varve does not retain the Inkscape-only original path or effect controls. Import Results marks these files as partial so you can keep the source SVG when you may need to adjust those effects later.
         </p>
         <p>
           <code>.svgz</code> uses the same bounded parser after gzip decompression. The encoded and
@@ -128,7 +132,7 @@ const figmaImportFaq = {
         <ul>
           <li><strong>Editable text:</strong> Text remains text, including mixed rich-text runs where the source data provides them</li>
           <li><strong>Font recovery:</strong> Missing families are reviewed through ranked local replacement candidates; the original family and replacement remain in the document manifest</li>
-          <li><strong>Native semantics:</strong> Auto Layout, components, variants, variables, and interactions are converted only when the target model can preserve their meaning</li>
+          <li><strong>Native semantics:</strong> Auto Layout, components, variants, direct component slots, variables, and interactions are converted only when the target model can preserve their meaning</li>
           <li><strong>Safe degradation:</strong> Unsupported effects, missing dependencies, and approximations appear in the structured Import Report</li>
         </ul>
         <p>
@@ -142,16 +146,53 @@ const figmaImportFaq = {
           see the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a> for the target
           behavior.
         </p>
+        <p>
+          Direct Figma slot properties on a component root become editable Varve slots with their
+          default content. Nested slot areas stay visually editable but are reported when Varve
+          cannot map them into the component slot contract; Figma-only preferred-instance and
+          child-count guidance is not preserved. Varve does not export Figma <code>.fig</code> files.
+        </p>
 
         <h3>PDF</h3>
         <p>
-          PDF import via a bounded local parser with <code>%PDF-</code> header detection. Extracts:
+          PDF import uses a bounded local parser with <code>%PDF-</code> header detection. It
+          reads the page tree and each page's content stream rather than pattern-matching text:
         </p>
         <ul>
-          <li>Text content from BT...ET blocks</li>
-          <li>Rectangle path operators</li>
-          <li>Multi-page conversion (each page becomes a Varve frame)</li>
+          <li>
+            Text positioned by the text matrix composed with the CTM, with <code>/Rotate</code> and
+            inherited page boxes applied, so a line lands where the page puts it
+          </li>
+          <li>
+            Character codes resolved through the font's <code>/ToUnicode</code> map, or its named
+            base encoding plus <code>/Differences</code>, so accented and non-Latin text survives
+          </li>
+          <li>
+            Vertical writing (<code>/Identity-V</code>, or a CMap with <code>/WMode 1</code>)
+            imported as vertical columns with the writing mode set, including producers that
+            position one glyph per text-showing operator
+          </li>
+          <li>Plain axis-aligned rectangle fills</li>
+          <li>
+            One Varve page per PDF page, in <code>/Kids</code> order, up to 50 pages; the remainder
+            is named in Import Results
+          </li>
         </ul>
+        <p>
+          Content the page does not show is not imported: text in an invisible or clip-only render
+          mode (<code>3 Tr</code> / <code>7 Tr</code>, the shape of a searchable OCR layer over a
+          scan), and content inside an optional-content group the document's default configuration
+          hides (a PDF layer, as layered CAD exports ship). Both are counted, and hidden layers are
+          named in Import Results. Images, form XObjects, curves, strokes, gradients, CMYK and
+          pattern paints are reported rather than approximated. Import Results also lists what
+          the parser did rather than what it lost, such as page rotation being applied or vertical
+          runs becoming editable columns.
+        </p>
+        <p>
+          An encrypted PDF (password-protected or permission-restricted) is refused with an
+          explanation instead of being imported as a blank page: Varve does not implement the PDF
+          security handler. Export an unencrypted copy from a PDF reader, then import that.
+        </p>
 
         <h3>PSD and PSB (Photoshop)</h3>
         <p>

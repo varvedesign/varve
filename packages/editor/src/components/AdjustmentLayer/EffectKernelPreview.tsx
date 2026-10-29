@@ -2,6 +2,7 @@ import type { Adjustment } from '@varve/engine';
 import {
   type CoordSpace,
   type EffectDispatchRequest,
+  type EffectPreviewBackend,
   type EffectPreviewIdentity,
   getEffectPreviewRunner,
   type LiveEffectKind,
@@ -121,6 +122,7 @@ export function EffectKernelPreview({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentIdentityRef = useRef<EffectPreviewIdentity | null>(null);
   const [state, setState] = useState<PreviewState>('queued');
+  const [backend, setBackend] = useState<EffectPreviewBackend | 'pending'>('pending');
   const [isVisible, setIsVisible] = useState(false);
   const hasSource = isUsableSource(sourceImageData, sourceCoordSpace);
   const previewWidth = hasSource ? sourceImageData.width : WIDTH;
@@ -184,6 +186,7 @@ export function EffectKernelPreview({
     const controller = new AbortController();
     const runner = getEffectPreviewRunner();
     setState('queued');
+    setBackend('pending');
 
     void runner
       .submit({
@@ -193,6 +196,9 @@ export function EffectKernelPreview({
         signal: controller.signal,
         captureSource: () =>
           hasSource ? new Uint8ClampedArray(sourceImageData.data) : createEffectKernelSample(),
+        onBackend: (provider) => {
+          if (visible) setBackend(provider);
+        },
         isCurrent: (candidate) =>
           sameEffectPreviewIdentity(candidate, currentIdentityRef.current ?? identity),
       })
@@ -250,6 +256,7 @@ export function EffectKernelPreview({
       ref={previewRef}
       className="live-effect-kernel-preview"
       aria-label={`${request.effect} preview of ${previewKind}`}
+      data-preview-backend={backend}
     >
       <canvas
         ref={canvasRef}

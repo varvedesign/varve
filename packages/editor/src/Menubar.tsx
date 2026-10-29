@@ -1013,7 +1013,7 @@ function buildMenus(
               action: 'toggleBleedGuides',
             },
             {
-              label: 'Soft Proofing',
+              label: 'Approximate CMYK Preview',
               shortcut: shortcutText('softProof'),
               ariaKeyshortcut: ks('softProof'),
               action: 'softProof',

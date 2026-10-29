@@ -296,12 +296,18 @@ export function FontSelector({
           .sort((a, b) => (b.recentlyUsedAt ?? 0) - (a.recentlyUsedAt ?? 0))
           .slice(0, 5),
       );
+      const sourceRecords = (source: 'system' | 'bundled') =>
+        records.filter((record) => record.sourceKinds.includes(source));
+      add('System', sourceRecords('system'));
+      add('Bundled', sourceRecords('bundled'));
+      add('Installed', records);
+    } else {
+      // Keep semantic ranking. Grouping by source while typing puts every
+      // system hit (including probed "variable" families) ahead of the
+      // literal bundled match, so Enter would commit Times New Roman for
+      // "Geist Variable".
+      add('Matches', records);
     }
-    const sourceRecords = (source: 'system' | 'bundled') =>
-      records.filter((record) => record.sourceKinds.includes(source));
-    add('System', sourceRecords('system'));
-    add('Bundled', sourceRecords('bundled'));
-    add(query.trim() ? 'Matches' : 'Installed', records);
     return sections;
   }, [allInstalled, query, records]);
 

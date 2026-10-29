@@ -7,6 +7,12 @@ import packageManagers from './package-managers.json';
 
 export const MACOS_QUARANTINE_ONLY_RELEASES = new Set(['0.5.0']);
 
+export {
+  appImageShipsBundledWebKit,
+  compareReleaseVersion,
+  FIRST_BUNDLED_WEBKIT_APPIMAGE,
+} from './release-version.mjs';
+
 export function isMacosQuarantineOnlyRelease(version: string | null | undefined): boolean {
   return Boolean(version && MACOS_QUARANTINE_ONLY_RELEASES.has(version));
 }

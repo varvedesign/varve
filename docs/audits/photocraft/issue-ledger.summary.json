@@ -1,0 +1,49 @@
+{
+  "baseline": {
+    "crawl_start_utc": "2026-10-17T04:41:35Z",
+    "repo": "storytold/pdfcraft",
+    "issues_exit": "0",
+    "issues_bytes": "16726544",
+    "comments_exit": "0",
+    "comments_bytes": "7375359",
+    "crawl_end_utc": "2026-10-17T04:42:17Z"
+  },
+  "totals": {
+    "issues": 1296,
+    "open": 827,
+    "closed": 469,
+    "with_comments": 883,
+    "reviewed_with_thread": 30,
+    "reviewed_with_body": 1253,
+    "reviewed_title_only": 13
+  },
+  "relevance": [
+    ["out-of-scope", 671],
+    ["applicable", 416],
+    ["not-a-varve-defect", 204],
+    ["no-signal", 5]
+  ],
+  "disposition": [
+    ["out-of-scope", 676],
+    ["screened-for-varve", 408],
+    ["already-handled", 205],
+    ["implemented", 7]
+  ],
+  "family": [
+    ["out-of-scope", 650],
+    ["handled-class", 210],
+    ["text-edit-identity", 79],
+    ["crash-robustness", 58],
+    ["selection-interaction", 55],
+    ["render-compositing", 50],
+    ["text-font-scripts", 51],
+    ["import-parse", 34],
+    ["save-integrity", 32],
+    ["platform-packaging", 24],
+    ["perf-bounds", 23],
+    ["async-generation", 13],
+    ["export-fidelity", 9],
+    ["accessibility", 5],
+    ["dirty-state", 3]
+  ]
+}

@@ -1,8 +1,13 @@
-import { VARVE_URLS } from '@varve/shared';
 import release from '../data/release-manifest.json';
 import { publishedFeatureVersion } from './feature-release';
 
 type PublishedRelease = { hasRelease: boolean; version?: string; updater?: boolean };
+
+/**
+ * Canonical GitHub repository for published release URLs.
+ * Historical tags remain on this repo after the move from K-Arthur/varve.
+ */
+export const PUBLISHED_RELEASE_REPOSITORY = 'https://github.com/varvedesign/varve';
 
 /** Prepared changelog notes do not establish installer or release-link availability. */
 export function changelogReleaseState(version: string, manifest: PublishedRelease = release) {
@@ -10,7 +15,7 @@ export function changelogReleaseState(version: string, manifest: PublishedReleas
   return {
     published,
     latest: published && manifest.version === version,
-    releaseUrl: published ? `${VARVE_URLS.repository}/releases/tag/v${version}` : null,
+    releaseUrl: published ? `${PUBLISHED_RELEASE_REPOSITORY}/releases/tag/v${version}` : null,
   };
 }
 

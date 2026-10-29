@@ -46,7 +46,13 @@ export interface UnifiedFontInfo {
  */
 export function createFontCatalogFromRegistry(registry: FontRegistry): FontCatalog {
   const catalog = new FontCatalog();
+  // Withhold families the host cannot resolve. `availableFamilies()` is the
+  // one place that knows which seed-list assertions were verified against this
+  // host; projecting every registered family here made `detectMissing` treat a
+  // silently-substituted family as faithful typography.
+  const available = registry.availableFamilies();
   for (const family of registry.families()) {
+    if (!available.has(family)) continue;
     for (const entry of registry.getEntries(family)) {
       const catalogEntry = catalog.addEntry(parsedMetadataFromRegistryEntry(registry, entry));
       catalog.setActive(catalogEntry.id, registry.isAvailable(family));

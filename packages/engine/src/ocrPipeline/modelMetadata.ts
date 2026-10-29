@@ -20,7 +20,8 @@ export const PADDLE_REC_V4_CONFIG: OcrModelConfig = {
   numClasses: 6625,
   ctcBlankIndex: 0,
   dictionaryUrl:
-    'https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/release/2.7/ppocr/utils/ppocr_keys_v1.txt',
+    'https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/8cce9b6fd7ccb50226d0c38f94054d81c29b8184/ppocr/utils/ppocr_keys_v1.txt',
+  dictionarySha256: '28b2362ad4ab2dc38769aa72feb535e3a9ddb3fd2a7585a05920e6393b1dc7f7',
   expectedDictionarySize: 6624,
   supportedLanguages: ['zh', 'en', 'ja', 'ko'],
   inputHeight: 48,
@@ -54,7 +55,8 @@ export const EN_ONLY_REC_CONFIG: OcrModelConfig = {
   numClasses: 65,
   ctcBlankIndex: 0,
   dictionaryUrl:
-    'https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/release/2.7/ppocr/utils/dict/en_dict.txt',
+    'https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/8cce9b6fd7ccb50226d0c38f94054d81c29b8184/ppocr/utils/dict/en_dict.txt',
+  dictionarySha256: 'e1f9b09d757e60b89b6c5c701b40e4da62e44f9ff556b73959c50edda12cd530',
   expectedDictionarySize: 64,
   supportedLanguages: ['en'],
   inputHeight: 48,

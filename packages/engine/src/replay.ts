@@ -633,6 +633,7 @@ function paintFillsAndStrokes(
   itemAlpha: number,
   itemBlend: string,
 ): void {
+  paintTextFrame(target, item, itemAlpha, itemBlend);
   const fills = item.fills;
   if (fills && fills.length > 0) {
     const restoreBlend = target.globalCompositeOperation;
@@ -3654,6 +3655,35 @@ function paintText(
   }
 
   if (shouldClipToFrame) target.restore();
+}
+
+/** Paint the text container before any glyphs, independently of glyph paint. */
+function paintTextFrame(
+  target: ReplayTarget,
+  item: RenderItem,
+  itemAlpha: number,
+  itemBlend: string,
+): void {
+  if (item.primitive.kind !== 'text') return;
+  const p = item.primitive;
+  const frame = p.textFrame;
+  if (!frame) return;
+  target.save();
+  target.globalAlpha = itemAlpha;
+  target.globalCompositeOperation = itemBlend;
+  if (frame.fill) {
+    target.fillStyle = rgba(frame.fill);
+    target.fillRect(p.x, p.y, p.w, p.h);
+  }
+  const border = frame.border;
+  if (border && Number.isFinite(border.width) && border.width > 0) {
+    target.strokeStyle = rgba(border.color);
+    target.lineWidth = border.width;
+    target.lineDashOffset = 0;
+    target.setLineDash([]);
+    target.strokeRect(p.x, p.y, p.w, p.h);
+  }
+  target.restore();
 }
 
 /** Module-level cached canvas + context for measureText calls (created lazily). */

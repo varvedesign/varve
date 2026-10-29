@@ -47,6 +47,35 @@ describe('DocumentCodec', () => {
     expect(decoded.shape.points.map((point) => point.mode)).toEqual(['smooth', 'symmetric']);
   });
 
+  it('round-trips optional text-frame fill and border through save and reopen', () => {
+    const node = makeTextNode('framed-label', 'Keep this label readable', {
+      w: 320,
+      h: 64,
+      textFrame: {
+        fill: { space: 'rgb', r: 221, g: 246, b: 243, a: 255 },
+        border: {
+          color: { space: 'rgb', r: 18, g: 91, b: 91, a: 255 },
+          width: 0,
+        },
+      },
+    });
+    const doc = addNode(createDocument('Text frame', true), node);
+    const result = DocumentCodec.decode(DocumentCodec.encode(doc));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.nodes['framed-label']).toMatchObject({
+      kind: 'text',
+      textFrame: {
+        fill: { space: 'rgb', r: 221, g: 246, b: 243, a: 255 },
+        border: {
+          color: { space: 'rgb', r: 18, g: 91, b: 91, a: 255 },
+          width: 0,
+        },
+      },
+    });
+  });
+
   it('round-trips the export-region frame role', () => {
     let doc = createDocument('Export region', true);
     doc = addNode(
@@ -204,6 +233,55 @@ describe('DocumentCodec', () => {
         ? second.document.nodes.stroked.strokes[0]?.id
         : undefined;
     expect(secondId).toBe(firstId);
+  });
+
+  it('keeps per-page geometry and page order across save and reopen', () => {
+    // A document may mix orientations: each page carries its own width and
+    // height, and that is the whole of Varve's page-rotation model. A save
+    // that normalised pages to the first page's size, or reordered them, would
+    // silently re-lay-out a brochure.
+    let doc = createDocument('Mixed pages', {
+      physicalWidth: 612,
+      physicalHeight: 792,
+      documentUnit: 'pt',
+    });
+    const firstPage = doc.pages?.[0];
+    expect(firstPage).toBeDefined();
+    doc = {
+      ...doc,
+      pages: doc.pages?.map((page) =>
+        page.id === firstPage?.id ? { ...page, width: 816, height: 1056 } : page,
+      ),
+    };
+    doc = addPage(doc, { width: 1056, height: 816, name: 'Landscape plate' });
+    doc = addPage(doc, { width: 595, height: 842, name: 'A4 portrait' });
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'landscape-mark',
+        { kind: 'rect', x: 0, y: 0, w: 40, h: 40 },
+        { transform: [1, 0, 0, 1, 900, 120] },
+      ),
+    );
+
+    const encoded = DocumentCodec.encode(doc);
+    const result = DocumentCodec.decode(encoded);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const sizes = result.document.pages?.map((page) => [page.width, page.height]);
+    expect(sizes).toEqual([
+      [816, 1056],
+      [1056, 816],
+      [595, 842],
+    ]);
+    expect(result.document.pages?.map((page) => page.name)).toEqual([
+      firstPage?.name,
+      'Landscape plate',
+      'A4 portrait',
+    ]);
+    const mark = result.document.nodes['landscape-mark'];
+    expect(mark?.transform.slice(4)).toEqual([900, 120]);
   });
 
   it('decodes, migrates, and validates serialized documents', () => {

@@ -5,6 +5,10 @@ import type { Platform } from '@varve/platform';
 import type { Document, ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@varve/scene';
 import { isExportRegion, resolveNodePaints } from '@varve/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import {
+  notifySuccessfulDemoExport,
+  notifySuccessfulDemoExportBatch,
+} from '../../analytics/demoExportAnalytics';
 import { durationBucket, getDesktopAnalytics } from '../../analytics/desktopAnalytics';
 import {
   commitPreparedBackgroundRemoval,
@@ -25,6 +29,7 @@ import {
   ExportService,
   isMultiFileExportFormat,
 } from '../../exportService';
+import { checkAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { buildPackageExport } from '../../packageExport';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
 import { ExportDialog } from '../Export/ExportDialog';
@@ -299,6 +304,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           latest.announce('SVG export cancelled');
           return;
         }
+        notifySuccessfulDemoExport('svg');
         const diagnostics = snapshots.svg.diagnostics;
         if (diagnostics.length > 0) {
           latest.showToast({
@@ -325,6 +331,9 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
       // is the one place every route passes through.
       openBatchBgRemove: () => {
         if (isCapabilityRestricted('inference')) return;
+        if (!checkAiFeaturesEnabled(editorRef.current.showToast, 'Batch background removal')) {
+          return;
+        }
         setBatchBgRemoveOpen(true);
       },
       copySelectionAsPng,
@@ -377,6 +386,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         }
       }
       const analytics = getDesktopAnalytics();
+      const successfulFormats: Array<ReturnType<typeof mapExportFormat>> = [];
       for (const file of report.files) {
         const analyticsFormat = mapExportFormat(file.format);
         if (file.status === 'success') {
@@ -384,6 +394,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
             format: analyticsFormat,
             durationBucket: durationBucket(file.durationMs),
           });
+          successfulFormats.push(analyticsFormat);
         } else {
           analytics.track('export_failed', {
             format: analyticsFormat,
@@ -391,6 +402,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           });
         }
       }
+      notifySuccessfulDemoExportBatch(successfulFormats);
       void analytics.flush();
       return report;
     },

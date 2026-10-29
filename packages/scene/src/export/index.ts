@@ -7,6 +7,7 @@
  */
 
 export * from './adapter';
+export * from './blendFidelity';
 export * from './capabilities';
 export * from './icns';
 export * from './ico';
@@ -17,3 +18,4 @@ export * from './plan';
 export * from './preflight';
 export * from './presets';
 export * from './resolution';
+export * from './transparencyFidelity';

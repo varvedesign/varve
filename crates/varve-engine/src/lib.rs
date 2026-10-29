@@ -13,7 +13,7 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
-use varve_core::{BlendMode, EngineColor, FillIR, PathPoint, SceneNode, Shape};
+use varve_core::{BlendMode, EngineColor, FillIR, PathPoint, SceneNode, Shape, TextFrameStyle};
 
 /// One drawable record in the render IR. The webview replays these in order.
 ///
@@ -148,6 +148,8 @@ pub enum Primitive {
     #[serde(rename = "text")]
     Text {
         text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "textFrame")]
+        text_frame: Option<TextFrameStyle>,
         #[serde(rename = "fontSize")]
         font_size: f64,
         #[serde(rename = "fontFamily")]
@@ -318,6 +320,7 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
         Shape::Table(payload) => Primitive::Table(Box::new(payload.clone())),
         Shape::Text {
             text,
+            text_frame,
             font_size,
             font_family,
             font_weight,
@@ -343,6 +346,7 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
             path_shape,
         } => Primitive::Text {
             text: text.clone(),
+            text_frame: text_frame.clone(),
             font_size: *font_size,
             font_family: font_family.clone(),
             font_weight: *font_weight,
@@ -489,6 +493,27 @@ mod tests {
         let mut node = rect_node(9, 0.0, 0.0, 240.0, 120.0);
         node.shape = Shape::Text {
             text: "First paragraph\nSecond paragraph".into(),
+            text_frame: Some(varve_core::TextFrameStyle {
+                fill: Some(EngineColor::Rgb {
+                    r: 255.0,
+                    g: 255.0,
+                    b: 255.0,
+                    a: 255.0,
+                    bit_depth: None,
+                    profile: None,
+                }),
+                border: Some(varve_core::TextFrameBorder {
+                    color: EngineColor::Rgb {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 255.0,
+                        bit_depth: None,
+                        profile: None,
+                    },
+                    width: 0.0,
+                }),
+            }),
             font_size: 18.0,
             font_family: "Inter".into(),
             font_weight: 500,
@@ -522,6 +547,7 @@ mod tests {
         assert_eq!(primitive["paragraphSpacing"], 9.0);
         assert_eq!(primitive["textOverflow"], "ellipsis");
         assert_eq!(primitive["listStyle"], "decimal");
+        assert_eq!(primitive["textFrame"]["border"]["width"], 0.0);
         assert_eq!(primitive["pathTextSettings"]["pathNodeId"], "path-1");
     }
 

@@ -28,6 +28,7 @@ import {
   type SegmentedOption,
 } from '@varve/ui';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { scheduleInitialNameSelection } from './initialNameSelection';
 import { TemplatesGallery } from './TemplatesGallery';
 
@@ -341,21 +342,6 @@ export function NewDesignDialog({
     if (!result.error) setSavingPresetName(null);
   }, [savingPresetName, onSaveCustomPreset, customW, customH, unit, colorMode, intent, bleed, dpi]);
 
-  // Enter creates the design — unless focus is in a control that owns Enter
-  // (text inputs, the preset listbox's roving navigation, buttons).
-  const handleDialogKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key !== 'Enter') return;
-      const target = e.target as HTMLElement;
-      if (target.closest('input, textarea, select, button, [role="listbox"], [role="option"]')) {
-        return;
-      }
-      e.preventDefault();
-      handleCreate();
-    },
-    [handleCreate],
-  );
-
   const customValid =
     Number.isFinite(customW) && Number.isFinite(customH) && customW > 0 && customH > 0;
   const presentationCustomValid =
@@ -365,6 +351,67 @@ export function NewDesignDialog({
     presentationCustomH > 0 &&
     presentationCustomW <= 100_000 &&
     presentationCustomH <= 100_000;
+
+  const createDisabled =
+    creating ||
+    (startMode === 'frame' && frameSource === 'custom' && !customValid) ||
+    (startMode === 'presentation' && presentationPreset === 'custom' && !presentationCustomValid);
+
+  // Enter creates the design from anywhere in the dialog that does not own the
+  // key itself. A dialog whose primary action ignores Enter while the user is
+  // typing is the papercut Graphite filed as GraphiteEditor/Graphite#3601:
+  // naming the document and then reaching for the mouse breaks the keyboard
+  // flow. Text and number fields therefore submit; textareas (newlines),
+  // buttons and listbox options keep Enter, and the preset-name field saves the
+  // preset it is naming instead of creating a document.
+  // Enter may run in the same tick as a NumberInput commit, so the handler must
+  // act on the newest render instead of the closures it captured. The ref is
+  // refreshed on every render, and a number field flushes its pending commit
+  // before this is read (see below).
+  const latestActionsRef = useRef({ create: handleCreate, disabled: createDisabled });
+  useLayoutEffect(() => {
+    latestActionsRef.current = { create: handleCreate, disabled: createDisabled };
+  });
+
+  const handleDialogKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      const target = e.target as HTMLElement;
+      // An in-flight IME composition consumes Enter to commit the candidate.
+      if (e.nativeEvent.isComposing) return;
+      if (target.closest('textarea, button, [role="listbox"], [role="option"]')) return;
+      if (target.closest('.new-design__save-preset-row')) {
+        if (!savingPresetName?.trim() || !onSaveCustomPreset) return;
+        e.preventDefault();
+        handleConfirmSaveCustomPreset();
+        return;
+      }
+      const submit = () => {
+        // Keep the key harmless when the primary action is unavailable, so Enter
+        // cannot create a document the disabled Create button would refuse.
+        if (latestActionsRef.current.disabled) return;
+        e.preventDefault();
+        latestActionsRef.current.create();
+      };
+      if (target.closest('.varve-number-input')) {
+        // The field owns the key: it commits the typed value. Flush that update
+        // so the request is built from what the user typed rather than the
+        // pre-edit value still visible in this render. The commit also calls
+        // preventDefault(), so this branch must run before the check below.
+        flushSync(() => {});
+        submit();
+        return;
+      }
+      // A control that already consumed the key keeps it: the preset search
+      // combobox selects its highlighted row on Enter without stopping the
+      // event, and creating a document on top of that choice is not what the
+      // user asked for.
+      if (e.defaultPrevented) return;
+      submit();
+    },
+    [handleConfirmSaveCustomPreset, onSaveCustomPreset, savingPresetName],
+  );
+
   const showSaveAsPreset =
     onSaveCustomPreset != null && startMode === 'frame' && frameSource === 'custom' && customValid;
 
@@ -408,13 +455,7 @@ export function NewDesignDialog({
             <Button
               variant="default"
               onClick={handleCreate}
-              disabled={
-                creating ||
-                (startMode === 'frame' && frameSource === 'custom' && !customValid) ||
-                (startMode === 'presentation' &&
-                  presentationPreset === 'custom' &&
-                  !presentationCustomValid)
-              }
+              disabled={createDisabled}
               data-testid="create-design-button"
             >
               {startMode === 'presentation' ? 'Create presentation' : 'Create design'}

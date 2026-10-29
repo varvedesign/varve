@@ -15,6 +15,7 @@
  * - Abort listeners are removed when a request settles
  */
 
+import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
 import { generateRequestId } from './protocol';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerModelId } from './types';
 
@@ -339,6 +340,9 @@ export async function runPooledInference(
   modelId: WorkerModelId,
   signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult> {
+  // Workers have no localStorage, so the worker-side assert is a no-op.
+  // Refuse AI inference here, on the main thread, before postMessage.
+  assertAiFeaturesEnabled();
   initPool();
   const abort = new AbortController();
   const requestId = generateRequestId();

@@ -21,7 +21,7 @@ import type {
   TextNode,
   VectorMaskData,
 } from '@varve/scene';
-import { computeTableLayout, isImageShape, resolveMask } from '@varve/scene';
+import { computeTableLayout, isImageShape, resolveMask, textNodeLocalBounds } from '@varve/scene';
 import {
   applyAffine,
   DEFAULT_ARTWORK_FONT_FAMILY,
@@ -31,6 +31,7 @@ import {
   textWrap,
   tryInvertAffine,
 } from '@varve/shared';
+import { emailGenericFamily } from './email-compat';
 import { resolveLiveBooleanForExport } from './liveBooleanExport';
 import {
   adjustmentStackTargetGaps,
@@ -882,7 +883,8 @@ function buildTextContent(node: TextNode, indent: string): string {
     for (const run of paragraph.runs) {
       const runAttrs: string[] = [`x="${x.toFixed(2)}"`, `y="${y.toFixed(2)}"`];
       const format = run.format ?? {};
-      if (format.fontFamily) runAttrs.push(`font-family="${escapeXml(format.fontFamily)}"`);
+      if (format.fontFamily)
+        runAttrs.push(`font-family="${escapeXml(svgFontFamilyValue(format.fontFamily))}"`);
       if (format.fontSize) runAttrs.push(`font-size="${format.fontSize}"`);
       if (format.fontWeight) runAttrs.push(`font-weight="${format.fontWeight}"`);
       if (format.fontStyle === 'italic') runAttrs.push(`font-style="italic"`);
@@ -946,6 +948,73 @@ function warpNotBakedComment(node: SceneNode): string {
   const kind = unbakeableWarpKind(node);
   if (!kind) return '';
   return `<!-- varve: live warp not baked into this ${kind === 'text' ? 'text' : 'container'}; exported undeformed -->\n`;
+}
+
+/** Keep the optional frame and its glyphs under one SVG node compositing state. */
+function textNodeSvgMarkup(args: {
+  node: TextNode;
+  doc: SceneDocument;
+  preserveColorSpace: boolean;
+  indent: string;
+  withTransform: string;
+  attributes: string[];
+  styles: string[];
+  content: string;
+  prefix: string;
+  compositing: ReturnType<typeof svgCompositing>;
+}): string {
+  const {
+    node,
+    doc,
+    preserveColorSpace,
+    indent,
+    withTransform,
+    attributes,
+    styles,
+    content,
+    prefix,
+    compositing,
+  } = args;
+  const frame = node.textFrame;
+  const hasFramePaint = Boolean(
+    frame?.fill || (frame?.border && Number.isFinite(frame.border.width) && frame.border.width > 0),
+  );
+  const textAttrs = [...attributes];
+  const textStyles = [...styles];
+  textAttrs.push(...compositing.attributes);
+  textStyles.push(...compositing.styles);
+  if (textStyles.length > 0) textAttrs.push(`style="${textStyles.join(' ')}"`);
+  const textTag = `${indent}${prefix}<text ${textAttrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
+  if (!hasFramePaint || !frame) return textTag;
+
+  const bounds = textNodeLocalBounds(node);
+  const frameAttrs = [
+    `x="${fmt(bounds.x)}"`,
+    `y="${fmt(bounds.y)}"`,
+    `width="${fmt(bounds.w)}"`,
+    `height="${fmt(bounds.h)}"`,
+  ];
+  const frameWarnings: string[] = [];
+  if (frame.fill) {
+    const value = colorToSvgValue(frame.fill, doc, preserveColorSpace);
+    frameAttrs.push(`fill="${value.value}"`);
+    if (value.warning) frameWarnings.push(value.warning);
+  } else {
+    frameAttrs.push('fill="none"');
+  }
+  const border = frame.border;
+  if (border && Number.isFinite(border.width) && border.width > 0) {
+    const color = colorToSvgValue(border.color, doc, preserveColorSpace);
+    frameAttrs.push(`stroke="${color.value}"`, `stroke-width="${fmt(border.width)}"`);
+    if (color.warning) frameWarnings.push(color.warning);
+  }
+  const warnings = frameWarnings.map((warning) => `${indent}<!-- ${warning} -->`).join('\n');
+  frameAttrs.push(...compositing.attributes);
+  if (compositing.styles.length > 0) {
+    frameAttrs.push(`style="${compositing.styles.join(' ')}"`);
+  }
+  const frameTag = `${warnings ? `${warnings}\n` : ''}${indent}<rect ${frameAttrs.join(' ')}${withTransform} />`;
+  return `${frameTag}\n${textTag}`;
 }
 
 function nodeToSvgTag(
@@ -1123,7 +1192,14 @@ ${shapeInner}`
       ];
       const textStrokeAttrs = strokeAttrsForNode(textNode, textNode.id);
       if (textStrokeAttrs) attrs.push(textStrokeAttrs.trim());
-      if (textNode.fontFamily) attrs.push(`font-family="${escapeXml(textNode.fontFamily)}"`);
+      // Always name a family: the engine renders a node without one in
+      // DEFAULT_ARTWORK_FONT_FAMILY (engine.ts), so omitting the attribute let
+      // the viewer pick its own default (usually serif) for the same document.
+      attrs.push(
+        `font-family="${escapeXml(
+          svgFontFamilyValue(textNode.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY),
+        )}"`,
+      );
       if (textNode.fontWeight) attrs.push(`font-weight="${textNode.fontWeight}"`);
       if (textNode.fontStyle === 'italic') attrs.push(`font-style="italic"`);
       if (textNode.textAlign)
@@ -1172,10 +1248,6 @@ ${shapeInner}`
         const features = openTypeFeaturesToCss(textNode.openTypeFeatures);
         if (features) styleParts.push(`font-feature-settings: ${features};`);
       }
-      attrs.push(...compositing.attributes);
-      styleParts.push(...compositing.styles);
-      if (styleParts.length > 0) attrs.push(`style="${styleParts.join(' ')}"`);
-
       const content = (() => {
         if (!pathText || !textNode.pathTextSettings) {
           return buildTextContent(textNode, indent);
@@ -1213,8 +1285,19 @@ ${shapeInner}`
       const missingComment = missingPath
         ? `${indent}<!-- varve: path text — referenced path ${textNode.pathTextSettings!.pathNodeId} not found, exported as flat text -->\n`
         : '';
-      const textTag = `${indent}${missingComment}${warpNotBakedComment(node)}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
-      return buildMaskedNode(textTag, node, doc, indent);
+      const textMarkup = textNodeSvgMarkup({
+        node: textNode,
+        doc,
+        preserveColorSpace,
+        indent,
+        withTransform,
+        attributes: attrs,
+        styles: styleParts,
+        content,
+        prefix: `${missingComment}${warpNotBakedComment(node)}`,
+        compositing,
+      });
+      return buildMaskedNode(textMarkup, node, doc, indent);
     }
     case 'frame':
     case 'group': {
@@ -1296,7 +1379,7 @@ ${shapeInner}`
           else if (alignV === 'bottom') textY = cell.y + cell.h - padding - totalH + lineH - 3;
           for (const line of lines) {
             out.push(
-              `${indent}  <text x="${fmt(textX)}" y="${fmt(textY)}" fill="${rgba(color)}" font-size="${fontSize}" font-family="${escapeXml(DEFAULT_ARTWORK_FONT_FAMILY)}" font-weight="${weight}" text-anchor="${anchor}">${escapeXml(line.text)}</text>`,
+              `${indent}  <text x="${fmt(textX)}" y="${fmt(textY)}" fill="${rgba(color)}" font-size="${fontSize}" font-family="${escapeXml(svgFontFamilyValue(DEFAULT_ARTWORK_FONT_FAMILY))}" font-weight="${weight}" text-anchor="${anchor}">${escapeXml(line.text)}</text>`,
             );
             textY += lineH;
           }
@@ -1342,6 +1425,41 @@ ${shapeInner}`
     }
   }
   return '';
+}
+
+/**
+ * `font-family` value for exported SVG: the design face plus a generic
+ * fallback, classified by the same rules the email/CSS exporters use.
+ *
+ * Without a generic family a viewer that lacks the design face falls back to
+ * its own default — usually a serif — so a sans-serif design renders in the
+ * wrong classification with no warning. SVG cannot carry the font's
+ * classification, so the generic keyword is the only portable hint. Evidence:
+ * vectorcraft#3135 ("SVG export: font-family has no generic fallback, so
+ * viewers without the font draw serif").
+ */
+export function svgFontFamilyValue(family: string): string {
+  const name = family.trim();
+  if (!name) return 'sans-serif';
+  const generic = emailGenericFamily(name);
+  const fallback = generic === 'serif' ? 'serif' : generic === 'mono' ? 'monospace' : 'sans-serif';
+  // A family that is already the generic ends the list; never repeat it.
+  if (name.toLowerCase() === fallback) return name;
+  return `${quoteFontFamily(name)}, ${fallback}`;
+}
+
+/**
+ * Quote a family name that is not a single identifier.
+ *
+ * This is not cosmetic. Chromium parses `font-family="Source Sans 3, sans-serif"`
+ * as one family *name* — the whole attribute value — so it matches nothing and
+ * the text falls back to the viewer default (usually a serif). Quoting the name
+ * makes the list parse, and the generic family take effect. Verified by
+ * rendering both forms in Chromium (see the audit record).
+ */
+function quoteFontFamily(name: string): string {
+  if (/^[A-Za-z_-][A-Za-z0-9_-]*$/.test(name)) return name;
+  return `'${name.replace(/'/g, "\\'")}'`;
 }
 
 export function exportNodeToSvg(

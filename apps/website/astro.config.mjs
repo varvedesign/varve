@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import tailwind from '@astrojs/tailwind';
 import { defineConfig } from 'astro/config';
+import { writeLlmsTxt } from '../../scripts/website/generate-llms-txt.mjs';
 import { buildSearchIndex } from './scripts/search-index.mjs';
 
 /**
@@ -27,6 +28,18 @@ function searchIndexIntegration() {
   };
 }
 
+function llmsTxtIntegration() {
+  return {
+    name: 'varve-llms-txt',
+    hooks: {
+      'astro:config:setup': ({ logger }) => {
+        const { app } = writeLlmsTxt();
+        logger.info(`wrote llms.txt for Varve ${app.version}`);
+      },
+    },
+  };
+}
+
 /**
  * Site URL and base path are environment-driven.
  *
@@ -47,7 +60,7 @@ const SITE_URL = process.env.SITE_URL ?? 'https://varve.studio';
 const SITE_BASE = process.env.SITE_BASE ?? '/';
 
 export default defineConfig({
-  integrations: [tailwind(), searchIndexIntegration()],
+  integrations: [tailwind(), llmsTxtIntegration(), searchIndexIntegration()],
   site: SITE_URL,
   base: SITE_BASE,
   trailingSlash: 'ignore',

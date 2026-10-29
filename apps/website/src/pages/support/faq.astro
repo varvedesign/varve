@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath, siteUrl } from '../../lib/siteUrl';
+import { SHOW_SUPPORT_PROJECT } from '../../config/features.js';
 import release from '../../data/release-manifest.json';
 
 // Derive human-readable version info from the release manifest
@@ -73,7 +74,7 @@ const faqSchema = {
       name: 'Is Varve open source?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license and becomes fully open-source.',
+        text: 'The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license.',
       },
     },
     {
@@ -142,14 +143,14 @@ const faqSchema = {
         text: 'You can contribute code, documentation, testing, or design. Non-financial contributions are equally valuable to financial support.',
       },
     },
-    {
+    ...(SHOW_SUPPORT_PROJECT ? [{
       '@type': 'Question',
       name: 'How can I support the project financially?',
       acceptedAnswer: {
         '@type': 'Answer',
         text: 'Varve accepts financial support via GitHub Sponsors. Sponsorship tiers and what support enables are described on the Support Project page.',
       },
-    },
+    }] : []),
   ],
 };
 
@@ -196,7 +197,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">Is Varve free?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>Yes, the Varve Community Edition is free to download and use, and it stays free. There are no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on <a href="https://github.com/K-Arthur/varve">GitHub</a>. If a paid Pro edition ever exists, it will be a separate product — it will never be this one.</p>
+            <p>Yes, the Varve Community Edition is free to download and use, and it stays free. There are no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on <a href="https://github.com/varvedesign/varve">GitHub</a>. If a paid Pro edition ever exists, it will be a separate product — it will never be this one.</p>
           </div>
         </details>
 
@@ -314,7 +315,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">Is Varve open source?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license and becomes fully open-source. See the <a href={sitePath('/about/license')}>license page</a> for the reasoning behind this choice.</p>
+            <p>The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license. See the <a href={sitePath('/about/license')}>license page</a> for the reasoning behind this choice.</p>
           </div>
         </details>
       </div>
@@ -399,7 +400,7 @@ const breadcrumbSchema = {
           </div>
         </details>
 
-        <details class="faq-item">
+        {SHOW_SUPPORT_PROJECT && <details class="faq-item">
           <summary class="faq-item__question">
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -409,12 +410,12 @@ const breadcrumbSchema = {
           <div class="faq-item__answer">
             <p>Varve accepts financial support via GitHub Sponsors. See the <a href={sitePath('/support-project')}>Support Project</a> page for sponsorship tiers and what support enables.</p>
           </div>
-        </details>
+        </details>}
       </div>
 
       <div class="faq-cta">
         <h2>Still have questions?</h2>
-        <p>Check the <a href={sitePath('/docs')}>documentation</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
+        <p>Check the <a href={sitePath('/docs')}>documentation</a> or ask in <a href="https://github.com/varvedesign/varve/discussions">GitHub Discussions</a>.</p>
       </div>
     </div>
   </div>

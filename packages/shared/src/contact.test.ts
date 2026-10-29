@@ -103,12 +103,16 @@ describe('contactMailto', () => {
 describe('VARVE_URLS', () => {
   it('points every canonical URL at owned Varve infrastructure', () => {
     for (const url of Object.values(VARVE_URLS)) {
-      expect(url).toMatch(/^https:\/\/(varve\.studio|github\.com\/K-Arthur\/varve)/);
+      expect(url).toMatch(/^https:\/\/(varve\.studio|github\.com\/varvedesign\/varve)/);
     }
   });
 
   it('exposes the canonical contact and security-txt locations', () => {
     expect(VARVE_URLS.contact).toBe('https://varve.studio/contact');
     expect(VARVE_URLS.securityTxt).toBe('https://varve.studio/.well-known/security.txt');
+    expect(VARVE_URLS.changelog).toBe(
+      'https://github.com/varvedesign/varve/blob/master/CHANGELOG.md',
+    );
+    expect(VARVE_URLS.sbom).toBe('https://github.com/varvedesign/varve/releases/latest');
   });
 });

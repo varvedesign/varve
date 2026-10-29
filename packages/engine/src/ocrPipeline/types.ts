@@ -69,8 +69,10 @@ export interface OcrModelConfig {
   numClasses: number;
   /** Index of the CTC blank token (-1 if no blank). */
   ctcBlankIndex: number;
-  /** URL to download the character dictionary. */
+  /** Immutable URL to download the character dictionary. */
   dictionaryUrl: string;
+  /** SHA-256 (hex) of the dictionary bytes. Required when dictionaryUrl is set. */
+  dictionarySha256?: string;
   /** Expected number of dictionary entries (0 = no check). */
   expectedDictionarySize: number;
   /** Languages this model supports. */

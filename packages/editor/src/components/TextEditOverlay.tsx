@@ -30,6 +30,7 @@ import {
 } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { useEditor } from '../context';
+import { registerPendingEditSource } from '../context/pendingEdits';
 import { nodeLocalBounds } from '../scene/world';
 
 export interface TextEditOverlayHandle {
@@ -214,6 +215,10 @@ export function TextEditOverlay({
     if (burstTimerRef.current !== null) clearTimeout(burstTimerRef.current);
     burstTimerRef.current = setTimeout(() => {
       burstTimerRef.current = null;
+      // A save may publish the visible IME candidate while composition stays
+      // active. Keep that edit transaction open until compositionend so the
+      // native candidate is not split away from the user's composition.
+      if (composingRef.current) return;
       hasActiveBurstRef.current = false;
       ctxRef.current.commitTransaction();
     }, 500);
@@ -266,6 +271,41 @@ export function TextEditOverlay({
     },
     [commitBurst, flushPendingText, onCommit],
   );
+
+  /**
+   * Publish the buffered draft while this session can still hold one, so a
+   * save, close, or quit observed from outside this component captures the
+   * text the user can see. `pendingTextRef` is exactly the unapplied window:
+   * already-applied text is in the document, and an open burst transaction
+   * only groups history, so neither needs draining here (see
+   * `context/pendingEdits.ts` for the evidence and the contract).
+   */
+  useEffect(() => {
+    return registerPendingEditSource({
+      id: 'text-edit-overlay',
+      hasPending: () =>
+        !committedRef.current &&
+        (pendingTextRef.current !== null ||
+          (composingRef.current &&
+            textareaRef.current !== null &&
+            textareaRef.current.value !== lastNotifiedTextRef.current)),
+      flush: () => {
+        flushPendingText();
+        // Input events are intentionally suppressed during IME composition,
+        // but the textarea can already show a candidate string. A save must
+        // snapshot that visible value without ending the native composition.
+        const composingText = composingRef.current ? textareaRef.current?.value : undefined;
+        if (composingText !== undefined && composingText !== lastNotifiedTextRef.current) {
+          notifyUpdateRef.current(composingText);
+        }
+        // A save should see a settled transaction, the same drain
+        // `prepareFormatting` performs. Composition stays open: its text is
+        // provisional until `compositionend`, and ending the burst underneath
+        // it would let the composition's own commit join a closed transaction.
+        if (!composingRef.current) commitBurst();
+      },
+    });
+  }, [commitBurst, flushPendingText]);
 
   useImperativeHandle(
     commitRef,
@@ -324,13 +364,15 @@ export function TextEditOverlay({
     const ta = textareaRef.current;
     if (ta) {
       flushPendingText();
-      notifyUpdateRef.current(ta.value);
+      if (ta.value !== lastNotifiedTextRef.current) notifyUpdateRef.current(ta.value);
       if (commitAfterCompositionRef.current) {
         commitAfterCompositionRef.current = false;
         commit(ta.value);
+      } else {
+        commitBurst();
       }
     }
-  }, [commit, flushPendingText]);
+  }, [commit, commitBurst, flushPendingText]);
 
   const handleBlur = useCallback(() => {
     if (composingRef.current || committedRef.current) return;

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { setThemePreference } from '@varve/ui/tokens';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableDrawDiagnostics, isDiagnosticsEnabled } from '../../canvas/drawDiagnostics';
 import { EditorProvider } from '../../context';
@@ -19,6 +20,7 @@ function renderWithProvider(ui: React.ReactElement) {
 
 beforeEach(() => {
   localStorage.clear();
+  setThemePreference('system');
   enableDrawDiagnostics(false);
   setCompositorDiagnostics(null);
 });
@@ -94,6 +96,31 @@ describe('SettingsDialog', () => {
     ).toBe(1.5);
   });
 
+  it('describes that turning AI off blocks every on-device model', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="ai" />);
+    expect(screen.queryByText(/no model downloads are required/i)).toBeNull();
+    expect(
+      screen.getByText(/layer-name suggestions use an on-device classification model/i),
+    ).toBeTruthy();
+    expect(screen.getByText(/including downloads from Offline Models/i)).toBeTruthy();
+    expect(screen.getByText(/will not download or run any on-device AI model/i)).toBeTruthy();
+  });
+
+  it('toggles the AI features switch without crashing and persists it', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="ai" />);
+    const toggle = document.getElementById('ai-features-toggle') as HTMLInputElement;
+    expect(toggle).toBeTruthy();
+    expect(toggle.checked).toBe(true);
+
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(false);
+    expect(loadSettings().ai.enabled).toBe(false);
+
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(true);
+    expect(loadSettings().ai.enabled).toBe(true);
+  });
+
   it('closes on close button', () => {
     const onClose = vi.fn();
     renderWithProvider(<SettingsDialog open={true} onClose={onClose} />);
@@ -102,11 +129,43 @@ describe('SettingsDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('keeps usage, diagnostics, and crash consent in separate controls', () => {
+  it('keeps crash consent and icon-search control without usage or diagnostics telemetry', () => {
     renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="privacy" />);
-    expect(screen.getByLabelText('Usage analytics consent')).toBeTruthy();
-    expect(screen.getByLabelText('Diagnostics telemetry consent')).toBeTruthy();
+    expect(screen.queryByLabelText('Usage analytics consent')).toBeNull();
+    expect(screen.queryByLabelText('Diagnostics telemetry consent')).toBeNull();
     expect(screen.getByText('Crash reporting')).toBeTruthy();
+    const iconSearch = screen.getByLabelText('Search icons online via Iconify') as HTMLInputElement;
+    expect(iconSearch.checked).toBe(false);
+    fireEvent.click(iconSearch);
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
+    fireEvent.click(iconSearch);
+    expect(loadSettings().icons.remoteSearch).toBe('denied');
+  });
+
+  it('keeps a revoked icon-search consent when the theme is changed', async () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="privacy" />);
+    const iconSearch = screen.getByLabelText('Search icons online via Iconify') as HTMLInputElement;
+    fireEvent.click(iconSearch);
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
+    fireEvent.click(iconSearch);
+    expect(loadSettings().icons.remoteSearch).toBe('denied');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Theme' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Dark' }));
+    expect(loadSettings().appearance.theme).toBe('dark');
+    expect(loadSettings().icons.remoteSearch).toBe('denied');
+  });
+
+  it('links the About section to the changelog and the latest release SBOM assets', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="about" />);
+    const changelog = screen.getByRole('link', { name: 'View changelog' });
+    expect(changelog).toHaveAttribute(
+      'href',
+      'https://github.com/varvedesign/varve/blob/master/CHANGELOG.md',
+    );
+    const sbom = screen.getByRole('link', { name: 'Software bill of materials (SBOM)' });
+    expect(sbom).toHaveAttribute('href', 'https://github.com/varvedesign/varve/releases/latest');
   });
 
   it('validates, persists, and resets nudge amounts', () => {

@@ -55,7 +55,8 @@ separate, character-oriented path.
 | Variation axes | ✓ whole-run axes through Canvas2D/`FontFace` when the source is inspectable; support remains browser/font dependent | ✓ exact outline conversion | ✓ structured native shaping; PDF advanced text is rasterized |
 | COLR/CPAL detection | ✓ | ✓ | ✓ (raw table check) |
 | COLR/CPAL rendering | ✗ (monochrome) | ✗ | ✗ |
-| PDF native text | ✗ (browser PDF is raster) | — | ✓ only for simple eligible runs; no GSUB/GPOS parity claim |
+| PDF native text | ✗ (browser PDF is raster) | — | ✓ WinAnsi-encodable simple runs only; text outside WinAnsi is outlined until Unicode-to-glyph mapping is implemented |
+| PDF text searchability | ✗ (browser PDF is raster) | — | ✓ WinAnsi text remains searchable; outlined Unicode glyphs preserve appearance but are not searchable |
 | PDF native CJK | ✗ | — | ✗ for editor fidelity; raster fallback |
 | PDF ToUnicode CMap | — | — | ✓ on native text path; not evidence of shaped accessibility |
 | PDF font subsetting | — | — | ✓ for native text path; advanced glyph dependencies remain a limitation |

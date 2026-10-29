@@ -9,10 +9,20 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { isMainModule } from '../is-main-module.mjs';
+import { releaseArtifactFilename } from './artifact-names.mjs';
+import { releaseDownloadBaseUrl } from './product.mjs';
 
 const TARGETS = [
-  { key: 'linux-x86_64', filename: (v) => `Varve-${v}-linux-x86_64.AppImage` },
-  { key: 'linux-aarch64', filename: (v) => `Varve-${v}-linux-aarch64.AppImage` },
+  {
+    key: 'linux-x86_64',
+    filename: (v) =>
+      releaseArtifactFilename({ version: v, os: 'linux', arch: 'x86_64', format: 'appimage' }),
+  },
+  {
+    key: 'linux-aarch64',
+    filename: (v) =>
+      releaseArtifactFilename({ version: v, os: 'linux', arch: 'aarch64', format: 'appimage' }),
+  },
   { key: 'windows-x86_64', filename: (v) => `Varve-${v}-windows-x86_64.exe` },
   { key: 'windows-aarch64', filename: (v) => `Varve-${v}-windows-aarch64.exe` },
   { key: 'darwin-aarch64', filename: (v) => `Varve-${v}-macos-aarch64.app.tar.gz` },
@@ -76,8 +86,7 @@ function main() {
   const version =
     args.version ?? JSON.parse(readFileSync(join(dir, 'release-manifest.json'), 'utf8')).version;
   const channel = args.channel ?? 'stable';
-  const baseUrl =
-    args['base-url'] ?? `https://github.com/K-Arthur/varve/releases/download/v${version}`;
+  const baseUrl = args['base-url'] ?? releaseDownloadBaseUrl(version);
   const output = resolve(args.out ?? join(dir, `varve-update-${channel}.json`));
   const feed = buildUpdaterFeed({
     dir,

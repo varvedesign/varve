@@ -372,7 +372,10 @@ test.describe('hero visibility', () => {
       await expect(subtitle).toBeInViewport();
       const ctas = page.locator('.hero-ctas');
       await expect(ctas.getByRole('link', { name: /download/i }).first()).toBeVisible();
-      await expect(ctas.getByRole('link', { name: /What is Varve/i })).toBeVisible();
+      await expect(ctas.getByRole('link', { name: /Try it in your browser/i })).toBeVisible();
+      await expect(
+        page.locator('.hero-more').getByRole('link', { name: /What is Varve/i }),
+      ).toBeVisible();
 
       const subtitleText = await subtitle.textContent();
       expect(subtitleText).toContain('vector, layout, typography, motion, and print');
