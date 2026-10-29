@@ -12,6 +12,24 @@ export const DEMO_DESCRIPTION =
   'Try Varve, a local-first design suite for vector, layout, comic lettering, drawing, photo and print, directly in your browser. No account or download required.';
 
 const DEMO_SEO_MARKER = '<meta name="varve-demo-seo" content="v1" />';
+const DEMO_SHELL_MARKER = '<!-- varve-demo-shell -->';
+
+/**
+ * The static answer for crawlers and no-JS visitors. It lives inside the
+ * existing boot fallback, which `dismissBootFallback()` removes before React
+ * paints, so the hydrated app cannot contain a second H1.
+ */
+const DEMO_SHELL_HTML = [
+  '<h1 class="boot-title">Try Varve in your browser</h1>',
+  '<p class="boot-copy">This is a bounded browser build of the real editor on the WASM engine, not a hosted replacement for the desktop app. It includes Design, Draw, and Photo, while print production, on-device model features, and Motion and Email authoring are outside it.</p>',
+  '<div class="boot-actions">',
+  '<a class="boot-primary" href="/download/">Download the desktop app</a>',
+  '<a class="boot-link" href="/docs/browser-demo/">What the browser demo leaves out</a>',
+  '</div>',
+  '<noscript>',
+  '<p class="boot-noscript">The browser demo needs JavaScript. The desktop app does not.</p>',
+  '</noscript>',
+].join('\n        ');
 
 /** Add crawler and link-preview metadata to the public demo build only. */
 export function injectDemoSeo(html: string): string {
@@ -58,5 +76,14 @@ export function injectDemoSeo(html: string): string {
     `<script type="application/ld+json">${structuredData}</script>`,
   ].join('\n    ');
 
-  return html.replace('<title>Varve</title>', `<title>${DEMO_TITLE}</title>\n    ${metadata}`);
+  if (!html.includes(DEMO_SHELL_MARKER)) {
+    throw new Error('Demo shell marker missing from apps/desktop/index.html');
+  }
+
+  const withMetadata = html.replace(
+    '<title>Varve</title>',
+    `<title>${DEMO_TITLE}</title>\n    ${metadata}`,
+  );
+
+  return withMetadata.replace(DEMO_SHELL_MARKER, DEMO_SHELL_HTML);
 }

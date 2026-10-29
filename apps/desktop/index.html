@@ -232,6 +232,87 @@
           drop-shadow(1.25px 0 0 rgb(255 110 140 / 0.55))
           drop-shadow(0 0 10px rgb(255 255 255 / 0.14));
       }
+      /* Static demo-only answer, injected by demoSeo.ts. The styles live here
+         so the no-JS shell paints before the app bundle loads. The desktop
+         build never receives the injected markup. */
+      #varve-boot-fallback .boot-shell {
+        width: min(100%, 34rem);
+        padding: 1.5rem 1.25rem;
+        text-align: center;
+      }
+      #varve-boot-fallback .boot-logo-wrap {
+        margin-inline: auto;
+      }
+      #varve-boot-fallback .boot-title {
+        margin: 1.25rem 0 0.75rem;
+        font: 600 clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem) / 1.15 system-ui, sans-serif;
+        letter-spacing: -0.015em;
+        text-wrap: balance;
+      }
+      #varve-boot-fallback .boot-copy {
+        margin: 0 auto 1.5rem;
+        max-width: 32rem;
+        color: rgb(255 255 255 / 0.78);
+        font: 15px/1.6 system-ui, sans-serif;
+        text-wrap: pretty;
+      }
+      #varve-boot-fallback .boot-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem 1.25rem;
+      }
+      #varve-boot-fallback .boot-primary {
+        padding: 0.6875rem 1.25rem;
+        border-radius: 6px;
+        background: #39d0c6;
+        color: #10151f;
+        font: 600 14px/1 system-ui, sans-serif;
+        text-decoration: none;
+      }
+      #varve-boot-fallback .boot-primary:hover {
+        background: #4adecc;
+      }
+      #varve-boot-fallback .boot-primary:active {
+        background: #2ab5ac;
+      }
+      #varve-boot-fallback .boot-primary:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+      }
+      #varve-boot-fallback .boot-link {
+        color: #4adecc;
+        font: 500 14px/1.4 system-ui, sans-serif;
+        text-underline-offset: 0.2em;
+      }
+      #varve-boot-fallback .boot-link:focus-visible {
+        outline: 2px solid #4adecc;
+        outline-offset: 2px;
+      }
+      #varve-boot-fallback .boot-status {
+        margin: 1.25rem 0 0;
+        color: rgb(255 255 255 / 0.6);
+        font: 13px/1.4 system-ui, sans-serif;
+      }
+      #varve-boot-fallback .boot-noscript {
+        margin: 0.75rem auto 0;
+        max-width: 32rem;
+        color: rgb(255 255 255 / 0.6);
+        font: 13px/1.5 system-ui, sans-serif;
+      }
+      @media (max-width: 30rem) {
+        #varve-boot-fallback .boot-shell {
+          padding: 1.25rem 1rem;
+        }
+        #varve-boot-fallback .boot-actions {
+          flex-direction: column;
+        }
+        #varve-boot-fallback .boot-primary {
+          width: 100%;
+          box-sizing: border-box;
+        }
+      }
       @keyframes varve-logo-luminosity {
         0%,
         100% {
@@ -320,14 +401,18 @@
     </style>
   </head>
   <body>
-    <div id="varve-boot-fallback" role="status" aria-live="polite" aria-label="Loading Varve">
-      <div class="boot-logo-wrap" aria-hidden="true">
-        <svg class="boot-logo" viewBox="0 0 16 16" fill="currentColor">
-          <polygon points="1,1.5 10,1.5 11,4.5 2,4.5" />
-          <polygon points="3,5.5 12,5.5 13,8.5 4,8.5" />
-          <polygon points="5,9.5 14,9.5 15,12.5 6,12.5" />
-        </svg>
-      </div>
+    <div id="varve-boot-fallback">
+      <main class="boot-shell">
+        <div class="boot-logo-wrap" aria-hidden="true">
+          <svg class="boot-logo" viewBox="0 0 16 16" fill="currentColor">
+            <polygon points="1,1.5 10,1.5 11,4.5 2,4.5" />
+            <polygon points="3,5.5 12,5.5 13,8.5 4,8.5" />
+            <polygon points="5,9.5 14,9.5 15,12.5 6,12.5" />
+          </svg>
+        </div>
+        <!-- varve-demo-shell -->
+        <p class="boot-status" role="status" aria-live="polite">Loading the editor&hellip;</p>
+      </main>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
