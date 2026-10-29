@@ -141,7 +141,6 @@
     "packages/editor/src/components/BlurGalleryOverlay.tsx": 773,
     "packages/editor/src/components/CanvasOverlays.tsx": 988,
     "packages/editor/src/components/CodePanel/CodePanel.tsx": 549,
-    "packages/editor/src/components/ContentAwareFill/ContentAwareFillDialog.tsx": 4513,
     "packages/editor/src/components/ContentAwareFill/generationRaster.ts": 656,
     "packages/editor/src/components/ContentAwareFill/maskOperations.ts": 417,
     "packages/editor/src/components/ContextControlBar/ContextControlBar.tsx": 635,
