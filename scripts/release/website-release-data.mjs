@@ -102,8 +102,8 @@ export function macosUnsignedCaveat(version) {
     return (
       '0.5.0 has no bundle-wide signature, so a browser-downloaded copy shows ' +
       '"Varve is damaged and can\'t be opened" with no Open Anyway option. ' +
-      'After dragging Varve to Applications, run: xattr -dr com.apple.quarantine /Applications/Varve.app — ' +
-      'that removes the download quarantine flag so macOS will open the app. Do not disable Gatekeeper.'
+      'After dragging Varve to Applications, run `xattr -dr com.apple.quarantine /Applications/Varve.app`, which removes ' +
+      'the download quarantine flag so macOS will open the app. Do not disable Gatekeeper.'
     );
   }
   return (
@@ -115,7 +115,7 @@ export function macosUnsignedCaveat(version) {
 export function windowsUnsignedCaveat() {
   return (
     'Unsigned: Windows will show "Windows protected your PC". Choose More info, then Run anyway. ' +
-    'Windows 11 Smart App Control can block unsigned apps with no override — use the browser version at /try if that happens.'
+    'Windows 11 Smart App Control can block unsigned apps with no override. Use the browser version at /try if that happens.'
   );
 }
 
@@ -160,7 +160,7 @@ export function formatCopy(product, version) {
       caveat: windowsUnsignedCaveat(),
       caveatSigned:
         'Digitally signed. Windows may still show a SmartScreen "unrecognized" warning until the ' +
-        'publisher builds reputation — verify the publisher name shown before running.',
+        'publisher builds reputation. Verify the publisher name shown before running.',
       install: 'Run the downloaded .exe',
     },
     msi: {

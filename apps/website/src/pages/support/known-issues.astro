@@ -135,7 +135,7 @@ const issues: KnownIssue[] = [
   {
     title: 'Raster exports do not include bleed',
     status: 'partial',
-    description: 'Bleed is part of the print workflow: it is configured on the page, visualized on the canvas, and honored by PDF/X exports (page boxes and trim geometry). Raster formats (PNG/JPEG) still export the artwork\u2019s visual bounds only — the canonical page-plus-bleed bounds exist in the export plan but the standard export dialog does not use them.',
+    description: 'Bleed is part of the print workflow: it is configured on the page, visualized on the canvas, and honored by PDF/X exports (page boxes and trim geometry). Raster formats (PNG/JPEG) still export the artwork\u2019s visual bounds only; the canonical page-plus-bleed bounds exist in the export plan but the standard export dialog does not use them.',
     workaround: 'For raster deliverables with bleed, export at a larger scale and trim in post, or use the PDF/X path when the destination accepts PDF.',
     category: 'Print & Export',
   },

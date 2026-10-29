@@ -54,8 +54,14 @@ if (!existsSync(index)) {
 // before deployment if the Vite transform is removed or runs in the wrong
 // build mode.
 const indexHtml = readFileSync(index, 'utf8');
+const demoSeoSource = readFileSync(join(repoRoot, 'apps/desktop/src/demo/demoSeo.ts'), 'utf8');
+const demoTitle = demoSeoSource.match(/export const DEMO_TITLE = '([^']+)';/)?.[1];
+if (!demoTitle) {
+  console.error('[stage-demo] Could not read DEMO_TITLE from apps/desktop/src/demo/demoSeo.ts');
+  process.exit(1);
+}
 const requiredSeo = [
-  '<title>Try Varve in your browser — Varve design suite</title>',
+  `<title>${demoTitle}</title>`,
   '<meta name="description"',
   '<meta name="robots" content="index, follow" />',
   '<link rel="canonical" href="https://varve.studio/try/" />',

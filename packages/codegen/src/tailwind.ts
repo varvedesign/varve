@@ -603,7 +603,7 @@ function tailwindDiagnostics(node: SceneNode, doc: Document): BundleDiagnostic[]
     for (const gap of tailwindTargetGaps(current, doc)) {
       out.push({
         severity: gap.severity,
-        message: gap.fallback ? `${gap.feature} — ${gap.fallback}` : gap.feature,
+        message: gap.fallback ? `${gap.feature}: ${gap.fallback}` : gap.feature,
         nodeId: gap.nodeId,
         nodeName: gap.nodeName,
         feature: gap.feature,

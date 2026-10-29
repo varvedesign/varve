@@ -111,6 +111,6 @@ export function runCodegenReadiness(
     summary:
       issues.length > 0
         ? `Code export ready with ${issues.length} caveats`
-        : 'Code export ready — all nodes can be emitted as native HTML/CSS',
+        : 'Code export ready. All nodes can be emitted as native HTML/CSS',
   };
 }

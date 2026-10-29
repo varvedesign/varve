@@ -4,7 +4,7 @@ import { sitePath } from '../../../lib/siteUrl';
 import '../../../styles/docs-prose.css';
 ---
 
-<Layout title="Shape Builder — Varve Docs" description="Select, merge, erase, extract, create, and divide editable vector regions in Varve without guessing at whole-object booleans.">
+<Layout title="Shape Builder | Varve Docs" description="Select, merge, erase, extract, create, and divide editable vector regions in Varve without guessing at whole-object booleans.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -46,7 +46,7 @@ import '../../../styles/docs-prose.css';
           <article><h3>Erase</h3><p>Removes selected areas from their participating artwork without deleting unrelated regions.</p></article>
           <article><h3>Extract</h3><p>Creates an editable result from the chosen connected regions while keeping unrelated source areas according to the remainder policy.</p></article>
           <article><h3>Create</h3><p>Creates a new editable result and retains the original sources. The new result overlaps them by design; it is not a live Boolean recipe.</p></article>
-          <article><h3>Divide</h3><p>Creates separate editable components for the chosen regions. Disconnected components stay disconnected—Varve does not invent connector edges.</p></article>
+          <article><h3>Divide</h3><p>Creates separate editable components for the chosen regions. Disconnected components stay disconnected. Varve does not invent connector edges.</p></article>
         </div>
         <p>Whole-object Union, Subtract, Intersect, and Exclude remain separate commands when you want an operation over complete operands.</p>
       </section>
@@ -54,7 +54,7 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Holes, islands, and boundaries</h2>
         <p>
-          Donuts, nested islands, compound paths, self-intersections, shared edges, and transformed shapes are decomposed into selectable faces. Holes remain holes. The unbounded outside is never offered as a giant region. A bounded empty face—a hole or an enclosed area no shape fills—can be selected and filled with Create, which leaves every source untouched; Merge, Erase, Extract, and Divide say that they need a filled region instead of silently ignoring it.
+          Donuts, nested islands, compound paths, self-intersections, shared edges, and transformed shapes are decomposed into selectable faces. Holes remain holes. The unbounded outside is never offered as a giant region. A bounded empty face (a hole or an enclosed area no shape fills) can be selected and filled with Create, which leaves every source untouched; Merge, Erase, Extract, and Divide say that they need a filled region instead of silently ignoring it.
         </p>
         <p>
           Ordinary rounded rectangles use the rendered rounded boundary, including per-corner radii and negative-direction geometry. Inline gradients keep their world placement; continuous/smoothed corners, open paths, visible strokes, image or pattern paints, shared gradient paints, masks, effects, instances, locked ancestors, and live Boolean groups are reported as unsupported. Convert or outline them explicitly when you need those semantics; Varve does not silently flatten or shift your source. Stretch, tangency, shared or coincident edges, and self-intersecting paths are decomposed deterministically with the authored even-odd or non-zero fill rule applied per source.

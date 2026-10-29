@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { FIRST_BUNDLED_WEBKIT_APPIMAGE as releaseFirstBundled } from '../../../../scripts/release/website-release-data.mjs';
+import {
+  FIRST_BUNDLED_WEBKIT_APPIMAGE as releaseFirstBundled,
+  macosUnsignedCaveat as releaseMacosUnsignedCaveat,
+  windowsUnsignedCaveat as releaseWindowsUnsignedCaveat,
+} from '../../../../scripts/release/website-release-data.mjs';
 import spec from '../data/appimage-webkit.json';
 import {
   appImageShipsBundledWebKit,
@@ -15,6 +19,8 @@ describe('install guidance', () => {
   it('tells 0.5.0 users to clear quarantine and later releases to use Open Anyway', () => {
     const legacy = macosUnsignedCaveat('0.5.0');
     expect(legacy).toContain('xattr -dr com.apple.quarantine /Applications/Varve.app');
+    expect(legacy).not.toMatch(/Varve\.app[.]/);
+    expect(legacy).toMatch(/Varve\.app`, which removes/);
     expect(legacy).toMatch(/no Open Anyway option/);
     expect(macosUnsignedCaveat('0.5.1')).toMatch(/Open Anyway/);
     expect(macosUnsignedCaveat('0.5.1')).not.toContain('xattr');
@@ -25,6 +31,13 @@ describe('install guidance', () => {
     expect(windows).toMatch(/More info, then Run anyway/);
     expect(windows).toMatch(/Smart App Control/);
     expect(windows).toContain('/try');
+  });
+
+  it('keeps website and release generators on the same caveat copy', () => {
+    expect(macosUnsignedCaveat('0.5.0')).toBe(releaseMacosUnsignedCaveat('0.5.0'));
+    expect(windowsUnsignedCaveat()).toBe(releaseWindowsUnsignedCaveat());
+    expect(macosUnsignedCaveat('0.5.0')).not.toMatch(/\u2014/);
+    expect(windowsUnsignedCaveat()).not.toMatch(/\u2014/);
   });
 
   it('does not describe 0.5.x AppImages as shipping WebKitGTK', () => {

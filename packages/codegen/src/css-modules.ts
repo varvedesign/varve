@@ -128,7 +128,7 @@ function diagnosticsFor(
     for (const gap of cssTargetGaps(current, doc)) {
       diagnostics.push({
         severity: gap.severity,
-        message: gap.fallback ? `${gap.feature} — ${gap.fallback}` : gap.feature,
+        message: gap.fallback ? `${gap.feature}: ${gap.fallback}` : gap.feature,
         nodeId: gap.nodeId,
         nodeName: gap.nodeName,
         feature: gap.feature,
@@ -208,7 +208,7 @@ export function exportNodeToCssModulesBundle(
     dependencies: { react: '>=18' },
     setup: [
       `Copy ${tsxFile.path} and ${cssFile.path} into your project, keeping both files together.`,
-      `Render <${pair.componentName} /> — it takes no props.`,
+      `Render <${pair.componentName} />. It takes no props.`,
       'Requires a bundler with CSS Modules support (Vite, Next.js, or webpack with css-loader).',
     ],
     diagnostics: diagnosticsFor(node, doc, opts),

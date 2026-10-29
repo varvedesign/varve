@@ -4,7 +4,7 @@ import { sitePath } from '../../../lib/siteUrl';
 import '../../../styles/docs-prose.css';
 ---
 
-<Layout title="Color & Effects — Varve Docs" description="Varve color tools: local image palette extraction, color management, gradients, strokes, blend modes, shadows, blur, and adjustments.">
+<Layout title="Color & Effects | Varve Docs" description="Varve color tools: local image palette extraction, color management, gradients, strokes, blend modes, shadows, blur, and adjustments.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -22,12 +22,12 @@ import '../../../styles/docs-prose.css';
           All colors in Varve are represented as <strong>ManagedColor</strong>, a discriminated union. The picker exposes six editing views:
         </p>
         <ul>
-          <li><strong>RGB</strong> — sRGB color with a shared RGB/HSL/HSB format selector and bit-depth-aware channels (8-bit 0-255, 16-bit 0-65535, or float 0-1)</li>
-          <li><strong>CMYK</strong> — Cyan, Magenta, Yellow, Key (black) percentages for print production</li>
-          <li><strong>Grayscale</strong> — Single channel grayscale</li>
-          <li><strong>Lab</strong> — perceptual lightness and signed a/b channels</li>
-          <li><strong>LCH</strong> — perceptual lightness, chroma, and hue</li>
-          <li><strong>Spot</strong> — Named spot color (e.g., Pantone) for specialized print output</li>
+          <li><strong>RGB</strong>: sRGB color with a shared RGB/HSL/HSB format selector and bit-depth-aware channels (8-bit 0-255, 16-bit 0-65535, or float 0-1)</li>
+          <li><strong>CMYK</strong>: Cyan, Magenta, Yellow, Key (black) percentages for print production</li>
+          <li><strong>Grayscale</strong>: Single channel grayscale</li>
+          <li><strong>Lab</strong>: perceptual lightness and signed a/b channels</li>
+          <li><strong>LCH</strong>: perceptual lightness, chroma, and hue</li>
+          <li><strong>Spot</strong>: Named spot color (e.g., Pantone) for specialized print output</li>
         </ul>
         <p>
           RGB uses a prominent saturation/value area, hue and opacity ramps, aligned channel fields, and always-visible HEX and opacity controls. Numeric fields accept signed and decimal drafts, commit on Enter or blur, retain invalid HEX text for correction, and cancel an active draft with Escape. A <strong>Gamut Warning</strong> is a qualified display hint; soft proof status is shown separately when a registered profile converter is available. Screen sampling follows browser feature detection and the EyeDropper API, so unsupported browsers expose a disabled control with an honest explanation.
@@ -50,9 +50,9 @@ import '../../../styles/docs-prose.css';
           The Inspector's Document Color section (no selection required) controls the document's color intent:
         </p>
         <ul>
-          <li><strong>Mode</strong> — Assign RGB, CMYK, or Grayscale as the working mode. Assignment changes intent only; existing colors keep their values and are converted at export.</li>
-          <li><strong>Precision</strong> — 8-bit, 16-bit, 16f, or 32f. Sets the storage depth for newly authored colors; existing values are never rewritten.</li>
-          <li><strong>Blend space</strong> — sRGB or linear-light compositing.</li>
+          <li><strong>Mode</strong>: Assign RGB, CMYK, or Grayscale as the working mode. Assignment changes intent only; existing colors keep their values and are converted at export.</li>
+          <li><strong>Precision</strong>: 8-bit, 16-bit, 16f, or 32f. Sets the storage depth for newly authored colors; existing values are never rewritten.</li>
+          <li><strong>Blend space</strong>: sRGB or linear-light compositing.</li>
         </ul>
         <p>
           <strong>File &rarr; Document Color Mode&hellip;</strong> (also in the command palette) opens the Assign vs Convert dialog: <em>Assign</em> changes the working mode without rewriting values, <em>Convert</em> rewrites every process color in one undoable transaction (analytical in the browser; profile-accurate ICC conversion via the desktop engine).
@@ -101,10 +101,10 @@ import '../../../styles/docs-prose.css';
           Varve supports four gradient types:
         </p>
         <ul>
-          <li><strong>Linear</strong> — Color transitions along a line with configurable angle (0-360&deg;)</li>
-          <li><strong>Radial</strong> — Color transitions outward from a center point</li>
-          <li><strong>Angular</strong> — Color transitions around a center point (conic gradient)</li>
-          <li><strong>Diamond</strong> — Color transitions outward in a diamond pattern</li>
+          <li><strong>Linear</strong>: Color transitions along a line with configurable angle (0-360&deg;)</li>
+          <li><strong>Radial</strong>: Color transitions outward from a center point</li>
+          <li><strong>Angular</strong>: Color transitions around a center point (conic gradient)</li>
+          <li><strong>Diamond</strong>: Color transitions outward in a diamond pattern</li>
         </ul>
         <p>
           Each gradient has a transform matrix for precise positioning (Figma-style gradient handles). Add and remove color stops, adjust their positions, and choose between smooth and stepped interpolation.
@@ -140,12 +140,12 @@ import '../../../styles/docs-prose.css';
           Each shape can have multiple strokes, each with independent styling:
         </p>
         <ul>
-          <li><strong>Weight</strong> — Stroke thickness in pixels</li>
-          <li><strong>Color</strong> — Supports all ManagedColor types</li>
-          <li><strong>Dash pattern</strong> — Array of dash/gap lengths (e.g., <code>[4, 2]</code> for dashed lines)</li>
-          <li><strong>Cap style</strong> — Butt, Round, or Square</li>
-          <li><strong>Join style</strong> — Miter, Round, or Bevel</li>
-          <li><strong>Miter limit</strong> — Maximum miter length before bevel is used</li>
+          <li><strong>Weight</strong>: Stroke thickness in pixels</li>
+          <li><strong>Color</strong>: Supports all ManagedColor types</li>
+          <li><strong>Dash pattern</strong>: Array of dash/gap lengths (e.g., <code>[4, 2]</code> for dashed lines)</li>
+          <li><strong>Cap style</strong>: Butt, Round, or Square</li>
+          <li><strong>Join style</strong>: Miter, Round, or Bevel</li>
+          <li><strong>Miter limit</strong>: Maximum miter length before bevel is used</li>
         </ul>
         <p>
           Strokes and layer effects on text follow the actual glyphs rather than the text box. Image fills, raster layers, compound vectors, and warped images follow their rendered alpha, so transparent backgrounds, fill-rule holes, and internal gaps stay transparent. Weight, color, and inside/center/outside alignment are preserved; dash, cap, and join controls apply to vector centerlines, while alpha silhouettes have no single centerline.
@@ -158,12 +158,12 @@ import '../../../styles/docs-prose.css';
           Varve's effects engine supports multiple effects per node, each with independent blend mode and opacity:
         </p>
         <ul>
-          <li><strong>Drop Shadow</strong> — Offset shadow with configurable blur, spread, and color. Renders using the canvas shadow API with proper per-effect blend mode isolation.</li>
-          <li><strong>Inner Shadow</strong> — Shadow inset within the shape bounds. Uses clip + blur technique for accurate rendering.</li>
-          <li><strong>Layer Blur</strong> — Blurs the entire layer content with configurable radius.</li>
-          <li><strong>Background Blur</strong> — Blurs the content behind the layer (requires offscreen canvas compositing).</li>
-          <li><strong>Outer Glow</strong> — No-offset shadow effect that creates a glow around the shape.</li>
-          <li><strong>Inner Glow</strong> — No-offset shadow inset within the shape.</li>
+          <li><strong>Drop Shadow</strong>: Offset shadow with configurable blur, spread, and color. Renders using the canvas shadow API with proper per-effect blend mode isolation.</li>
+          <li><strong>Inner Shadow</strong>: Shadow inset within the shape bounds. Uses clip + blur technique for accurate rendering.</li>
+          <li><strong>Layer Blur</strong>: Blurs the entire layer content with configurable radius.</li>
+          <li><strong>Background Blur</strong>: Blurs the content behind the layer (requires offscreen canvas compositing).</li>
+          <li><strong>Outer Glow</strong>: No-offset shadow effect that creates a glow around the shape.</li>
+          <li><strong>Inner Glow</strong>: No-offset shadow inset within the shape.</li>
         </ul>
         <p>
           For the complete Layer Effects workflow, including raster and text coverage, masks, stage-aware ordering, and export boundaries, see the <a href={sitePath('/features/layer-effects')}>Layer Effects feature guide</a>.
@@ -178,7 +178,7 @@ import '../../../styles/docs-prose.css';
           frequency in lines per inch with a document-space period readout, angle, shape, threshold,
           intensity, edge softness, ink and paper colors, and an ink-on-transparency alpha mode.
           Process <strong>CMYK</strong> screening adds per-ink angles, registration offsets, GCR/UCR
-          black generation, a total ink limit, and single-plate preview &mdash; an artistic
+          black generation, a total ink limit, and single-plate preview, an artistic
           process-screen simulation, not an ICC separation.
         </p>
         <p>
@@ -214,13 +214,13 @@ import '../../../styles/docs-prose.css';
           Varve supports 18 blend modes, applied per-fill and per-effect:
         </p>
         <ul>
-          <li><strong>Normal</strong> — Standard alpha compositing</li>
-          <li><strong>Multiply, Screen, Overlay, Darken, Lighten</strong> — Standard layer blending</li>
-          <li><strong>Color Dodge, Color Burn, Hard Light, Soft Light</strong> — Advanced blending</li>
-          <li><strong>Difference, Exclusion</strong> — Difference-based blending</li>
-          <li><strong>Hue, Saturation, Color, Luminosity</strong> — Non-separable W3C L*C*h blend modes</li>
-          <li><strong>Pass Through</strong> — Group blend mode that passes children through unblended</li>
-          <li><strong>Plus Darker, Plus Lighter</strong> — Additive and subtractive blending</li>
+          <li><strong>Normal</strong>: Standard alpha compositing</li>
+          <li><strong>Multiply, Screen, Overlay, Darken, Lighten</strong>: Standard layer blending</li>
+          <li><strong>Color Dodge, Color Burn, Hard Light, Soft Light</strong>: Advanced blending</li>
+          <li><strong>Difference, Exclusion</strong>: Difference-based blending</li>
+          <li><strong>Hue, Saturation, Color, Luminosity</strong>: Non-separable W3C L*C*h blend modes</li>
+          <li><strong>Pass Through</strong>: Group blend mode that passes children through unblended</li>
+          <li><strong>Plus Darker, Plus Lighter</strong>: Additive and subtractive blending</li>
         </ul>
       </section>
 

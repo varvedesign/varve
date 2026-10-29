@@ -34,7 +34,7 @@ const EMPTY_COPY: Record<string, CopyEntry> = {
   },
   recent: {
     headline: 'Nothing here yet',
-    description: 'Open a design or create something new — your recent work will show up here.',
+    description: 'Open a design or create something new. Your recent work will show up here.',
     cta: 'Create your first design',
   },
   all: {
@@ -72,7 +72,7 @@ const EMPTY_COPY: Record<string, CopyEntry> = {
   activity: {
     headline: 'Quiet around here',
     description:
-      'Changes to your workspace — file edits, imports, and version saves — will show up here.',
+      'Changes to your workspace (file edits, imports, and version saves) will show up here.',
     cta: 'Browse all files',
   },
   missing: {

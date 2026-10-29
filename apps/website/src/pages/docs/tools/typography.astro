@@ -4,7 +4,7 @@ import { sitePath } from '../../../lib/siteUrl';
 import '../../../styles/docs-prose.css';
 ---
 
-<Layout title="Typography & Font Replacement — Varve Docs" description="Set type in Varve with Unicode-aware text, rich text, variable fonts, and local-first missing-font replacement for imported designs.">
+<Layout title="Typography & Font Replacement | Varve Docs" description="Set type in Varve with Unicode-aware text, rich text, variable fonts, and local-first missing-font replacement for imported designs.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -19,7 +19,7 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Creating Text</h2>
         <p>
-          Press <code>T</code> to select the Text tool. Click anywhere on the canvas to create a text node at that position. Start typing immediately — the text appears on canvas as you type. Press <code>Escape</code> or click elsewhere to finish editing.
+          Press <code>T</code> to select the Text tool. Click anywhere on the canvas to create a text node at that position. Start typing immediately. The text appears on canvas as you type. Press <code>Escape</code> or click elsewhere to finish editing.
         </p>
         <p>
           The text box expands as you type. To create a fixed-width text area, click and drag to define its bounds.
@@ -33,7 +33,7 @@ import '../../../styles/docs-prose.css';
         </p>
         <ul>
           <li><strong>Double-click</strong> the text with the Select tool to edit it directly on the canvas. Mixed-direction caret behavior remains under active integration.</li>
-          <li><strong>Edit in Inspector</strong> — Select a text node and find the text content field in the Typography section of the Inspector. This is useful for longer text passages.</li>
+          <li><strong>Edit in Inspector</strong>: Select a text node and find the text content field in the Typography section of the Inspector. This is useful for longer text passages.</li>
         </ul>
         <p>
           Press <code>Escape</code> or click away to exit edit mode. If the
@@ -43,7 +43,7 @@ import '../../../styles/docs-prose.css';
         <p>
           The floating text toolbar provides font family, weight, bold, italic,
           size, and color controls. While a text edit session is active this bar is
-          the single formatting surface — the contextual bar beside the menubar
+          the single formatting surface. The contextual bar beside the menubar
           points to it instead of showing a second copy of the same controls. Open
           <strong>More text formatting</strong> for
           alignment and lists. Font size changes apply when you press <code>Enter</code> or
@@ -94,7 +94,7 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Vertical writing</h2>
         <p>
-          Vertical text is a logical writing mode, not a rotated text layer. Select the Text tool, open <strong>Tool options</strong>, and choose <strong>Vertical — right to left</strong> or <strong>Vertical — left to right</strong> before creating the next text layer. To convert existing text, select it and use <strong>Writing mode</strong> in Typography. The operation keeps the logical string, rich-text runs, object transform, and fixed frame geometry intact.
+          Vertical text is a logical writing mode, not a rotated text layer. Select the Text tool, open <strong>Tool options</strong>, and choose <strong>Vertical (right to left)</strong> or <strong>Vertical (left to right)</strong> before creating the next text layer. To convert existing text, select it and use <strong>Writing mode</strong> in Typography. The operation keeps the logical string, rich-text runs, object transform, and fixed frame geometry intact.
         </p>
         <p>
           <strong>Mixed</strong> follows Unicode vertical orientation conventions at grapheme boundaries: CJK and pictographic clusters stay upright while Latin-like clusters are sideways. <strong>Upright</strong> and <strong>Sideways</strong> are explicit presentation choices. These controls are separate from Text direction, Vertical alignment, and object rotation.
@@ -110,8 +110,8 @@ import '../../../styles/docs-prose.css';
         <h2>Text Properties</h2>
         <p>
           The Typography section in the Inspector provides controls for every text property. The
-          common spine — content, family, weight, style, size, line height, letter spacing, and
-          alignment — stays visible, while tracking, paragraph spacing, vertical alignment,
+          common spine (content, family, weight, style, size, line height, letter spacing, and
+          alignment) stays visible, while tracking, paragraph spacing, vertical alignment,
           direction, writing mode, case, decoration, list style, overflow, and text sizing live
           in a collapsed <strong>Advanced typography</strong> subsection. Its header badge reports
           how many of those properties the current layer already uses, so nothing is silently
@@ -125,10 +125,10 @@ import '../../../styles/docs-prose.css';
           Varve's Font Registry manages font loading and fallback chains. You can use:
         </p>
         <ul>
-          <li><strong>System fonts</strong> — Availability depends on the operating system and browser; a family name alone does not confirm that its file is accessible</li>
-          <li><strong>Bundled fonts</strong> — Open-source fonts included with Varve via @fontsource packages</li>
-          <li><strong>Shipped semantic catalog</strong> — Search family names, design language, coverage, features, availability, and personal tags offline</li>
-          <li><strong>Explicit desktop installs</strong> — When enabled, retrieve one exact, version-pinned Fontsource artifact after reviewing the result and its license metadata</li>
+          <li><strong>System fonts</strong>: Availability depends on the operating system and browser; a family name alone does not confirm that its file is accessible</li>
+          <li><strong>Bundled fonts</strong>: Open-source fonts included with Varve via @fontsource packages</li>
+          <li><strong>Shipped semantic catalog</strong>: Search family names, design language, coverage, features, availability, and personal tags offline</li>
+          <li><strong>Explicit desktop installs</strong>: When enabled, retrieve one exact, version-pinned Fontsource artifact after reviewing the result and its license metadata</li>
         </ul>
         <p>
           The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. In the full browser, use <strong>Allow local fonts</strong> (or <strong>Refresh local fonts</strong> on desktop) to deliberately enumerate local faces; the status explains whether permission, native enumeration, or the compatibility list supplied the result. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts open a recovery dialog that uses the same shipped catalog and install boundary.
@@ -188,27 +188,27 @@ import '../../../styles/docs-prose.css';
 
         <h3>Size and Weight</h3>
         <ul>
-          <li><strong>Font Size</strong> — Numeric input with drag-to-scrub</li>
-          <li><strong>Font Weight</strong> — Numeric request from 100 to 900; availability depends on the selected font</li>
-          <li><strong>Font Style</strong> — Normal or Italic</li>
+          <li><strong>Font Size</strong>: Numeric input with drag-to-scrub</li>
+          <li><strong>Font Weight</strong>: Numeric request from 100 to 900; availability depends on the selected font</li>
+          <li><strong>Font Style</strong>: Normal or Italic</li>
         </ul>
 
         <h3>Alignment and Spacing</h3>
         <ul>
-          <li><strong>Alignment</strong> — Left, Center, Right, and Justify, shown as the standard alignment icons with named labels and tooltips</li>
-          <li><strong>Vertical align</strong> — Top, Middle, Bottom; appears for area text (a fixed or auto-height box) where the alignment can act</li>
-          <li><strong>Line Height</strong> — Percentage of the font size (for example, 150%)</li>
-          <li><strong>Letter spacing</strong> — Per-glyph spacing in pixels, a fixed offset that does not scale with the font size</li>
-          <li><strong>Tracking</strong> — Per-mille of the em (‰); scales with the font size. Lives in Advanced typography, with the field hint explaining the difference from letter spacing</li>
-          <li><strong>Paragraph spacing</strong> — Additional space between paragraphs, in Advanced typography</li>
+          <li><strong>Alignment</strong>: Left, Center, Right, and Justify, shown as the standard alignment icons with named labels and tooltips</li>
+          <li><strong>Vertical align</strong>: Top, Middle, Bottom; appears for area text (a fixed or auto-height box) where the alignment can act</li>
+          <li><strong>Line Height</strong>: Percentage of the font size (for example, 150%)</li>
+          <li><strong>Letter spacing</strong>: Per-glyph spacing in pixels, a fixed offset that does not scale with the font size</li>
+          <li><strong>Tracking</strong>: Per-mille of the em (‰); scales with the font size. Lives in Advanced typography, with the field hint explaining the difference from letter spacing</li>
+          <li><strong>Paragraph spacing</strong>: Additional space between paragraphs, in Advanced typography</li>
         </ul>
 
         <h3>Case and Decoration</h3>
         <ul>
-          <li><strong>Text Case</strong> — Uppercase (ABC), Lowercase (abc), Capitalize (Abc), or None; each option states what it produces</li>
-          <li><strong>Text Decoration</strong> — Underline, Strikethrough, or None, shown as labelled underline/strikethrough icons</li>
-          <li><strong>Text Overflow</strong> — Visible, Clip, or Ellipsis (…), each with a one-line explanation in the dropdown</li>
-          <li><strong>Text sizing</strong> — Auto width, Auto height, or Fixed size, with the wrapping behavior described per option</li>
+          <li><strong>Text Case</strong>: Uppercase (ABC), Lowercase (abc), Capitalize (Abc), or None; each option states what it produces</li>
+          <li><strong>Text Decoration</strong>: Underline, Strikethrough, or None, shown as labelled underline/strikethrough icons</li>
+          <li><strong>Text Overflow</strong>: Visible, Clip, or Ellipsis (…), each with a one-line explanation in the dropdown</li>
+          <li><strong>Text sizing</strong>: Auto width, Auto height, or Fixed size, with the wrapping behavior described per option</li>
         </ul>
 
         <h3>Lists</h3>
@@ -231,12 +231,12 @@ import '../../../styles/docs-prose.css';
           document; each dropdown option explains what Inherit, Off, On, and Indexed do.
         </p>
         <ul>
-          <li><code>liga</code> — Standard ligatures</li>
-          <li><code>dlig</code>, <code>hlig</code> — Discretionary and historical ligatures</li>
-          <li><code>calt</code>, <code>swsh</code>, <code>cswh</code>, <code>titl</code>, <code>salt</code> — Contextual alternates, swashes, and titling forms</li>
-          <li><code>kern</code> — Kerning</li>
-          <li><code>ss01</code> through <code>ss20</code> and <code>cv01</code> through <code>cv99</code> — Font-defined stylistic sets and character variants</li>
-          <li><code>smcp</code>, <code>c2sc</code>, <code>frac</code>, <code>afrc</code>, <code>numr</code>, <code>dnom</code>, <code>onum</code>, <code>lnum</code>, <code>pnum</code>, <code>tnum</code>, <code>zero</code> — Small caps, fractions, numeral styles, and slashed zero where declared by the face</li>
+          <li><code>liga</code>: Standard ligatures</li>
+          <li><code>dlig</code>, <code>hlig</code>: Discretionary and historical ligatures</li>
+          <li><code>calt</code>, <code>swsh</code>, <code>cswh</code>, <code>titl</code>, <code>salt</code>: Contextual alternates, swashes, and titling forms</li>
+          <li><code>kern</code>: Kerning</li>
+          <li><code>ss01</code> through <code>ss20</code> and <code>cv01</code> through <code>cv99</code>: Font-defined stylistic sets and character variants</li>
+          <li><code>smcp</code>, <code>c2sc</code>, <code>frac</code>, <code>afrc</code>, <code>numr</code>, <code>dnom</code>, <code>onum</code>, <code>lnum</code>, <code>pnum</code>, <code>tnum</code>, <code>zero</code>: Small caps, fractions, numeral styles, and slashed zero where declared by the face</li>
         </ul>
         <p>
           Required script-shaping features are protected from a generic “turn ligatures off” action. The alternate browser previews available feature choices for the current face; it is a feature browser, not a universal glyph-insertion palette. Applying a choice changes the real canvas artwork and creates one history entry. Hover previews are cancellable and do not create history entries; Escape or selection changes restore the previous value.
@@ -275,7 +275,7 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Export behavior</h2>
         <p>
-          SVG keeps editable text, feature settings, variable-axis settings, and native <code>textPath</code> semantics where the SVG viewer supports them. Browser PDF is a local raster PDF. Desktop PDF preserves simple eligible text through the native print path, but shaping-sensitive text—ligatures, non-Latin/script text, rich runs, feature values/ranges, axes, tracking, manual cluster edits, and path text—is rasterized from the live renderer so it cannot silently change shape. This preserves appearance but means that node is not searchable/editable text in the PDF. Convert to outlines when vector geometry is more important than PDF text semantics, and inspect the exported artifact before delivery.
+          SVG keeps editable text, feature settings, variable-axis settings, and native <code>textPath</code> semantics where the SVG viewer supports them. Browser PDF is a local raster PDF. Desktop PDF preserves simple eligible text through the native print path, but shaping-sensitive text (ligatures, non-Latin/script text, rich runs, feature values/ranges, axes, tracking, manual cluster edits, and path text) is rasterized from the live renderer so it cannot silently change shape. This preserves appearance but means that node is not searchable/editable text in the PDF. Convert to outlines when vector geometry is more important than PDF text semantics, and inspect the exported artifact before delivery.
         </p>
         <p>
           A character the chosen font cannot draw is a separate case. The canvas

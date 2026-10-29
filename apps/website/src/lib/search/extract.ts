@@ -287,7 +287,7 @@ function extractTitle(html: string, mainHtml: string): string {
   const title = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html);
   const titleText = title
     ? decodeEntities(title[1])
-        .replace(/\s*[—|]\s*Varve(\s+Docs)?\s*$/i, '')
+        .replace(/\s*[\u2014|]\s*Varve(\s+Docs)?\s*$/i, '')
         .trim()
     : '';
   if (titleText) return titleText;

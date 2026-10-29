@@ -42,7 +42,7 @@ function channelLabel(version: string): string {
 }
 
 const pageTitle = 'Changelog';
-const pageDescription = 'Version history and release notes for Varve. See what changed in every release — features, fixes, and improvements.';
+const pageDescription = 'Version history and release notes for Varve. See what changed in every release: features, fixes, and improvements.';
 ---
 
 <Layout title={pageTitle} description={pageDescription} canonicalPath="/changelog">
@@ -181,7 +181,7 @@ const pageDescription = 'Version history and release notes for Varve. See what c
         );
       })}
 
-      {/* Older releases — collapsible via native <details> */}
+      {/* Older releases, collapsible via native <details> */}
       {olderReleases.length > 0 && (
         <li class="changelog-older-anchor">
           <details class="changelog-older">

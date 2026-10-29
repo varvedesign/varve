@@ -768,7 +768,7 @@
     "vectorize": {
       "file": "vectorize-dialog-light.png",
       "alt": "The Varve Vectorize dialog tracing an imported photograph into editable vector paths, with the overlay preview, path/point/hole diagnostics, and source-versus-vector view tabs",
-      "caption": "Trace an imported image into editable paths — entirely on-device, with prepare/overlay/vector previews before anything is committed.",
+      "caption": "Trace an imported image into editable paths: entirely on-device, with prepare/overlay/vector previews before anything is committed.",
       "feature": "vector-tools",
       "theme": "light",
       "status": "captured",
@@ -826,7 +826,7 @@
     "workspaces": {
       "file": "workspaces-light.png",
       "alt": "The Varve menubar workspace switcher with the Print workspace selected, showing the panel and toolbar layout that workspace applies",
-      "caption": "Six task workspaces in keyboard order — Print selected with its own panels, toolbar, and inspector.",
+      "caption": "Six task workspaces in keyboard order: Print selected with its own panels, toolbar, and inspector.",
       "feature": "workspaces",
       "theme": "light",
       "width": 1440,
@@ -936,7 +936,7 @@
     "effects": {
       "file": "effects-light.png",
       "alt": "The Varve Effects inspector with a drop shadow added to the selected shape on a poster, showing offset, blur, spread, opacity and blend-mode controls",
-      "caption": "Stackable, non-destructive effects — drop shadow, blurs, glows, glitch and more.",
+      "caption": "Stackable, non-destructive effects: drop shadow, blurs, glows, glitch and more.",
       "feature": "effects",
       "theme": "light",
       "status": "captured",

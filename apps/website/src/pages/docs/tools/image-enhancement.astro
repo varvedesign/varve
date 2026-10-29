@@ -4,7 +4,7 @@ import { sitePath } from '../../../lib/siteUrl';
 import '../../../styles/docs-prose.css';
 ---
 
-<Layout title="Image Enhance — Varve Docs" description="Use Varve's local-first image enhancement workflow for denoising, deblurring, and upscaling.">
+<Layout title="Image Enhance | Varve Docs" description="Use Varve's local-first image enhancement workflow for denoising, deblurring, and upscaling.">
   <div class="container-custom">
     <article class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href={sitePath('/docs')}>Documentation</a> / Tools / Image Enhance</nav>
@@ -13,7 +13,7 @@ import '../../../styles/docs-prose.css';
 
       <section class="docs-section">
         <h2>Choose the task</h2>
-        <p>Open the image enhancement command for a selected image and choose a preset or the operation that matches the source problem. Presets cover Auto, CPU and AI photo work, illustration, pixel art, denoise, deblur, and combined restoration. Changing an individual processing setting switches the dialog to Custom; output behavior remains unchanged. Auto / Recommended runs a quick local analysis (noise, blur, compression, resolution) and suggests a task with a qualitative signal label — you can always override it. The label is a heuristic, not a calibrated probability.</p>
+        <p>Open the image enhancement command for a selected image and choose a preset or the operation that matches the source problem. Presets cover Auto, CPU and AI photo work, illustration, pixel art, denoise, deblur, and combined restoration. Changing an individual processing setting switches the dialog to Custom; output behavior remains unchanged. Auto / Recommended runs a quick local analysis (noise, blur, compression, resolution) and suggests a task with a qualitative signal label. You can always override it. The label is a heuristic, not a calibrated probability.</p>
         <ul>
           <li><strong>Denoise</strong> reduces sensor noise and grain using the task-specific SCUNet model. The dialog verifies that the graph and external weights are installed before enabling Apply; choose <strong>None</strong> for an explicit no-op.</li>
           <li><strong>Deblur</strong> reduces motion and defocus blur with a validated NAFNet checkpoint. Restoration is bounded: the model runs on a cropped preview first, and full-resolution work tiles adaptively so memory stays within budget.</li>

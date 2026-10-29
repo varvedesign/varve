@@ -39,7 +39,7 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section">
         <h2>Coverage that follows the pixels</h2>
         <p>
-          Text effects follow shaped glyphs, counters, decorations, and strokes—not the invisible text box. Raster and image effects follow true alpha, transparent holes, crop placement, sparse tiles, and background-removal masks, so a cut-out PNG does not receive a rectangular shadow. Compound vector paths preserve curves, fill rules, and authored holes; gradients, translucent fills, and stroke-only content use painted coverage when a geometric outline would be misleading.
+          Text effects follow shaped glyphs, counters, decorations, and strokes, not the invisible text box. Raster and image effects follow true alpha, transparent holes, crop placement, sparse tiles, and background-removal masks, so a cut-out PNG does not receive a rectangular shadow. Compound vector paths preserve curves, fill rules, and authored holes; gradients, translucent fills, and stroke-only content use painted coverage when a geometric outline would be misleading.
         </p>
         <div class="coverage-grid">
           <article><h3>Editable text</h3><p>Keep the font, rich formatting, transforms, and text content editable while shadows and glows follow the glyphs.</p></article>
@@ -56,7 +56,7 @@ import StatusPill from '../../components/StatusPill.astro';
         <div class="control-grid">
           <article>
             <h3>One-step add</h3>
-            <p>Choosing an effect from the categorized picker adds it immediately—no separate confirm click. Add again for another effect, or use a row's Duplicate action to repeat a tuned treatment.</p>
+            <p>Choosing an effect from the categorized picker adds it immediately: no separate confirm click. Add again for another effect, or use a row's Duplicate action to repeat a tuned treatment.</p>
           </article>
           <article>
             <h3>Click the card to edit</h3>
@@ -64,15 +64,15 @@ import StatusPill from '../../components/StatusPill.astro';
           </article>
           <article>
             <h3>Every effect previewed</h3>
-            <p>Each of the 16 effect types renders a live preview inside its popover—shadows, glows, every blur family, depth blur, chromatic aberration, glitch, and glass—so you are never editing blind.</p>
+            <p>Each of the 16 effect types renders a live preview inside its popover (shadows, glows, every blur family, depth blur, chromatic aberration, glitch, and glass) so you are never editing blind.</p>
           </article>
           <article>
             <h3>Stage-aware reordering</h3>
-            <p>Each row states its execution stage (Backdrop, Content, Appearance), and a disabled move explains that it is already first or last in that stage—no silent no-op reorders.</p>
+            <p>Each row states its execution stage (Backdrop, Content, Appearance), and a disabled move explains that it is already first or last in that stage: no silent no-op reorders.</p>
           </article>
           <article>
             <h3>1-Click Elevation Presets</h3>
-            <p>Instant modern elevation levels—from subtle 1px card borders (E1) and floating hover states (E2) to raised popovers (E3) and dramatic modal depth (E4), plus ambient glow and graphic hard shadows.</p>
+            <p>Instant modern elevation levels, from subtle 1px card borders (E1) and floating hover states (E2) to raised popovers (E3) and dramatic modal depth (E4), plus ambient glow and graphic hard shadows.</p>
           </article>
           <article>
             <h3>2D Light Direction Pad</h3>
@@ -98,7 +98,7 @@ import StatusPill from '../../components/StatusPill.astro';
           <article><h3>Shadows and glows</h3><p>Shadows expose X/Y plus synchronized angle and distance, elevation presets, and light pad. Glows add choke, contour, edge/center origin, and solid or effect-domain gradient colour treatment.</p></article>
           <article><h3>Shared control vocabulary</h3><p>Colour and opacity sit on one row in every effect that supports them, opacity-like values read as percentages, blend mode is always the same control, and closed sets such as glow contour and origin are one-click segmented choices.</p></article>
           <article><h3>Accurate row swatches</h3><p>A gradient glow shows its actual ramp in the row chip rather than a single stop, and glass exposes the edge highlight's colour, width, and opacity together.</p></article>
-          <article><h3>Chromatic aberration</h3><p>RGB split includes Mix and fractional offsets; Custom Color Split adds independent red, green, blue, luminance, or alpha contributions with output colours, strength, and offsets—previewed with those same colours.</p></article>
+          <article><h3>Chromatic aberration</h3><p>RGB split includes Mix and fractional offsets; Custom Color Split adds independent red, green, blue, luminance, or alpha contributions with output colours, strength, and offsets, previewed with those same colours.</p></article>
           <article><h3>Glitch</h3><p>Direction, seed, density, slices, blocks, channel shifts, noise, scanlines, and blend mode.</p></article>
           <article><h3>Glass and depth</h3><p>Tint, saturation, brightness, noise, edge highlight with opacity, focus range, falloff, and depth inversion.</p></article>
           <article><h3>Spatial blur family</h3><p>Gaussian stays uniform; Field, Iris, Tilt-Shift, Path, and Spin expose their authored geometry and deterministic CPU reference rendering.</p></article>
@@ -126,7 +126,7 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section">
         <h2>Everyday controls, without destructive surprises</h2>
         <ul>
-          <li>Add an effect by choosing it once, move it with the row chevrons or drag handle, remove it from the row, and reset or duplicate it from the row menu—all with one-step history. Depth Blur enters through its image workflow so an effect is never saved without a valid DepthMap.</li>
+          <li>Add an effect by choosing it once, move it with the row chevrons or drag handle, remove it from the row, and reset or duplicate it from the row menu, all with one-step history. Depth Blur enters through its image workflow so an effect is never saved without a valid DepthMap.</li>
           <li>Stable effect IDs keep masks attached through reorder, reset, duplication, transfer, save, and reload.</li>
           <li>Positive and negative spread use alpha expansion/contraction; spread is not disguised extra blur.</li>
           <li>Transparent backgrounds, compound paths, vector holes, text counters, and sparse raster pixels remain transparent instead of receiving a bounding-box effect.</li>
