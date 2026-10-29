@@ -7,8 +7,11 @@
 //! The AI feature requires a downloaded ONNX model and the `ort` runtime.
 //! Without the `ai` feature, only heuristic methods are available.
 
+pub mod download_policy;
 pub mod heuristic;
 pub mod metrics;
+
+pub use download_policy::is_allowed_model_download_url;
 
 #[cfg(feature = "ai")]
 pub mod inference;

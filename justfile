@@ -244,10 +244,11 @@ validate-workflows-staged:
 # Varve binary is already stripped by [profile.release] strip = true, and
 # distro libraries ship stripped.
 #
-# IMPORTANT: an AppImage built here is for local smoke-testing only. It bundles
-# this host's libraries, including glibc 2.44, so it will NOT run on the
-# Ubuntu 22.04 (glibc 2.35) compatibility baseline. Release AppImages must come
-# from the ubuntu-22.04 runner in release.yml.
+# IMPORTANT: an AppImage built here is for local smoke-testing only. It
+# bundles this host's WebKit/GTK (and this host's glibc, e.g. 2.44), so it
+# will NOT run on the Ubuntu 22.04 (glibc 2.35) compatibility baseline.
+# Release AppImages must come from the ubuntu-22.04 runner in release.yml.
+# GPU/EGL/Mesa are still taken from the machine that *runs* the image.
 
 # Strip ONNX Runtime libraries for other platforms out of the bundle.
 # tauri.conf.json globs onnxruntime-libs/** wholesale, so every platform ever
@@ -266,6 +267,7 @@ prune-runtimes:
 
 # Build all Linux bundles (AppImage + deb + rpm). Requires Linux + Tauri deps.
 package-linux: prune-runtimes
+    node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb,rpm --ci --features ai --config '{"bundle":{"createUpdaterArtifacts":false}}'
     node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
     @echo "Bundles written to apps/desktop/src-tauri/target/release/bundle/"
@@ -280,6 +282,7 @@ package-rpm: prune-runtimes
 
 # Build AppImage only. Local smoke-test artifact — see the note above.
 package-appimage: prune-runtimes
+    node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage --ci --features ai --config '{"bundle":{"createUpdaterArtifacts":false}}'
     node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
 
@@ -294,6 +297,7 @@ package-linux-dev: prune-runtimes
     set -euo pipefail
     V="$(node scripts/release/version.mjs snapshot)"
     echo "Building dev bundles as ${V}..."
+    node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb --ci --features ai --config "{\"version\":\"${V}\",\"bundle\":{\"createUpdaterArtifacts\":false}}"
     node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
     echo "Dev bundles written to apps/desktop/src-tauri/target/release/bundle/"
@@ -432,3 +436,12 @@ appimage-smoke:
     echo "Launching ${_img} for 5 s smoke test..."
     timeout 5 "${_img}" --no-sandbox || true
     echo "Smoke test complete."
+
+# AppImageHub-shaped smoke: no host WebKitGTK, --network none, xvfb.
+# ubuntu:22.04 (build baseline) and fedora:latest (newer Mesa).
+appimage-smoke-offline:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    _img=$(find apps/desktop/src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)
+    if [[ -z "${_img}" ]]; then echo "No AppImage found. Run 'just package-appimage' first."; exit 1; fi
+    bash scripts/release/smoke-appimage-self-contained.sh --appimage "${_img}" --distro all

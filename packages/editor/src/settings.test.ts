@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadSettings, resetSettings, saveSettings, updateSettings } from './settings';
+import {
+  loadSettings,
+  readQuarantinedSettings,
+  resetSettings,
+  saveSettings,
+  updateSettings,
+} from './settings';
 
 const STORAGE_KEY = 'strata-editor-settings';
 
@@ -39,8 +45,9 @@ describe('loadSettings', () => {
       pressureEnabled: true,
       pressureCurve: 1,
     });
-    expect(s.privacy.usageAnalytics).toBe('unknown');
-    expect(s.privacy.diagnostics).toBe('unknown');
+    expect(s.privacy).toEqual({});
+    expect(s.icons.remoteSearch).toBe('unknown');
+    expect(s.ai.model).toBe('varve-default');
   });
 
   it('merges a partial performance/render patch without dropping unrelated fields', () => {
@@ -134,15 +141,29 @@ describe('loadSettings', () => {
     expect(loaded.export.defaultBleedMm).toBe(5);
   });
 
-  it('keeps analytics consent granular and preserves unknown as the default', () => {
-    saveSettings({
-      ...loadSettings(),
-      privacy: { usageAnalytics: 'granted', diagnostics: 'denied' },
-    });
-    expect(loadSettings().privacy).toEqual({ usageAnalytics: 'granted', diagnostics: 'denied' });
-    localStorage.removeItem('varve-editor-settings');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ privacy: { usageAnalytics: 'invalid' } }));
-    expect(loadSettings().privacy).toEqual({ usageAnalytics: 'unknown', diagnostics: 'unknown' });
+  it('ignores stored usageAnalytics and diagnostics keys', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ privacy: { usageAnalytics: 'granted', diagnostics: 'denied' } }),
+    );
+    expect(loadSettings().privacy).toEqual({});
+    expect(loadSettings().privacy).not.toHaveProperty('usageAnalytics');
+    expect(loadSettings().privacy).not.toHaveProperty('diagnostics');
+  });
+
+  it('migrates retired cloud model names to the on-device default', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ai: { model: 'gpt-4' } }));
+    expect(loadSettings().ai.model).toBe('varve-default');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ai: { model: 'claude-3-sonnet' } }));
+    expect(loadSettings().ai.model).toBe('varve-default');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ai: { model: 'gpt-4o' } }));
+    expect(loadSettings().ai.model).toBe('varve-default');
+  });
+
+  it('persists icon remote-search consent and defaults to not asked', () => {
+    expect(loadSettings().icons.remoteSearch).toBe('unknown');
+    saveSettings({ ...loadSettings(), icons: { remoteSearch: 'granted' } });
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
   });
 
   it('handles corrupt JSON gracefully', () => {
@@ -382,5 +403,43 @@ describe('resetSettings', () => {
       pressureEnabled: true,
       pressureCurve: 1,
     });
+  });
+});
+
+/**
+ * Evidence: storytold/lightcraft#103 — an unreadable settings file was reset to
+ * defaults with no trace. Varve cannot show a recovery notice yet, but the
+ * original bytes must survive the reset.
+ */
+describe('settings quarantine', () => {
+  it('preserves an unreadable blob verbatim before falling back to defaults', () => {
+    localStorage.setItem('varve-editor-settings', '{"appearance":{"theme":');
+    const settings = loadSettings();
+    expect(settings.appearance.theme).toBe('system');
+    const quarantined = readQuarantinedSettings();
+    expect(quarantined?.payload).toBe('{"appearance":{"theme":');
+    expect(quarantined?.source).toBe('varve-editor-settings');
+    expect(Number.isNaN(Date.parse(quarantined?.savedAt ?? ''))).toBe(false);
+  });
+
+  it('preserves a legacy blob and reports its source key', () => {
+    localStorage.setItem('strata-editor-settings', 'not json at all');
+    loadSettings();
+    expect(readQuarantinedSettings()).toMatchObject({
+      source: 'strata-editor-settings',
+      payload: 'not json at all',
+    });
+  });
+
+  it('keeps one quarantine slot instead of duplicating the same blob', () => {
+    localStorage.setItem('varve-editor-settings', 'broken');
+    loadSettings();
+    const first = readQuarantinedSettings();
+    loadSettings();
+    expect(readQuarantinedSettings()).toEqual(first);
+  });
+
+  it('returns null when nothing was quarantined', () => {
+    expect(readQuarantinedSettings()).toBeNull();
   });
 });

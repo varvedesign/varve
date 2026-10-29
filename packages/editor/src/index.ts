@@ -1,12 +1,18 @@
 import './workspace/bootstrap';
 
+export type { DemoExportFormat } from './analytics/demoExportAnalytics';
+export {
+  notifyDemoExportAnalytics,
+  notifySuccessfulDemoExport,
+  notifySuccessfulDemoExportBatch,
+  setDemoExportAnalyticsListener,
+} from './analytics/demoExportAnalytics';
 export {
   configureDesktopAnalytics,
   getDesktopAnalytics,
   resetDesktopAnalyticsForTests,
   startDesktopFlushTimer,
   stopDesktopFlushTimer,
-  updateDesktopAnalyticsConsent,
 } from './analytics/desktopAnalytics';
 export { type ReplayExpansion, worldRectsToScreen } from './canvas/dirtyQuery';
 export {
@@ -40,7 +46,11 @@ export {
   markFirstRunOverlayDismissed,
 } from './components/FirstRunOverlay/firstRunOverlayState';
 export { restoreStoredFonts } from './components/FontBrowser/restoreStoredFonts';
-export { SettingsProvider } from './components/Settings/SettingsContext';
+export {
+  SettingsProvider,
+  useOptionalSettings,
+  useResolvedSettings,
+} from './components/Settings/SettingsContext';
 export type { SettingsDialogProps } from './components/Settings/SettingsDialog';
 export { SettingsDialog } from './components/Settings/SettingsDialog';
 export type { EditorContextValue, EditorState, SessionMeta, ToolId } from './context';

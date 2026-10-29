@@ -299,10 +299,16 @@ function stubEngine(): Engine {
           strokes: n.strokes ?? [],
           effects: n.effects ?? [],
         };
-        // P2: populate fills stack if present
+        // P2: populate fills stack if present.
+        //
+        // Invisible entries are kept, not filtered out here: replay skips them
+        // per fill (`if (!fill.visible) continue`), and dropping them made an
+        // all-hidden stack indistinguishable from "no stack at all", so the
+        // replay fell back to the node's legacy `fill` colour and painted the
+        // very fill the user had hidden. The native builder already clones the
+        // stack verbatim, so this also restores native/web agreement.
         if (n.fills && n.fills.length > 0) {
           item.fills = n.fills
-            .filter((f: EngineFill) => f.visible)
             .map((f: EngineFill): FillIR | null => {
               if (f.type === 'solid' && f.color) {
                 return {

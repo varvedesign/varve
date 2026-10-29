@@ -13,6 +13,7 @@ crate-type = ["cdylib", "rlib"]
 varve-bridge = { path = "../varve-bridge" }
 varve-core = { path = "../varve-core" }
 varve-engine = { path = "../varve-engine" }
+varve-effects = { path = "../varve-effects" }
 varve-trace = { path = "../varve-trace", features = ["wasm"] }
 varve-media = { path = "../varve-media" }
 wasm-bindgen = "0.2"

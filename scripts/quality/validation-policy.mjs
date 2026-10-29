@@ -189,6 +189,7 @@ export const LANE_COST_SECONDS = Object.freeze({
   'typecheck:website-e2e': 45,
   policy: 40,
   'audit:docs': 20,
+  'audit:claims': 20,
   'audit:emoji': 10,
   'audit:tokens': 45,
   'js-unit:file': 45,

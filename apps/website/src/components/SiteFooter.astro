@@ -13,6 +13,7 @@
 import DownloadCTA from './DownloadCTA.astro';
 import { CONTACTS } from '@varve/shared';
 import { sitePath } from '../lib/siteUrl';
+import { SHOW_SUPPORT_PROJECT } from '../config/features.js';
 import release from '../data/release-manifest.json';
 
 const statusLabel = release.hasRelease && release.version
@@ -51,7 +52,7 @@ const statusLabel = release.hasRelease && release.version
       </a>
       <p class="footer-brand-desc">
         A local-first design suite for vector, layout, typography, motion,
-        prototyping, and print &mdash; built in the open, shaped by its users.
+        prototyping, and print. Source-available, shaped by its users.
       </p>
       <p class="footer-status" data-footer-status>
         <span class="footer-status-dot" aria-hidden="true"></span>
@@ -102,7 +103,7 @@ const statusLabel = release.hasRelease && release.version
         <h3>Project</h3>
         <ul>
           <li><a href={sitePath('/contribute')}>Contribute</a></li>
-          <li><a href={sitePath('/support-project')}>Support the project</a></li>
+          {SHOW_SUPPORT_PROJECT && <li><a href={sitePath('/support-project')}>Support the project</a></li>}
           <li><a href={sitePath('/about')}>About</a></li>
           <li><a href={sitePath('/about/how-its-built')}>How Varve is built</a></li>
           <li><a href={sitePath('/press')}>Press &amp; brand assets</a></li>
@@ -112,8 +113,8 @@ const statusLabel = release.hasRelease && release.version
       <div class="footer-section">
         <h3>Connect</h3>
         <ul>
-          <li><a href="https://github.com/K-Arthur/varve" target="_blank" rel="noopener noreferrer" data-analytics-outbound="github">GitHub</a></li>
-          <li><a href="https://github.com/K-Arthur/varve/discussions" target="_blank" rel="noopener noreferrer" data-analytics-outbound="community">Discussions</a></li>
+          <li><a href="https://github.com/varvedesign/varve" target="_blank" rel="noopener noreferrer" data-analytics-outbound="github">GitHub</a></li>
+          <li><a href="https://github.com/varvedesign/varve/discussions" target="_blank" rel="noopener noreferrer" data-analytics-outbound="community">Discussions</a></li>
           <li><a href={sitePath('/security')}>Security</a></li>
           <li><a href={sitePath('/about/privacy')}>Privacy</a></li>
           <li><a href={sitePath('/accessibility')}>Accessibility</a></li>
@@ -138,14 +139,14 @@ const statusLabel = release.hasRelease && release.version
   </div>
 
   <div class="footer-bottom container-custom">
-    <p>&copy; 2024&ndash;2026 K-Arthur. Source-available under FSL-1.1-MIT.</p>
+    <p>&copy; 2024&ndash;2026 Varve. Source-available under FSL-1.1-MIT.</p>
     <p class="footer-bottom-links">
       <a href={sitePath('/about/how-its-built')}>How it's built</a>
       <a href={sitePath('/about/license')}>License</a>
       <a href={sitePath('/about/privacy')}>Privacy</a>
       <a href={sitePath('/security')}>Security</a>
       <a href={sitePath('/accessibility')}>Accessibility</a>
-      <a href="https://github.com/K-Arthur/varve" target="_blank" rel="noopener noreferrer">Source</a>
+      <a href="https://github.com/varvedesign/varve" target="_blank" rel="noopener noreferrer">Source</a>
       <a href={sitePath('/contribute')}>Contribute</a>
     </p>
   </div>

@@ -437,8 +437,6 @@ jobs:
       - name: Build production browser demo for E2E
         if: matrix.shard == 1
         run: pnpm --filter @varve/desktop build:try
-        env:
-          VITE_VARVE_ANALYTICS_DOMAIN: varve.studio
       - name: Stage production demo for E2E
         if: matrix.shard == 1
         run: node scripts/website/stage-demo.mjs
@@ -649,7 +647,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux, os: ubuntu-latest }
+          # Pin to 24.04: ubuntu-latest is 26.04 and dropped libgdk-pixbuf2.0-dev.
+          - { name: linux, os: ubuntu-24.04 }
           - { name: macos, os: macos-latest }
           - { name: windows, os: windows-latest }
     steps:
@@ -870,7 +869,9 @@ jobs:
             ci-certification.json
           retention-days: 90
   certification:
-    name: Release Candidate / certification
+    # Keep the Actions job check distinct from the API-published exact-SHA check
+    # below; both names matching makes the verifier select this unbound job check.
+    name: Candidate evidence publication
     permissions:
       contents: read
       actions: read

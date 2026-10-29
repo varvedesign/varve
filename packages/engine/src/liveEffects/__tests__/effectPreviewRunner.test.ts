@@ -61,7 +61,12 @@ class ControlledExecutor {
   readonly calls: Array<{
     request: EffectDispatchRequest;
     input: Uint8ClampedArray;
-    result: ReturnType<typeof deferred<Uint8ClampedArray>>;
+    result: ReturnType<
+      typeof deferred<{
+        readonly rgba: Uint8ClampedArray;
+        readonly backend: 'cpu-effects' | 'wasm-effects';
+      }>
+    >;
   }> = [];
   prepared = true;
 
@@ -70,7 +75,10 @@ class ControlledExecutor {
   }
 
   apply(request: EffectDispatchRequest, input: Uint8ClampedArray) {
-    const result = deferred<Uint8ClampedArray>();
+    const result = deferred<{
+      readonly rgba: Uint8ClampedArray;
+      readonly backend: 'cpu-effects' | 'wasm-effects';
+    }>();
     this.calls.push({ request, input, result });
     return result.promise;
   }
@@ -83,7 +91,10 @@ class ControlledExecutor {
 
   complete(index: number): void {
     const call = this.calls[index]!;
-    call.result.resolve(new Uint8ClampedArray(call.input.length).fill(120));
+    call.result.resolve({
+      rgba: new Uint8ClampedArray(call.input.length).fill(120),
+      backend: 'cpu-effects',
+    });
   }
 }
 
@@ -126,7 +137,8 @@ describe('live effect preview runner', () => {
     const executor = new ControlledExecutor();
     const runner = new EffectPreviewRunner({ admission, executor });
     const capture = vi.fn(() => new Uint8ClampedArray(16).fill(10));
-    const preview = runner.submit(makeInput({ captureSource: capture }));
+    const onBackend = vi.fn();
+    const preview = runner.submit(makeInput({ captureSource: capture, onBackend }));
 
     await Promise.resolve();
     expect(capture).not.toHaveBeenCalled();
@@ -135,6 +147,7 @@ describe('live effect preview runner', () => {
     expect(capture).toHaveBeenCalledOnce();
     executor.complete(0);
     await expect(preview).resolves.toHaveLength(16);
+    expect(onBackend).toHaveBeenCalledWith('cpu-effects');
     expect(admission.snapshot().activeBytes).toBe(0);
     runner.dispose();
   });
@@ -149,6 +162,30 @@ describe('live effect preview runner', () => {
     );
 
     await expect(promise).rejects.toMatchObject({ code: 'memory-limit' });
+    expect(capture).not.toHaveBeenCalled();
+    expect(executor.calls).toHaveLength(0);
+    runner.dispose();
+  });
+
+  it('rejects kernel-bound dimensions and requests before source capture', async () => {
+    const executor = new ControlledExecutor();
+    const runner = new EffectPreviewRunner({
+      admission: new DerivedWorkAdmission({ maxReservedBytes: 64 * 1024 * 1024 }),
+      executor,
+    });
+    const capture = vi.fn(() => new Uint8ClampedArray(16));
+
+    await expect(
+      runner.submit(makeInput({ request: makeRequest(4096, 1025), captureSource: capture })),
+    ).rejects.toMatchObject({ code: 'invalid-request' });
+    await expect(
+      runner.submit(
+        makeInput({
+          request: { ...makeRequest(), params: { payload: 'x'.repeat(64 * 1024) } },
+          captureSource: capture,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'invalid-request' });
     expect(capture).not.toHaveBeenCalled();
     expect(executor.calls).toHaveLength(0);
     runner.dispose();
@@ -266,13 +303,39 @@ describe('live effect preview runner', () => {
     expect(worker.transfer).toEqual([rgba.buffer]);
 
     const output = new Uint8Array(16).fill(7).buffer;
-    worker.reply({ type: 'result', id: 1, rgba: output });
-    await expect(promise).resolves.toEqual(new Uint8ClampedArray(16).fill(7));
+    worker.reply({ type: 'result', id: 1, rgba: output, backend: 'wasm-effects' });
+    await expect(promise).resolves.toEqual({
+      rgba: new Uint8ClampedArray(16).fill(7),
+      backend: 'wasm-effects',
+    });
 
     const wrongSize = executor.apply(makeRequest(), new Uint8ClampedArray(16));
-    worker.reply({ type: 'result', id: 2, rgba: new Uint8Array(4).buffer });
+    worker.reply({
+      type: 'result',
+      id: 2,
+      rgba: new Uint8Array(4).buffer,
+      backend: 'wasm-effects',
+    });
     await expect(wrongSize).rejects.toMatchObject({ code: 'worker-failed' });
     executor.dispose();
+  });
+
+  it('terminates active module-worker work when its owner cancels', async () => {
+    const worker = new FakeWorker();
+    const executor = new ModuleEffectPreviewExecutor(() => worker);
+    const admission = new DerivedWorkAdmission({ maxReservedBytes: 1024 });
+    const runner = new EffectPreviewRunner({ admission, executor });
+    const pending = runner.submit(makeInput());
+    await vi.waitFor(() => expect(worker.message).not.toBeNull());
+
+    runner.cancelOwner('tile-a');
+    await expect(pending).rejects.toMatchObject({ code: 'cancelled' });
+    await vi.waitFor(() =>
+      expect(admission.snapshot()).toMatchObject({ active: 0, activeBytes: 0 }),
+    );
+    expect(worker.terminated).toBe(true);
+    expect(executor.prepare()).toBe(true);
+    runner.dispose();
   });
 
   it('terminates a worker that misses its response deadline', async () => {

@@ -20,7 +20,7 @@ import {
 import type { RulerMode } from '@varve/shared';
 import { createWorldRectViewportTest, isWorldRectInViewport } from '@varve/shared';
 import { Button } from '@varve/ui';
-import { useMemo, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { viewportWorldRect } from '../canvas/cameraState';
@@ -48,6 +48,7 @@ import { ExportRegionOverlay } from './ExportRegionOverlay';
 import { FloatingTextBar } from './FloatingTextBar/FloatingTextBar';
 import { GradientHandleOverlay } from './GradientHandleOverlay';
 import { GuideOverlay } from './GuideOverlay/GuideOverlay';
+import { createGuideSnapResolver } from './GuideOverlay/guideSnapResolver';
 import { KnifeHoverOverlay } from './KnifeHoverOverlay';
 import { LiquifyOverlay } from './Liquify/LiquifyOverlay';
 import { MeshWarpOverlay } from './MeshWarpOverlay';
@@ -206,6 +207,19 @@ export function CanvasOverlays({
       pan,
       zoom,
     ],
+  );
+  // Guide snapping reads the scene and the settings store once per gesture, on
+  // demand: building targets during render would tax every document mutation.
+  const beginGuideSnap = useCallback(
+    (axis: 'vertical' | 'horizontal') =>
+      createGuideSnapResolver({
+        doc,
+        axis,
+        zoom,
+        snapEnabled: editor.state.snapEnabled,
+        authoredNodeIds: sceneScope.authoredNodeIds,
+      }),
+    [doc, editor.state.snapEnabled, sceneScope.authoredNodeIds, zoom],
   );
   const scopedHoveredNode =
     hoveredNode && sceneScope.authoredNodeIds.has(hoveredNode.id) ? hoveredNode : null;
@@ -641,6 +655,7 @@ export function CanvasOverlays({
         pageRulerOrigin={doc.pages?.find((p) => p.id === doc.activePageId)?.rulerOrigin}
         onAddGuide={(axis, position) => editor.addGuide(axis, position)}
         onMoveGuide={(id, position) => editor.moveGuide(id, position)}
+        beginGuideSnap={beginGuideSnap}
         canvasWidth={canvasSize.width}
         canvasHeight={canvasSize.height}
         themeRevision={editor.state.themeRevision}
@@ -650,6 +665,7 @@ export function CanvasOverlays({
         zoom={zoom}
         pan={pan}
         cameraRotation={cameraRotation}
+        beginGuideSnap={beginGuideSnap}
         visible={guidesVisible}
         selectedGuideId={selectedGuideId}
         onMoveGuide={(id, position) => editor.moveGuide(id, position)}

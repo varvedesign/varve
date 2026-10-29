@@ -207,6 +207,14 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Basic text formatting remains contextual; advanced controls may split later.',
   },
+  'text-frame': {
+    surface: 'properties',
+    scope: 'mixed-selection',
+    frequency: 'occasional',
+    complexity: 'compact',
+    status: 'functional',
+    rationale: 'Container background and border stay separate from glyph typography.',
+  },
   callout: {
     surface: 'properties',
     scope: 'selection',

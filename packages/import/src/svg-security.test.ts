@@ -13,6 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import { ImportService } from './service';
 import { parseSvg } from './svg';
+import { INKSCAPE_LIVE_PATH_EFFECT_WARNING } from './svg/unsupportedMetadata';
 
 /** Every image-fill src the parse produced, at any depth. */
 function imageSources(svg: string): string[] {
@@ -114,6 +115,52 @@ describe('SVG import active content', () => {
       '<svg><defs><g id="a"><use href="#a"/></g></defs><use href="#a"/></svg>',
     );
     expect(result.warnings.join(' ')).toMatch(/Circular <use>/);
+  });
+});
+
+describe('SVG import of Inkscape live path effects', () => {
+  const effectSvg =
+    '<svg xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape">' +
+    '<g><path fill="none" stroke="#1f8a70" d="M0 0 L40 0" ' +
+    'inkscape:original-d="M0 0 L20 20" inkscape:path-effect="#path-effect1"/></g>' +
+    '</svg>';
+
+  it('imports the standard rendered path and reports that edit controls are dropped', () => {
+    const result = parseSvg(effectSvg);
+    const importedPath = Object.values(result.document.nodes).find(
+      (node) => node.kind === 'shape' && node.shape.kind === 'path',
+    );
+
+    expect(result.nodeIds).toHaveLength(1);
+    expect(importedPath?.kind).toBe('shape');
+    if (importedPath?.kind === 'shape' && importedPath.shape.kind === 'path') {
+      expect(importedPath.shape.points.at(-1)?.x).toBe(40);
+      expect(importedPath.shape.points.at(-1)?.y).toBe(0);
+    }
+    expect(result.unsupportedFeatures).toEqual([INKSCAPE_LIVE_PATH_EFFECT_WARNING]);
+  });
+
+  it('surfaces the editability loss as a partial import result', async () => {
+    const report = await ImportService.importFiles([
+      { name: 'live-effect.svg', source: 'file-picker', text: effectSvg },
+    ]);
+    const file = report.files[0]!;
+
+    expect(file).toMatchObject({ status: 'partial', nodeCount: 1 });
+    expect(file.unsupportedFeatures.map((feature) => feature.message)).toEqual([
+      INKSCAPE_LIVE_PATH_EFFECT_WARNING,
+    ]);
+  });
+
+  it('deduplicates nested effect metadata and ignores unrelated Inkscape labels', () => {
+    const result = parseSvg(
+      '<svg xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape">' +
+        '<g inkscape:label="Artwork"><path d="M0 0 L10 0" ' +
+        'inkscape:original-d="M0 0 L5 5"/></g>' +
+        '<path d="M0 1 L10 1" inkscape:path-effect="#another"/></svg>',
+    );
+
+    expect(result.unsupportedFeatures).toEqual([INKSCAPE_LIVE_PATH_EFFECT_WARNING]);
   });
 });
 

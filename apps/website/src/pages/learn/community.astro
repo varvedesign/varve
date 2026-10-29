@@ -2,6 +2,7 @@
 import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { SHOW_SUPPORT_PROJECT } from '../../config/features.js';
 ---
 
 <Layout title="Community" description="Connect with the Varve community through GitHub Discussions, issue reports, cross-platform testing, documentation, and workflow feedback.">
@@ -27,9 +28,9 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="community-section">
         <h2>GitHub</h2>
         <ul>
-          <li><a href="https://github.com/K-Arthur/varve">Repository</a> - Source code and issues</li>
-          <li><a href="https://github.com/K-Arthur/varve/discussions">Discussions</a> - Ask questions and share ideas</li>
-          <li><a href="https://github.com/K-Arthur/varve/issues">Issues</a> - Report bugs and request features</li>
+          <li><a href="https://github.com/varvedesign/varve">Repository</a> - Source code and issues</li>
+          <li><a href="https://github.com/varvedesign/varve/discussions">Discussions</a> - Ask questions and share ideas</li>
+          <li><a href="https://github.com/varvedesign/varve/issues">Issues</a> - Report bugs and request features</li>
         </ul>
       </section>
 
@@ -37,8 +38,8 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>How to help now</h2>
         <p>Choose the channel that gives your contribution the clearest context:</p>
         <ul>
-          <li><strong>Bug reports:</strong> Use <a href="https://github.com/K-Arthur/varve/issues">Issues</a> with exact steps, expected and actual results, platform, release, screenshots, and logs.</li>
-          <li><strong>Workflows and ideas:</strong> Use <a href="https://github.com/K-Arthur/varve/discussions">Discussions</a> for feature proposals, architecture questions, and design feedback.</li>
+          <li><strong>Bug reports:</strong> Use <a href="https://github.com/varvedesign/varve/issues">Issues</a> with exact steps, expected and actual results, platform, release, screenshots, and logs.</li>
+          <li><strong>Workflows and ideas:</strong> Use <a href="https://github.com/varvedesign/varve/discussions">Discussions</a> for feature proposals, architecture questions, and design feedback.</li>
           <li><strong>Cross-platform testing:</strong> Try the same action on Linux, macOS, or Windows and record the OS, architecture, Varve version, and outcome.</li>
           <li><strong>Docs and examples:</strong> Point out confusing guidance or share a tutorial, example, translation, or accessibility improvement.</li>
           <li><strong>Community support:</strong> Help answer questions and connect people with the right documentation.</li>
@@ -48,16 +49,16 @@ import { sitePath } from '../../lib/siteUrl';
 
       <section class="community-section">
         <h2>Support</h2>
-        <p>Support the project financially or through practical non-financial contributions:</p>
+        <p>{SHOW_SUPPORT_PROJECT ? 'Support the project financially or through practical non-financial contributions:' : 'Support the project through practical contributions:'}</p>
         <ul>
-          <li><a href={sitePath('/support-project')}>Financial Support</a> - GitHub Sponsors</li>
+          {SHOW_SUPPORT_PROJECT && <li><a href={sitePath('/support-project')}>Financial Support</a> - GitHub Sponsors</li>}
           <li><a href={sitePath('/contribute')}>Non-Financial Contribution</a> - Bugs, testing, docs, workflows, and design feedback</li>
         </ul>
       </section>
 
       <div class="learn-cta">
         <h2>Join the community</h2>
-        <Button href="https://github.com/K-Arthur/varve/discussions">Join GitHub Discussions</Button>
+        <Button href="https://github.com/varvedesign/varve/discussions">Join GitHub Discussions</Button>
       </div>
     </div>
   </div>

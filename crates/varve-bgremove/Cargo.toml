@@ -27,6 +27,7 @@ dirs-next = "2.0"
 # https://github.com/pykeio/ort/issues/547
 ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["load-dynamic", "std", "api-22"] }
 sha2 = "0.11"
+url = "2"
 
 [features]
 default = []

@@ -17,7 +17,7 @@ import {
   type DemoAnalyticsChoice,
   readDemoAnalyticsChoice,
   setDemoAnalyticsChoice,
-  trackDemoLaunched,
+  trackDemoDownloadClick,
 } from './demoAnalytics';
 import type { DemoConfig } from './demoMode';
 import {
@@ -33,12 +33,12 @@ const DISMISS_KEY = 'varve-demo-banner-dismissed';
 
 const LIMITATIONS = [
   'Files are stored in this browser only. Clearing site data deletes them; there is no cloud account or upload.',
-  'The demo runs the WASM engine, not the native desktop engine — expect slower rendering on large documents.',
-  'Export gives you PNG, JPEG, WebP, and SVG. PDF, CMYK, bleed, and colour-managed print output are desktop-only — a browser has no print pipeline.',
+  'The demo runs the WASM engine, not the native desktop engine. Expect slower rendering on large documents.',
+  'Export gives you PNG, JPEG, WebP, and SVG. PDF, CMYK, bleed, and colour-managed print output are desktop-only. A browser has no print pipeline.',
   'Background removal, upscaling, and visual search are desktop-only. They run on-device, and a browser tab is the wrong place for the download and the compute.',
   'The demo covers the Design, Draw, and Photo workspaces. Print, Motion, and Email workspaces, Logo Tools, and the shared Code panel are in the desktop app.',
   'Native menus and auto-updates are desktop-only.',
-  'Best experienced on a desktop browser (Chrome, Edge, Firefox, Safari — recent versions).',
+  'Best experienced on a desktop browser (Chrome, Edge, Firefox, Safari; recent versions).',
 ] as const;
 
 export interface DemoBannerProps {
@@ -47,8 +47,6 @@ export interface DemoBannerProps {
 
 export function DemoBanner({ config }: DemoBannerProps) {
   const [dismissed, setDismissed] = useState(false);
-  // 'unknown' until the visitor decides, and 'unknown' is not consent — the
-  // analytics client treats anything but 'granted' as denied.
   const [analyticsChoice, setAnalyticsChoice] = useState<DemoAnalyticsChoice>('unknown');
   // Chromium offers `beforeinstallprompt` when the manifest meets its install
   // criteria; nothing is shown if the browser never offers it.
@@ -64,9 +62,6 @@ export function DemoBanner({ config }: DemoBannerProps) {
       // stays visible for the session.
     }
     setAnalyticsChoice(readDemoAnalyticsChoice());
-    // Counting is attempted on every load, not only after a grant: the call is
-    // a no-op unless consent already exists from a previous visit.
-    trackDemoLaunched();
   }, []);
 
   useEffect(() => {
@@ -115,12 +110,12 @@ export function DemoBanner({ config }: DemoBannerProps) {
     <section className="varve-demo-banner" aria-label="Browser demo notice">
       <div className="varve-demo-banner__inner">
         <p className="varve-demo-banner__intro">
-          Browser demo — the real editor, running entirely on this device. No account, nothing
+          Browser demo: the real editor, running entirely on this device. No account, nothing
           uploaded.
         </p>
         {offline && (
           <span className="varve-demo-banner__offline" role="status">
-            Offline — running from the copy saved in this browser. Edits stay on this device until
+            Offline: running from the copy saved in this browser. Edits stay on this device until
             you reconnect.
           </span>
         )}
@@ -135,7 +130,7 @@ export function DemoBanner({ config }: DemoBannerProps) {
         {analyticsChoice === 'unknown' && (
           <fieldset className="varve-demo-banner__consent" aria-label="Usage measurement">
             <span>
-              Count this visit? Anonymous totals only — no account, no cookies, nothing about your
+              Count this visit? Anonymous totals only. No account, no cookies, nothing about your
               design.
             </span>
             <button type="button" onClick={() => choose('granted')}>
@@ -160,6 +155,7 @@ export function DemoBanner({ config }: DemoBannerProps) {
           href={config.downloadUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => void trackDemoDownloadClick()}
         >
           Download desktop
           <Icon name="ExternalLink" size={14} aria-hidden="true" />

@@ -10,7 +10,8 @@ trust-zone model: which subsystem may consume which credential, client-safe
 config schema, artifact scans, import boundaries, future-backend design),
 [signing decision record](../release/signing-decision-record.md)
 (why these services were chosen), [SECURITY.md](../../SECURITY.md)
-(vulnerability reporting).
+(vulnerability reporting), [incident runbook](incident-runbook.md)
+(intake, hotfix, advisory).
 
 **No real credential value appears anywhere in this repository, and none ever
 may.** Scripts here reference secret *names* only.

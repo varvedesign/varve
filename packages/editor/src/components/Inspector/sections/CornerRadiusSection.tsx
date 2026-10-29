@@ -13,6 +13,7 @@ import type { SceneNode } from '@varve/scene';
 import { Icon } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { useGestureTransaction } from '../../../context/useGestureTransaction';
 import { docVariableStore } from '../../../docVariableStore';
 import { deriveNumericBindingPresentation } from '../boundPropertyState';
 import { BindingMenu } from '../controls/BindingMenu';
@@ -62,6 +63,10 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
   });
   const smoothingMixed = isMixed(smoothingRaw);
   const smoothing = smoothingMixed ? 0 : Math.round((smoothingRaw as number | undefined) ?? 0);
+
+  // The slider writes the document on every change event, so the gesture —
+  // not the individual event — must be the undo step.
+  const smoothingGesture = useGestureTransaction(editor);
 
   const uniform = typeof radius === 'number' ? radius : Array.isArray(radius) ? radius[0] : 0;
   const tl = Array.isArray(radius) ? radius[0] : uniform;
@@ -257,6 +262,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
             unit="%"
             rangeAriaLabel="Corner smoothing"
             onChange={setSelectedCornerSmoothing}
+            {...smoothingGesture.rangeProps}
           />
         </FieldRow>
       )}

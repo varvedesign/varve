@@ -51,6 +51,43 @@ pub enum EffectKind {
     Caustics,
 }
 
+/// Output-byte compatibility revision shared by native and WASM callers.
+/// Bump only when the same request and input can produce different bytes.
+pub const EFFECT_KERNEL_ABI_VERSION: u32 = 1;
+
+/// Every effect kind in the stable wire order exposed by the WASM capability
+/// report. Keep this in sync with `LiveEffectKind` in the TypeScript engine.
+pub const IMPLEMENTED_EFFECTS: [EffectKind; 10] = [
+    EffectKind::Dither,
+    EffectKind::PaletteSnap,
+    EffectKind::Bloom,
+    EffectKind::RgbSplit,
+    EffectKind::Crt,
+    EffectKind::Vhs,
+    EffectKind::LightShafts,
+    EffectKind::LensFlare,
+    EffectKind::LightLeak,
+    EffectKind::Caustics,
+];
+
+impl EffectKind {
+    /// Stable camelCase name used by the TS request contract.
+    pub const fn wire_name(self) -> &'static str {
+        match self {
+            Self::Dither => "dither",
+            Self::PaletteSnap => "paletteSnap",
+            Self::Bloom => "bloom",
+            Self::RgbSplit => "rgbSplit",
+            Self::Crt => "crt",
+            Self::Vhs => "vhs",
+            Self::LightShafts => "lightShafts",
+            Self::LensFlare => "lensFlare",
+            Self::LightLeak => "lightLeak",
+            Self::Caustics => "caustics",
+        }
+    }
+}
+
 /// Render quality tier — mirrors `liveEffects/quality.ts` `EffectQuality`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -212,21 +249,20 @@ pub fn validate_surface(width: u32, height: u32, rgba_len: usize) -> Result<(), 
     Ok(())
 }
 
-/// Apply a live effect to RGBA bytes in place, returning the result.
-pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, String> {
+/// Apply a live effect to an owned RGBA buffer without another full-surface
+/// copy. The caller keeps the input authoritative; this buffer is a working
+/// copy that may be transferred, mutated, or discarded.
+pub fn apply_effect_in_place(request: &EffectRequest, rgba: &mut [u8]) -> Result<(), String> {
     validate_surface(request.width, request.height, rgba.len())?;
     let params = Params::new(&request.params);
     let coord = request.coord_space.unwrap_or_default();
-    let mut out = rgba.to_vec();
     match request.effect {
-        EffectKind::Dither => {
-            dither::apply(&mut out, request.width, request.height, &params, coord)
-        }
+        EffectKind::Dither => dither::apply(rgba, request.width, request.height, &params, coord),
         EffectKind::PaletteSnap => {
-            palette_snap::apply(&mut out, request.width, request.height, &params)
+            palette_snap::apply(rgba, request.width, request.height, &params)
         }
         EffectKind::Bloom => bloom::apply(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
@@ -234,35 +270,33 @@ pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, Str
             coord,
         )?,
         EffectKind::RgbSplit => {
-            rgb_split::apply(&mut out, request.width, request.height, &params, coord)
+            rgb_split::apply(rgba, request.width, request.height, &params, coord)
         }
-        EffectKind::Crt => crt::apply(&mut out, request.width, request.height, &params),
+        EffectKind::Crt => crt::apply(rgba, request.width, request.height, &params),
         EffectKind::Vhs => vhs::apply(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
             request.quality,
         ),
         EffectKind::LightShafts => light_shafts::apply(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
             request.quality,
         ),
         EffectKind::LensFlare => lens_flare::apply(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
             request.quality,
         ),
-        EffectKind::LightLeak => {
-            light_leak::apply(&mut out, request.width, request.height, &params)
-        }
+        EffectKind::LightLeak => light_leak::apply(rgba, request.width, request.height, &params),
         EffectKind::Caustics => caustics::apply(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
@@ -270,5 +304,60 @@ pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, Str
             coord,
         )?,
     }
+    Ok(())
+}
+
+/// Apply a live effect to borrowed RGBA bytes and return an independent result.
+pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, String> {
+    let mut out = rgba.to_vec();
+    apply_effect_in_place(request, &mut out)?;
     Ok(out)
+}
+
+#[cfg(test)]
+mod wasm_boundary_tests {
+    use super::{
+        apply_effect, apply_effect_in_place, EffectKind, EffectQuality, EffectRequest,
+        EFFECT_KERNEL_ABI_VERSION, IMPLEMENTED_EFFECTS,
+    };
+
+    #[test]
+    fn effect_wire_names_and_abi_are_stable_and_complete() {
+        assert_eq!(EFFECT_KERNEL_ABI_VERSION, 1);
+        assert_eq!(
+            IMPLEMENTED_EFFECTS.map(EffectKind::wire_name),
+            [
+                "dither",
+                "paletteSnap",
+                "bloom",
+                "rgbSplit",
+                "crt",
+                "vhs",
+                "lightShafts",
+                "lensFlare",
+                "lightLeak",
+                "caustics",
+            ]
+        );
+    }
+
+    #[test]
+    fn owned_in_place_kernel_matches_the_reference_entry_point() {
+        let request = EffectRequest {
+            effect: EffectKind::Dither,
+            width: 2,
+            height: 2,
+            quality: EffectQuality::Interactive,
+            coord_space: None,
+            params: serde_json::json!({ "algorithm": "bayer", "bayerSize": 4, "levels": 3 }),
+        };
+        let input = vec![
+            16, 22, 31, 255, 72, 91, 104, 192, 148, 129, 111, 96, 240, 221, 203, 0,
+        ];
+        let expected = apply_effect(&request, &input).unwrap();
+        let mut owned = input.clone();
+        apply_effect_in_place(&request, &mut owned).unwrap();
+        assert_eq!(owned, expected);
+        assert_eq!(input[3], 255, "the borrowed source remains unchanged");
+    }
 }

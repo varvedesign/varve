@@ -22,6 +22,8 @@
  *     precision. INT8 is not a WebGPU target.
  */
 
+import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
+
 export interface PrecisionCapabilities {
   /** True when INT8 GEMM is hardware-accelerated in the active EP. */
   int8Accelerated: boolean;
@@ -137,6 +139,7 @@ function detectStaticCapabilities(provider: string): PrecisionCapabilities {
 export async function runPrecisionBenchmark(
   provider = 'wasm',
 ): Promise<{ speedup: number; fp32Ms: number; int8Ms: number } | null> {
+  assertAiFeaturesEnabled();
   try {
     const ort = (await import('onnxruntime-web')) as unknown as {
       InferenceSession: {

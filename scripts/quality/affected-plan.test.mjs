@@ -357,11 +357,13 @@ try {
       scripts: {
         'audit:docs': 'node scripts/audit-docs.mjs',
         'audit:emoji': 'node scripts/audit-emoji.mjs',
+        'audit:claims': 'node scripts/check-claims.mjs',
       },
     }),
   );
   writeFileSync(join(docsRepo, 'scripts/audit-docs.mjs'), 'console.log("docs audit passed")\n');
   writeFileSync(join(docsRepo, 'scripts/audit-emoji.mjs'), 'console.log("emoji audit passed")\n');
+  writeFileSync(join(docsRepo, 'scripts/check-claims.mjs'), 'console.log("claims audit passed")\n');
   git(['add', '.']);
   git(['commit', '-qm', 'base']);
   writeFileSync(join(docsRepo, 'docs/capture.md'), '# Real docs-only change\n');
@@ -373,6 +375,7 @@ try {
   assert.match(output, /\[SKIP\] format:touched: no existing Biome-compatible changed files/);
   assert.match(output, /\[SKIP\] lint:touched: no existing Biome-compatible changed files/);
   assert.match(output, /docs audit passed/);
+  assert.match(output, /claims audit passed/);
 } finally {
   rmSync(docsRepo, { recursive: true, force: true });
 }

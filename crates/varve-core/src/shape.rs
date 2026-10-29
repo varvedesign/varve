@@ -4,6 +4,7 @@
 //! world-space pointer into local space before calling `contains`.
 
 use crate::geom::{point_to_segment_dist_sq, Circle, Line, Point, Rect};
+use crate::scene::TextFrameStyle;
 
 /// A single point in a bezier path (mirrors TS `PathPoint`).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -74,6 +75,8 @@ pub enum Shape {
     #[serde(rename = "text")]
     Text {
         text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "textFrame")]
+        text_frame: Option<TextFrameStyle>,
         #[serde(rename = "fontSize")]
         font_size: f64,
         #[serde(rename = "fontFamily")]

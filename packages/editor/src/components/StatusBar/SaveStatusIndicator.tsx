@@ -1,7 +1,8 @@
 import { formatAbsoluteTime } from '@varve/platform';
 import { Tooltip } from '@varve/ui';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { useEditor } from '../../context';
+import { getRecoveryStatus, subscribeRecoveryStatus } from '../../persistence/recoveryStatus';
 
 /**
  * Subtle save-status segment for the status bar.
@@ -20,6 +21,11 @@ import { useEditor } from '../../context';
  */
 export function SaveStatusIndicator() {
   const { state, setShowDocumentInfo } = useEditor();
+  const recovery = useSyncExternalStore(
+    subscribeRecoveryStatus,
+    getRecoveryStatus,
+    getRecoveryStatus,
+  );
   const meta = state.sessions.find((sess) => sess.id === state.activeId);
   const name = meta?.name ?? 'Untitled';
   const dirty = state.dirty || meta?.dirty === true;
@@ -60,6 +66,14 @@ export function SaveStatusIndicator() {
 
   return (
     <>
+      {recovery === 'failing' && (
+        <span className="save-status save-status--error" role="status">
+          Recovery paused
+          <span className="varve-visually-hidden">
+            {' — autosave could not write a recovery copy. Save your work to a file.'}
+          </span>
+        </span>
+      )}
       <Tooltip
         label={
           errorDetail ??

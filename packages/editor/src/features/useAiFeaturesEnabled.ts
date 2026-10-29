@@ -11,11 +11,14 @@
  * AI operations can be initiated.
  */
 
-import { useSettings } from '../components/Settings/SettingsContext';
+import { useOptionalSettings } from '../components/Settings/SettingsContext';
+
+export const AI_DISABLED_HINT = 'Turn on AI features in Settings to use this';
 
 export function useAiFeaturesEnabled(): boolean {
-  const { settings } = useSettings();
-  return settings.ai.enabled;
+  const settings = useOptionalSettings();
+  if (settings) return settings.settings.ai.enabled;
+  return getAiFeaturesEnabled();
 }
 
 /**
@@ -25,12 +28,12 @@ export function useAiFeaturesEnabled(): boolean {
 export function getAiFeaturesEnabled(): boolean {
   try {
     const raw = localStorage.getItem('varve-editor-settings');
-    if (!raw) return true; // Default enabled
+    if (!raw) return true;
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const ai = parsed.ai as Record<string, unknown> | undefined;
-    return ai?.enabled !== false; // Enabled unless explicitly false
+    return ai?.enabled !== false;
   } catch {
-    return true; // Default enabled on parse error
+    return true;
   }
 }
 
@@ -55,9 +58,7 @@ export function checkAiFeaturesEnabled(
   featureName?: string,
 ): boolean {
   if (!getAiFeaturesEnabled()) {
-    const message = featureName
-      ? `${featureName} requires AI features. Enable them in Settings to continue.`
-      : 'AI features are disabled. Enable them in Settings to use this feature.';
+    const message = featureName ? `${featureName}: ${AI_DISABLED_HINT}` : AI_DISABLED_HINT;
     toastHandler?.({ message, type: 'info' });
     return false;
   }

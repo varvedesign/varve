@@ -799,6 +799,18 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'pdf')).toBe(true);
     });
 
+    it('PDF rasterizes faux-bold text so the live font weight is preserved', () => {
+      const node = makeTextNode('t1', { text: 'Bold', fontWeight: 700 });
+      const doc = makeDoc({ t1: node });
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+    });
+
+    it('PDF rasterizes italic text because the native writer embeds only by family', () => {
+      const node = makeTextNode('t1', { text: 'Italic', fontStyle: 'italic' });
+      const doc = makeDoc({ t1: node });
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+    });
+
     it('PDF rasterizes standard ligatures so the live shaped appearance is preserved', () => {
       const node = makeTextNode('t1', { text: 'office' });
       const doc = makeDoc({ t1: node });

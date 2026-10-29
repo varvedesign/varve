@@ -14,7 +14,7 @@ export const TOOLS: Record<string, HelpArticle> = {
     id: 'tool:select',
     title: 'Select Tool (V)',
     summary: 'Select, move, and resize objects on the canvas.',
-    body: 'Click on any object to select it. Drag to move. Drag handles to resize. Hold Shift to add to selection or toggle selection of individual objects. Double-click a group or frame to enter it. Double-click a path to edit its nodes with the Node Edit tool.',
+    body: 'Click on any object to select it. Drag to move. Drag handles to resize. Hold Shift while dragging to constrain movement to the nearest 45 degrees, and Shift while resizing to keep the proportions. Hold Shift to add to selection or toggle selection of individual objects. Double-click a group or frame to enter it. Double-click a path to edit its nodes with the Node Edit tool.',
     keywords: ['select', 'move', 'drag', 'resize', 'transform', 'v'],
     category: 'Tools',
     related: ['tool:rect', 'panel:layers'],

@@ -21,7 +21,7 @@ distinct from:
   scene-slot contract (surfaces, geometry, plate, overlays, licence), not a
   starting document.
 - **Export presets** — saved output configs; unrelated to mockup geometry.
-- **AI-generated imagery** — optional future input to surface detection;
+- **AI-generated imagery**: a future input to surface detection;
   never a replacement for deterministic placement.
 
 Nothing in the mockup system introduces a workspace, route, document type,

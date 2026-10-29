@@ -29,6 +29,7 @@ import {
 } from '@varve/engine';
 import type { SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape, resolveNodePaints } from '@varve/scene';
+import { truncateGraphemes } from '@varve/shared';
 import { Button, SegmentedControl, Select, ShineBorder, Switch } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
@@ -39,7 +40,7 @@ import {
   type ObjectSelectionPreviewMode,
   objectSelectionCandidateReviewKey,
 } from '../../../context/objectSelectionTypes';
-import { getAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
+import { AI_DISABLED_HINT, getAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
 import { prepareImageMaskMapper } from '../../../tools/imageMaskCoordinates';
 import type {
   Sam2PromptMode,
@@ -87,7 +88,7 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   if (message.includes('Model') || message.includes('model')) {
     return `Model failed to load: ${defaultMessage}`;
   }
-  return message.length > 180 ? `${message.slice(0, 180)}...` : message;
+  return truncateGraphemes(message, 180, '...');
 }
 
 function normalizeObjectSelectionDownloadError(error: unknown): string {
@@ -467,7 +468,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const startObjectSelection = useCallback(() => {
     if (!node) return;
     if (!getAiFeaturesEnabled()) {
-      announce('Object Selection requires AI features. Enable them in Settings.');
+      announce(AI_DISABLED_HINT);
       return;
     }
     setTool('sam2Segment');

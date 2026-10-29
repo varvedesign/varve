@@ -9,6 +9,7 @@ import {
 import { Icon, Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
+import { useGestureTransaction } from '../../../context/useGestureTransaction';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
@@ -151,6 +152,11 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
     },
     [setMaskDensity],
   );
+
+  // A range input emits a change per pointer move; without one transaction per
+  // gesture every intermediate density would become its own undo entry and a
+  // single Undo would only step back one notch.
+  const densityGesture = useGestureTransaction(editor);
 
   const handleToggleHideSource = useCallback(() => {
     if (setMaskHideSource) {
@@ -417,6 +423,7 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
               unit="%"
               rangeAriaLabel="Mask density"
               onChange={handleDensity}
+              {...densityGesture.rangeProps}
             />
           </FieldRow>
 

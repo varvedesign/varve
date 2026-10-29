@@ -1,13 +1,17 @@
-import type {
-  Document,
-  DocumentAsset,
-  PatternDefinition,
-  RasterMaskAsset,
-  SceneNode,
+import {
+  createDocument,
+  type Document,
+  type DocumentAsset,
+  makeShapeNode,
+  type PatternDefinition,
+  type RasterMaskAsset,
+  type SceneNode,
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  buildClipboardSvg,
+  canPreserveClipboardWorldPose,
   captureClipboardEvent,
   claimPendingTransferRequest,
   clearCapturedClipboardEvent,
@@ -24,6 +28,63 @@ import {
   writeClipboardOutcome,
   writeClipboardRepresentation,
 } from './clipboard';
+
+describe('clipboard page pose policy', () => {
+  it('preserves same-page pose and rejects cross-page or legacy page pose reuse', () => {
+    const base = {
+      sourceDocumentId: 'doc-1',
+      targetDocumentId: 'doc-1',
+      sourcePageId: undefined,
+      targetPageId: undefined,
+      targetIsPublishingPage: true,
+      targetFrameSelected: false,
+      items: [
+        {
+          rootIds: ['shape-1'],
+          worldAnchors: { 'shape-1': [1, 0, 0, 1, 0, 0] as Affine },
+        },
+      ],
+    };
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        sourcePageId: 'page-1',
+        targetPageId: 'page-1',
+      }),
+    ).toBe(true);
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        sourcePageId: 'page-1',
+        targetPageId: 'page-2',
+      }),
+    ).toBe(false);
+    expect(
+      canPreserveClipboardWorldPose({ ...base, sourcePageId: undefined, targetPageId: 'page-1' }),
+    ).toBe(false);
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        sourcePageId: undefined,
+        targetPageId: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        targetIsPublishingPage: false,
+        sourcePageId: undefined,
+        targetPageId: undefined,
+      }),
+    ).toBe(true);
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        items: [{ rootIds: ['shape-1'], worldAnchors: {} }],
+      }),
+    ).toBe(false);
+  });
+});
 
 const { storeFontOnFilesystemMock } = vi.hoisted(() => ({
   storeFontOnFilesystemMock: vi.fn(),
@@ -689,24 +750,39 @@ describe('readFromClipboardEvent', () => {
     });
 
     try {
-      await expect(
-        writeClipboard(
-          [node],
-          undefined,
-          undefined,
-          undefined,
-          anchor,
-          undefined,
-          undefined,
-          undefined,
-          'source-document-1',
-        ),
-      ).resolves.toBe(true);
+      const payloadArgs: Parameters<typeof writeClipboard> = [
+        [node],
+        undefined,
+        undefined,
+        undefined,
+        anchor,
+        undefined,
+        undefined,
+        undefined,
+        'source-document-1',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'source-page-1',
+      ];
+      await expect(writeClipboard(...payloadArgs)).resolves.toBe(true);
       const blob = await written?.[0]?.getType('web application/vnd.varve+json');
       expect(blob).toBeDefined();
       const payload = JSON.parse(await blob!.text());
+      expect(payload.version).toBe(5);
       expect(payload.worldAnchor).toEqual(anchor);
       expect(payload.sourceDocumentId).toBe('source-document-1');
+      expect(payload.sourcePageId).toBe('source-page-1');
     } finally {
       Object.defineProperty(globalThis, 'ClipboardItem', {
         configurable: true,
@@ -1355,5 +1431,140 @@ describe('restoreClipboardFontDependencies', () => {
         scope: 'project',
       }),
     );
+  });
+});
+
+describe('clipboard SVG flavour', () => {
+  function svgSourceDoc() {
+    const node = makeShapeNode(
+      'svg-rect',
+      { kind: 'rect', x: 0, y: 0, w: 40, h: 20 },
+      { name: 'Svg Rect', fill: { space: 'rgb', r: 10, g: 20, b: 30, a: 255 } },
+    );
+    const base = createDocument('clipboard-svg', true);
+    const doc: Document = {
+      ...base,
+      nodes: { 'svg-rect': node },
+      rootChildren: ['svg-rect'],
+    };
+    return { doc, node };
+  }
+
+  /** The writer takes positional arguments; fill the ones this case needs. */
+  function outcomeArgs(
+    nodes: SceneNode[],
+    platform: { kind: 'tauri'; writeClipboardData: (items: never) => Promise<boolean> },
+    document?: Document,
+  ): Parameters<typeof writeClipboardOutcome> {
+    // `writeClipboardOutcome` takes positional arguments; `document` is last.
+    const args = new Array(26).fill(undefined) as unknown as Parameters<
+      typeof writeClipboardOutcome
+    >;
+    (args as unknown as unknown[])[0] = nodes;
+    (args as unknown as unknown[])[5] = nodes.map((node) => node.id);
+    (args as unknown as unknown[])[7] = platform;
+    (args as unknown as unknown[])[25] = document;
+    return args;
+  }
+
+  it('writes an image/svg+xml representation next to the editable payload', async () => {
+    const { doc, node } = svgSourceDoc();
+    const written: Array<{ mimeType: string; data: Uint8Array }> = [];
+    const outcome = await writeClipboardOutcome(
+      ...outcomeArgs(
+        [node],
+        {
+          kind: 'tauri',
+          writeClipboardData: async (items: { mimeType: string; data: Uint8Array }[]) => {
+            written.push(...items);
+            return true;
+          },
+        },
+        doc,
+      ),
+    );
+
+    const direct = buildClipboardSvg(doc, ['svg-rect']);
+    expect(direct, 'builder must produce SVG for this fixture').toBeTruthy();
+    expect(outcome.status).toBe('editable');
+    if (outcome.status !== 'editable') throw new Error('expected editable outcome');
+    expect(outcome.mimeTypes).toContain('image/svg+xml');
+    const svgItem = written.find((item) => item.mimeType === 'image/svg+xml');
+    expect(svgItem).toBeDefined();
+    const svg = new TextDecoder().decode(svgItem!.data);
+    expect(svg).toContain('<svg');
+    // A clipboard SVG must not carry the page backdrop.
+    expect(svg).not.toContain('fill="#ffffff"');
+    // The editable payload still leads, so in-app paste keeps full fidelity.
+    expect(written[0]?.mimeType).toBe('application/vnd.varve+json');
+  });
+
+  it('offers the SVG flavour to the browser clipboard too', async () => {
+    // Chromium rejects a ClipboardItem containing an unsupported type outright,
+    // so the browser path builds the same flavour map the native path does.
+    class TestClipboardItem {
+      static supports = () => true;
+      items: Record<string, Blob>;
+      constructor(items: Record<string, Blob>) {
+        this.items = items;
+      }
+      async getType(type: string) {
+        return this.items[type] ?? null;
+      }
+    }
+    let written: TestClipboardItem[] = [];
+    const originalClipboardItem = globalThis.ClipboardItem;
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(globalThis, 'ClipboardItem', {
+      configurable: true,
+      value: TestClipboardItem,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        write: vi.fn(async (items: TestClipboardItem[]) => {
+          written = items;
+        }),
+        writeText: vi.fn(),
+      },
+    });
+
+    try {
+      const { doc, node } = svgSourceDoc();
+      const outcome = await writeClipboardOutcome(...outcomeArgs([node], undefined as never, doc));
+      expect(outcome.status).toBe('editable');
+      const item = written[0];
+      expect(item).toBeDefined();
+      expect(Object.keys(item!.items)).toContain('image/svg+xml');
+      const svg = await item!.items['image/svg+xml']!.text();
+      expect(svg).toContain('<svg');
+    } finally {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
+  it('omits the SVG flavour when no source document is available', async () => {
+    const { node } = svgSourceDoc();
+    const written: Array<{ mimeType: string }> = [];
+    const outcome = await writeClipboardOutcome(
+      ...outcomeArgs([node], {
+        kind: 'tauri',
+        writeClipboardData: async (items: { mimeType: string }[]) => {
+          written.push(...items);
+          return true;
+        },
+      }),
+    );
+    expect(outcome.status).toBe('editable');
+    if (outcome.status !== 'editable') throw new Error('expected editable outcome');
+    expect(outcome.mimeTypes).not.toContain('image/svg+xml');
+    expect(written.some((item) => item.mimeType === 'image/svg+xml')).toBe(false);
   });
 });
