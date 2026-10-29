@@ -59,6 +59,6 @@ the authoritative status. Task files state their own rollback commit when done.
 | 04 | tasks/04-forms-and-modals.md | fixed dialog floors (Colorize 420px), 2–6 column forms | not-started |
 | 05 | tasks/05-grids-and-reflows.md | Home/site grid ladders; deferred unless a defect is reproduced | deferred |
 | 06 | tasks/06-thirteen-inch-shell.md | Tauri window bounds + 13–14in coverage (D6/D7) | in-progress |
-| 07 | tasks/07-marketing-site.md | site tables, routes, nav breakpoint review (D5) | in-progress |
+| 07 | tasks/07-marketing-site.md | site tables, routes, nav breakpoint review (D5) | done (26e8dc5a6) |
 | 08 | tasks/08-docs-and-validation-harness.md | harness + committed screenshots + docs | in-progress |
 | 09 | tasks/09-final-validation-and-review.md | full matrix, desktop-equivalence diff, review gate | not-started |

@@ -44,7 +44,7 @@ and Share is pushed past the window edge. The menubar rail and status bar are
 NOT affected (both are genuine internal scrollers: at 320 menubar
 scrollWidth 342/clientWidth 262; status scrollWidth 339/clientWidth 320).
 
-### D5 — Marketing dense tables have no scroll wrapper — MEDIUM, fix in progress (task 07)
+### D5 — Marketing dense tables have no scroll wrapper — MEDIUM, FIXED in 26e8dc5a6 (task 07); Chromium route check clean at 320/375/768/1366
 
 apps/website/src/pages/about/license.astro:80 (.license-table) and
 apps/website/src/pages/docs/performance.astro:41 (.perf-table) render tables

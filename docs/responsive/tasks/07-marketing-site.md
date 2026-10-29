@@ -1,6 +1,6 @@
 # Task 07 — Marketing site dense tables and route reflow
 
-Status: in-progress | Depends on: none | Rollback: —
+Status: done | Depends on: none | Rollback: 26e8dc5a6 (revert removes the scroll regions; tables remain readable but can widen at high text zoom)
 
 ## Scope
 - apps/website/src/pages/about/license.astro
