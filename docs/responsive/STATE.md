@@ -1,6 +1,6 @@
 # Responsive Adaptation — State
 
-Last updated: 2026-10-29T13:11:02-07:00 | Last commit: 7d81006e6 (this commit adds committed screenshots + final ledger)
+Last updated: 2026-10-29T13:17:00-07:00 | Last commit: e1ef848df (artifact + review commit; harness commit validated the matrix at 7d81006e6)
 
 | # | Task | Status | Commit | Next action / Blocker |
 |---|---|---|---|---|
@@ -25,7 +25,7 @@ Last updated: 2026-10-29T13:11:02-07:00 | Last commit: 7d81006e6 (this commit ad
 | 26e8dc5a6 | fix(website): license/performance tables got scroll regions |
 | 19f177102 | docs: task 07 done with route-check receipt |
 | 7d81006e6 | feat(validation): re-runnable responsive matrix harness + pnpm validate:responsive |
-| (this commit) | test(responsive): committed screenshots, review record, final ledger |
+| e1ef848df | test(responsive): committed screenshots, review record, final ledger |
 
 ## Environment and resume facts (measured 2026-10-29)
 
