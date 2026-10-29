@@ -700,7 +700,6 @@
     "packages/scene/src/document.test.ts": 1220,
     "packages/scene/src/document.ts": 1535,
     "packages/scene/src/documentCodec.test.ts": 1132,
-    "packages/scene/src/documentCodec.ts": 1874,
     "packages/scene/src/effects.ts": 716,
     "packages/scene/src/export/capabilities.ts": 908,
     "packages/scene/src/export/model.ts": 937,
