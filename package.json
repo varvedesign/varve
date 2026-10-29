@@ -95,6 +95,7 @@
     "workflow:history": "node scripts/quality/operation-history.mjs history",
     "workflow:report": "node scripts/quality/operation-history.mjs export",
     "verify:lease": "node scripts/quality/heavy-lease.mjs",
+    "validate:responsive": "node scripts/quality/heavy-lease.mjs \"validate:responsive\" -- node scripts/validate-responsive.mjs",
     "e2e:visual": "VARVE_VISUAL_HARNESS_ONLY=1 playwright test --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x",
     "e2e:visual:gpu": "VARVE_VISUAL_HARNESS_ONLY=1 VARVE_VISUAL_GPU=1 playwright test --project=chromium-visual-gpu",
     "e2e:visual:cross-runtime": "VARVE_VISUAL_HARNESS_ONLY=1 VARVE_VISUAL_CROSS_RUNTIME=1 playwright test --project=firefox-visual",
