@@ -84,8 +84,8 @@ function withPageSlash(path: string): string {
  *
  * `sitePath('/docs')` -> `/docs/` on the production build, `/varve/docs/` on
  * the legacy Pages build. Asset paths keep their extension form. External
- * URLs, mailto:/tel:/other schemes, fragments, protocol-relative URLs and
- * already-prefixed paths pass through unchanged.
+ * URLs, mailto:/tel:/other schemes, fragments and protocol-relative URLs pass
+ * through unchanged; already-prefixed page paths gain the page slash too.
  *
  * An empty path or the root page maps to the base itself.
  */
@@ -104,8 +104,8 @@ export function sitePath(path: string, base?: string): string {
 /**
  * Absolute URL for canonical/OG/sitemap-style metadata.
  *
- * `siteUrl('/docs')` -> `https://varve.studio/docs` on production,
- * `https://k-arthur.github.io/varve/docs` on the legacy Pages build. Also
+ * `siteUrl('/docs')` -> `https://varve.studio/docs/` on production,
+ * `https://k-arthur.github.io/varve/docs/` on the legacy Pages build. Also
  * accepts a full URL, which is returned unchanged.
  */
 export function siteUrl(path: string, base?: string, site?: string): string {
