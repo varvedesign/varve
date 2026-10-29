@@ -479,7 +479,6 @@
     "packages/engine/src/filterCompositor.test.ts": 1189,
     "packages/engine/src/filterCompositor.ts": 1294,
     "packages/engine/src/filters.test.ts": 436,
-    "packages/engine/src/filters.ts": 2134,
     "packages/engine/src/floatingRasterSelection.ts": 466,
     "packages/engine/src/font/catalogSchema.ts": 404,
     "packages/engine/src/font/fontBridge.ts": 423,
