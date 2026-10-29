@@ -20,7 +20,6 @@
     "crates/varve-accel/tests/native_raster_gpu.rs": 566,
     "crates/varve-bgremove/examples/bgremove_bench.rs": 653,
     "crates/varve-bgremove/src/heuristic.rs": 577,
-    "crates/varve-bgremove/src/inference.rs": 1885,
     "crates/varve-bgremove/src/model.rs": 676,
     "crates/varve-bgremove/src/session_pool.rs": 580,
     "crates/varve-bridge/src/lib.rs": 1113,
