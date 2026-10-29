@@ -54,7 +54,7 @@ The site body has no overflow-x guard (global.css:176-184), so a table that
 cannot wrap creates page-level horizontal scroll — the one failure the site's
 own reflow corpus forbids. Neither route is in reflow.spec.ts ROUTES.
 
-### D6 — Tauri window geometry is desktop-only — MEDIUM, fix in progress (task 06)
+### D6 — Tauri window geometry is desktop-only — MEDIUM, FIXED in 738c9a943 (task 06); harness validates 1180x720 + 1093x614 (7d81006e6)
 
 apps/desktop/src-tauri/tauri.conf.json:18-21 opens at 1280x800 with min
 900x600. A 1366x768 13in laptop has ~1366x728 of work area at 100% scaling
@@ -88,7 +88,7 @@ Colorize dialog body min-width: 420px (ColorizeSection.css:322) exceeds a
 (audit-raw J). Not yet exercised in a screenshot; owner should reproduce
 before editing.
 
-### D7 — 13–14in band missing from automated coverage — MEDIUM (task 06)
+### D7 — 13–14in band missing from automated coverage — MEDIUM, COVERED in 7d81006e6 (task 06/08)
 
 tests/e2e/interaction/chromeos-device-matrix.spec.ts covers 15 entries
 (960x600, 1200x750, 1280x800, 800x1280, … 640x400) but none of 1180x820,

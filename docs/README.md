@@ -590,6 +590,7 @@ non-deferred task is done.
 | `responsive/audit.md` | Phase 1 synthesis: measured defects D1–D9, prior open items |
 | `responsive/plan.md` | Phase 2 ordering, working rules, validation protocol |
 | `responsive/tasks/` | Numbered, independently executable task files 01–09 |
+| `responsive/review-2026-10-29.md` | Code-review record: diff scope, a11y, desktop equivalence, validation receipts, carried findings |
 | `responsive/screenshots/` | Committed validation artifacts per short SHA |
 
 

@@ -1,6 +1,6 @@
 # Task 08 — Documentation and committed validation harness
 
-Status: in-progress | Depends on: none (must be re-run after every task) | Rollback: —
+Status: done | Depends on: none (must be re-run after every task) | Rollback: 7d81006e6 (harness) + final artifact commit
 
 ## Scope
 - scripts/validate-responsive.mjs, scripts/responsive/matrix.mjs,
@@ -31,6 +31,14 @@ current short SHA. Flags: --app editor|website|all, --out, --no-screenshots,
   the report exist on disk (committed).
 - Packaged commands documented in docs/responsive/README-less STATE: the exact
   command is repeated in STATE.md so resumption needs one hop.
+- Result (2026-10-29): PASS 152/152 checks (16 editor viewports incl. the two
+  13in window entries, 20 website route-viewport pairs), 41 screenshots in
+  docs/responsive/screenshots/7d81006e6/, report.json + report.md;
+  `pnpm validate:responsive` entry added to package.json.
+- Carried review finding R1: the orchestrator functions exceed the 50-line
+  ceiling and the files sit at the hard 400-line cap (a COMPLEXITY marker was
+  rejected by audit:filesize:staged at 403/404). Splitting the orchestrator is
+  the first action of this task's follow-up.
 
 ## Size check
 Three small modules + data + docs: one session for the harness; docs are

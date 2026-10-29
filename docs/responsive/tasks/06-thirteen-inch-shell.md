@@ -1,6 +1,6 @@
 # Task 06 — 13–14in shell and window geometry
 
-Status: in-progress | Depends on: none (uses task 08 harness) | Rollback: —
+Status: done | Depends on: none (uses task 08 harness) | Rollback: 738c9a943 (revert restores 1280x800 / 900x600 minimum)
 
 ## Scope
 - apps/desktop/src-tauri/tauri.conf.json (main window block only)
@@ -33,6 +33,10 @@ geometry is asserted at 1180x720 and at 1093x614 (the 125% scaling equivalent).
 - Note the real window-manager clamp is a packaged-app check; Chromium cannot
   prove OS placement, so this task validates the geometry contract and the
   viewport band, not Windows/macOS window placement.
+- Result (2026-10-29, harness commit 7d81006e6): editor matrix PASS at
+  13in-125pct-scaling-1093x614 and 13in-window-default-1180x720, plus
+  1180x820, 1366x768, 1366x1024, 1024x1366, 1280x800, 1440x900, 1512x982 —
+  no page-level overflow; report at docs/responsive/screenshots/7d81006e6/.
 
 ## Size check
 One config block + harness matrix already written: one session.
