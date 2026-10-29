@@ -410,7 +410,6 @@
     "packages/editor/src/tools/inputNormalizer.ts": 525,
     "packages/editor/src/tools/retouchSampling.ts": 418,
     "packages/editor/src/tools/selectionMask.ts": 511,
-    "packages/editor/src/tools/snapping.ts": 1982,
     "packages/editor/src/tools/toolRegistry.ts": 585,
     "packages/editor/src/tools/types.ts": 503,
     "packages/editor/src/transform/TransformEngine.ts": 814,
