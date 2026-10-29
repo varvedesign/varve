@@ -1,6 +1,8 @@
 # Task 01 — Global viewport foundation (safe-area cover + breakpoint constants)
 
-Status: blocked | Depends on: none | Rollback: — (not started)
+Status: split 2026-10-29 → tasks/01a-safe-area-foundation.md (implementation, this session) and
+tasks/01b-breakpoint-constants.md (later session). The blocker below is resolved: see 01a
+for the CDP safe-area validation decision. This file is kept as original audit context.
 
 ## Scope
 - apps/desktop/index.html (viewport meta)

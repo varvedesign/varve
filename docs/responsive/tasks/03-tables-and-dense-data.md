@@ -1,6 +1,7 @@
 # Task 03 — Tables and dense data surfaces
 
-Status: not-started | Depends on: 02 | Rollback: —
+Status: split 2026-10-29 → tasks/03a-timeline-dense-data.md + tasks/03b-layers-inspector-targets.md.
+This file is kept as original audit context.
 
 ## Scope
 - packages/editor/src/timeline/TimelinePanel.css and the timeline row components

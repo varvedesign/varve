@@ -1,6 +1,7 @@
 # Task 04 — Forms and modals at phone widths
 
-Status: not-started | Depends on: 02 | Rollback: —
+Status: split 2026-10-29 → tasks/04a-colorize-dialog.md + tasks/04b-dialog-grid-collapse.md.
+This file is kept as original audit context.
 
 ## Scope
 - packages/editor/src/components/Inspector/sections/ColorizeSection.css:322

@@ -7,12 +7,13 @@ is docs/responsive/STATE.md.
 
 ## Ordering and dependencies
 
-1 → 2 (header/nav containment; 2 needs no new tokens)
-2 → 3 (table/dense-data strategies reuse the containment rules)
-2 → 4 (forms/modals reuse the compact containment)
-1 + 6 → 9 (final validation depends on foundation + the 13in shell)
-7 is independent (marketing site).
+1a → 1b (breakpoints; no behavior dependency, just the same source area)
+1a → 3a / 3b / 4a → 4b (chrome inset foundation before dense-data and dialog work)
+2 → 3a / 3b (done; header containment unchanged)
+1a + 6 → 9 (final validation depends on the foundation and the 13in shell)
+7 is independent (marketing site) — done.
 8 (harness/docs) is independent and must be re-run after every task.
+9 depends on 01a, 03a, 03b, 04a (04b may be deferred with a reason).
 
 ## Status legend
 not-started / in-progress / blocked / done / deferred — see STATE.md rows for
@@ -23,8 +24,8 @@ the authoritative status. Task files state their own rollback commit when done.
 - Additive changes first: new selectors/rules, new spec files; avoid rewriting
   shared blocks while another task is mid-flight.
 - A responsive assertion relied on manually must be re-runnable: either the
-  repo e2e matrix/spec, or scripts/validate-responsive.mjs. Do not rely on a
-  one-off session script.
+  repo e2e matrix/spec, or scripts/validate-responsive.mjs /
+  scripts/responsive/safe-area.mjs. Do not rely on a one-off session script.
 - Visual evidence is committed under docs/responsive/screenshots/<sha>/, with
   the harness report, not just viewed in-session.
 - Every commit must leave main shippable: no half-applied responsive state on
@@ -53,10 +54,13 @@ the authoritative status. Task files state their own rollback commit when done.
 
 | # | File | Purpose | Status |
 |---|---|---|---|
-| 01 | tasks/01-global-viewport-foundation.md | safe-area/cover meta + breakpoint constants; shared foundation | blocked (validation method) |
+| 01a | tasks/01a-safe-area-foundation.md | viewport-fit=cover + one shell inset + viewport-relative overlay geometry + site header/footer; CDP safe-area harness | not-started |
+| 01b | tasks/01b-breakpoint-constants.md | extract repeated JS matchMedia literals to one constant module | not-started |
 | 02 | tasks/02-compact-header-containment.md | fix D1: context bar/Share clipping at 320–899 | done (59bd283a9) |
-| 03 | tasks/03-tables-and-dense-data.md | timeline/layers dense-data targets and fixed columns | not-started |
-| 04 | tasks/04-forms-and-modals.md | fixed dialog floors (Colorize 420px), 2–6 column forms | not-started |
+| 03a | tasks/03a-timeline-dense-data.md | timeline row targets + duplicate 120/140px label authority | not-started |
+| 03b | tasks/03b-layers-inspector-targets.md | layers/inspector dense targets and grids (reproduced only) | not-started |
+| 04a | tasks/04a-colorize-dialog.md | Colorize dialog 420px floor → phone fit | not-started |
+| 04b | tasks/04b-dialog-grid-collapse.md | remaining dialog 2-column grids; split per family | not-started |
 | 05 | tasks/05-grids-and-reflows.md | Home/site grid ladders; deferred unless a defect is reproduced | deferred |
 | 06 | tasks/06-thirteen-inch-shell.md | Tauri window bounds + 13–14in coverage (D6/D7) | done (738c9a943, validated 7d81006e6) |
 | 07 | tasks/07-marketing-site.md | site tables, routes, nav breakpoint review (D5) | done (26e8dc5a6) |

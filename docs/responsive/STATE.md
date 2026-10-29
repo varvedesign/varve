@@ -1,123 +1,100 @@
 # Responsive Adaptation — State
 
-Last updated: 2026-10-29T13:17:00-07:00 | Last commit: e1ef848df (artifact + review commit; harness commit validated the matrix at 7d81006e6)
+Last updated: 2026-10-29T15:59:01-07:00 | Last commit: f04df4bbd (docs split commit is the next commit on master)
 
 | # | Task | Status | Commit | Next action / Blocker |
 |---|---|---|---|---|
-| 01 | global viewport foundation (safe-area cover + breakpoint constants) | blocked | — | Question recorded under Blockers: choose the env(safe-area-inset-*) validation method before editing. |
-| 02 | compact header containment (context bar + Share) | done | 59bd283a9 | — (regression spec 2/2 pass; context bar now scrolls, Share stays on-screen at 320–899) |
-| 03 | tables and dense data (timeline rows, layers targets) | not-started | — | Depends on 02 (done). Reproduce at 1024x768 / 1180x820 / 1366x1024 with Layers+Timeline open before editing. |
-| 04 | forms and modals (Colorize 420px floor, 2–6 column forms) | not-started | — | Depends on 02 (done). Reproduce Colorize at 375x812 first. |
+| 01a | safe-area foundation (viewport-fit=cover + shell inset + validation harness) | not-started | — | Decision recorded in the task file: CDP `Emulation.setSafeAreaInsetsOverride` emulates env() on this Chromium. Implement, then run `pnpm validate:safe-area` and the full matrix. |
+| 01b | breakpoint constants (JS literals) | not-started | — | No dependency; no user-visible payoff. Run only from a spare session. |
+| 02 | compact header containment | done | 59bd283a9 | — (regression spec 2/2 pass; context bar scrolls, Share on-screen at 320–899) |
+| 03a | timeline dense-data targets + duplicate label column authority | not-started | — | Depends on 01a. Reproduce at 1024x768 / 1180x820 / 1366x1024 with Layers + Timeline open (fine + coarse) before editing. |
+| 03b | layers/inspector targets and dense grids | not-started | — | Depends on 02 (done), serially after 03a (both touch editor panel CSS). Reproduce before editing; close with evidence if no defect. |
+| 04a | Colorize dialog phone fit | not-started | — | Depends on 02. Reproduce at 375x812 and 320x640 through the real UI first. |
+| 04b | remaining dialog grid collapse | not-started | — | Depends on 04a; split per dialog family at start. Defer with a recorded reason if the session window is consumed by 04a. |
 | 05 | grids and landing reflow | deferred | — | Deferred: no defect reproduced in the bounded audit; re-open only with a screenshot. |
-| 06 | 13–14in shell/window geometry | done | 738c9a943 | — (Tauri default 1180x720 + center + min 480x400; harness PASS at 1180x720 and 1093x614, commit 7d81006e6) |
-| 07 | marketing site dense tables | done | 26e8dc5a6 | — (license/perf tables in .scroll-x regions; 20/20 site route-viewport checks pass) |
-| 08 | documentation + committed validation harness | done | 7d81006e6 | — (pnpm validate:responsive; 41 screenshots + report in docs/responsive/screenshots/7d81006e6/; carried finding R1: split the harness orchestrator next) |
-| 09 | final validation and review gate | not-started | — | Blocked by 01, 03, 04. Do not start as an implementation task. |
+| 06 | 13–14in shell/window geometry | done | 738c9a943 | — (Tauri default 1180x720 + center + min 480x400; harness PASS at 1180x720 and 1093x614, 7d81006e6) |
+| 07 | marketing site dense tables | done | 26e8dc5a6 | — (license/perf tables in .scroll-x regions; 20/20 route-viewport checks pass) |
+| 08 | documentation + committed validation harness | done | 7d81006e6 | — (pnpm validate:responsive; 41 screenshots + report in docs/responsive/screenshots/7d81006e6/; carried finding R1) |
+| 09 | final validation and review gate | not-started | — | Blocked by 01a, 03a, 03b, 04a. Do not start as an implementation task. |
 
-## Campaign commits (oldest → newest)
+## Task split history (2026-10-29)
 
-| Commit | Summary |
-|---|---|
-| e5e9dba40 | docs: Phase 0 research, Phase 0.5 inventory, Phase 1 audit + raw evidence, plan, 9 task files, this ledger, docs index |
-| 59bd283a9 | fix(editor): compact header containment + regression spec |
-| 45c35c2c5 | docs: task 02 done with e2e receipt |
-| 738c9a943 | fix(desktop): Tauri window geometry for 13–14in devices |
-| 26e8dc5a6 | fix(website): license/performance tables got scroll regions |
-| 19f177102 | docs: task 07 done with route-check receipt |
-| 7d81006e6 | feat(validation): re-runnable responsive matrix harness + pnpm validate:responsive |
-| e1ef848df | test(responsive): committed screenshots, review record, final ledger |
+Original task files 01/03/04 were too broad for one session (their own size
+checks said so). They are kept as original audit context and were split into:
 
-## Environment and resume facts (measured 2026-10-29)
+- 01 → 01a (safe-area foundation; this session) + 01b (breakpoint constants).
+- 03 → 03a (timeline) + 03b (layers/inspector).
+- 04 → 04a (Colorize dialog) + 04b (remaining dialog grids, split per family).
 
-- Repo: /home/kevina/CodingProjects/varve, branch master. The checkout is a
-  shared multi-agent tree: hundreds of unrelated modified/untracked paths exist.
-  Commit path-scoped only; never revert others' work; never commit the whole
-  tree. The campaign's own paths are docs/responsive/**, scripts/
-  validate-responsive.mjs, scripts/responsive/**, tests/e2e/responsive/
-  compact-header-containment.spec.ts, packages/editor/src/editor.css (one
-  compact-tier block), apps/website/src/pages/about/license.astro,
-  apps/website/src/pages/docs/performance.astro, apps/desktop/src-tauri/
-  tauri.conf.json, package.json (one script entry).
-- Node 22.23.2, pnpm workspace. **pnpm install fails** on this host
-  (ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK, read-only store); do not add
-  dependencies. node_modules is installed and the app runs.
-- Editor dev server: `pnpm --filter @varve/desktop exec vite --port 1420
-  --strictPort` (cold transform ~90s). A live server on 1420 is reused by the
-  harness; it spawns its own only when 1420 is dead and kills only its child.
-- Playwright 1.62.1 + Chromium installed. Browser/leased runs in this sandbox:
-  `XDG_RUNTIME_DIR=/tmp node scripts/quality/heavy-lease.mjs "<label>" -- <cmd>`
-- Harness: `pnpm validate:responsive --app all --reuse-website-dist` (wraps
-  the heavy lease). In this sandbox prepend XDG_RUNTIME_DIR=/tmp. Without
-  --reuse-website-dist it runs `astro build` first (~14s) and serves dist.
-- File-size policy: CSS is NOT capped (editor.css is 7,504 lines and editable);
-  .ts/.tsx/.mjs are capped at 400 lines. The two harness modules sit at exactly
-  400 (a 4-line COMPLEXITY marker pushed them to 403/404 and was rejected by
-  audit:filesize:staged; see review R1).
-- `tokens.css` is generated — never hand-edit.
-- Screenshots: docs/responsive/screenshots/<short-sha>/ (committed with
-  report.json/report.md). COMPLETION.md must NOT exist until all non-deferred
-  tasks are done.
+## Decisions
+
+1. **Task 01 safe-area validation method (was the only blocker) — RESOLVED.**
+   Installed Playwright 1.62.1 Chromium is 151.0.7922.34 and supports
+   `Emulation.setSafeAreaInsetsOverride` with the nested shape
+   `{ insets: { top, bottom, left, right } }`; flat params are rejected. A
+   computed-style probe on a standalone page resolved env() padding to
+   47/34/11/12 px, so task 01a can be validated by emulation on this host.
+   Real iOS evidence remains a manual checklist (docs/responsive/device-checklist.md).
+   Rejected alternatives: test-only custom-property refactor (unnecessary and
+   would migrate production CSS for testability), deferral (leaves the fix
+   unvalidated).
+2. **Harness edit policy (carried).** scripts/validate-responsive.mjs and
+   scripts/responsive/capture.mjs are at the 400-line cap with review finding
+   R1 open. New assertions therefore go into a NEW small script
+   (scripts/responsive/safe-area.mjs, package script validate:safe-area) rather
+   than editing the capped orchestrator. The orchestrator split remains the
+   first action of the next change that must touch it.
 
 ## Blockers / open questions
 
-1. **Task 01 safe-area validation.** env(safe-area-inset-*) resolves to 0 on
-   Linux/Chromium. Options: (a) inject a test-only custom-property emulation
-   and assert padding math; (b) check whether the installed Chromium supports
-   CDP safe-area inset emulation; (c) defer device evidence to a real iOS
-   checklist. Recommendation: (a)+(c). Decision owner: next session.
-2. **Task 06 packaged-window placement.** Config geometry is validated, but OS
+1. **Task 06 packaged-window placement.** Config geometry is validated, but OS
    window-manager clamping needs a packaged Tauri run (not available here).
-3. **Review finding R1.** Harness orchestrator functions exceed the 50-line
+2. **Review finding R1.** Harness orchestrator functions exceed the 50-line
    ceiling; split (validate-responsive.mjs phases into modules) at the start of
    the next harness change. Recorded in docs/responsive/review-2026-10-29.md.
 
-## Validation receipts (2026-10-29, committed tree)
+## Validation receipts (previous session, 2026-10-29)
 
 - `pnpm typecheck:e2e` — pass (run before and after the spec change).
 - compact-header-containment.spec.ts — 2/2 pass (1.3m, chromium, workers=1,
   VARVE_E2E_PORT=1541, heavy lease).
 - a11y/responsive-panels + responsive/compact-drawers — 13/13 pass (7.6m).
 - `validate:responsive --app all` — PASS 152/152 checks; 16 editor viewports
-  incl. 1180x720, 1093x614; 20 website route-viewport pairs; 41 PNGs
-  (18,108,301 bytes); report at docs/responsive/screenshots/7d81006e6/.
+  incl. 1180x720, 1093x614; 20 website route-viewport pairs; 41 PNGs; report at
+  docs/responsive/screenshots/7d81006e6/.
 - Marketing table routes on built dist — 8/8 route-viewport pairs at
   320/375/768/1366: document scroll width == viewport; .scroll-x rows expose
   overflow-x auto, tabindex 0, role region.
 - Desktop equivalence (1440x900, same browser/protocol before vs after):
   791/1,296,000 px differ (0.061%), header text antialiasing only; DOM
-  geometry identical (menubar 91, header row 45, tabs y=92, status y=873).
-- Audits: `pnpm audit:docs` clean (1,325 docs / 1,056 links / 183 ADRs);
-  `audit:emoji` clean; `audit:filesize` 0 violations (4 untracked over-cap WIP
-  files belong to other sessions); `audit:sizing` ratchet unchanged;
-  `audit:radius` 0 legacy consumers; biome 0 errors on changed files (infos
-  only in the new harness scripts).
+  geometry identical.
+- Audits: audit:docs clean; audit:emoji clean; audit:filesize 0 violations;
+  audit:sizing ratchet unchanged; biome 0 errors on changed files.
 
-## Handoff (end of 2026-10-29 session)
+## Handoff (mid-session checkpoint, 2026-10-29 15:59)
 
-**Done.** Phase 0 research (31 sources), Phase 0.5 bounded inventory (5,337
-files enumerated, 20 scored), Phase 1 audit (292 raw evidence rows + runtime
-probes), Phase 2 plan + 9 task files, this ledger, a re-runnable harness with
-committed evidence, and three fixes: D1 compact header containment
-(59bd283a9), D6 13–14in window geometry (738c9a943), D5 marketing dense tables
-(26e8dc5a6).
+**Done.** Phase 0–2.5 and tasks 02/06/07/08 (previous session). This session:
+resolved the task 01 safe-area validation blocker and split the over-broad
+tasks 01/03/04 into session-sized 01a/01b/03a/03b/04a/04b; updated plan and
+this ledger. No production code changed in this checkpoint, so main remains
+shippable.
 
-**Mid-flight.** Nothing: every code change is committed and shippable on all
-supported widths. The only open technical debt is review finding R1 (harness
-function split) and the blocked task 01 decision.
+**Mid-flight.** Nothing in code. The docs split commit is on master; the next
+executable unit is 01a.
 
-**Known-broken.** Nothing introduced by this campaign. Carried pre-existing
-items: O1–O8 in docs/responsive/audit.md (dock chrome at 200% text, dual resize
-handles, stale navigator baseline, layers bulk-bar, short-rail clipping,
-inspector value ellipsis) and D2/D3/D4/D8/D9 for tasks 01/03/04.
+**Known-broken.** Nothing introduced. Carried pre-existing items: O1–O8 in
+audit.md and D2/D3/D4/D8/D9 for the split tasks.
 
-**Literal next action.** Read docs/responsive/tasks/03-tables-and-dense-data.md,
-open docs/responsive/STATE.md, then reproduce the timeline/layers target
-geometry at 1024x768, 1180x820 and 1366x1024 (fine + coarse pointer) with
-Layers and Timeline open. If you prefer a smaller first step, decide task 01's
-safe-area validation method and land the viewport-fit=cover + inset padding
-changes. Re-run `XDG_RUNTIME_DIR=/tmp pnpm validate:responsive --app all
---reuse-website-dist` after any change and commit a fresh screenshots/<sha>/
-directory; do not create COMPLETION.md before 01/03/04 are done.
+**Literal next action.** Implement tasks/01a-safe-area-foundation.md: add
+viewport-fit=cover to both meta tags, the one .editor-shell inset padding, the
+viewport-relative fixed geometry corrections (drawers/FAB/exit-focus/toasts,
+--menubar-total-height static definitions), and the site header/footer/container
+insets; add scripts/responsive/safe-area.mjs + validate:safe-area and
+docs/responsive/device-checklist.md. Then run the new safe-area script, the full
+matrix with `--app all --reuse-website-dist` (XDG_RUNTIME_DIR=/tmp under the
+heavy lease), commit a fresh screenshots/<sha>/ set, mark 01a done, and continue
+with 03a → 03b → 04a (→ 04b if the window allows) → 09. Do not create
+COMPLETION.md before 03a/03b/04a/(04b) and 09 are done or explicitly deferred.
 
 ## Resumption prompt (paste into a fresh session)
 
