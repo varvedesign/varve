@@ -1,6 +1,6 @@
 # Task 04a — Colorize dialog phone fit
 
-Status: not-started | Depends on: 02 (done) | Rollback: — (not started)
+Status: done — NO DEFECT; dead-CSS cleanup only | Depends on: 02 (done) | Rollback: revert the 04a cleanup commit (restores dead rules; no behavior change)
 Split from: tasks/04-forms-and-modals.md on 2026-10-29T15:59:01-07:00
 
 ## Scope
@@ -32,6 +32,24 @@ reachable. One dialog per commit.
 
 ## Rollback
 Revert the task 04a commit; CSS-only.
+
+## Outcome (2026-10-29) — NO DEFECT, dead-CSS cleanup only
+
+Reproduction (repro-broker, independent agent):
+- `rg -n 'colorize-dialog|ColorizeDialog' packages apps tests` => 9 hits, all
+  inside ColorizeSection.css; zero TS/TSX consumers, no rendered element
+  (dialog[open]=0, [class*='colorize-dialog']=0) at 1180x820 / 375x812 / 320x640,
+  so the 420px floor could never apply.
+- The real surface is the inspector disclosure
+  .insp-disclosure[data-section-id="colorize"]: document scrollWidth ==
+  innerWidth at 375/320, both preview and full-resolution actions inside the
+  viewport and elementFromPoint-hittable after scrolling .insp-panel.
+- Action taken: deleted the 9 dead .colorize-dialog__* rules (68 lines). No
+  capped min-width was added because nothing consumes it. Evidence screenshots
+  / measurements are committed under
+  docs/responsive/screenshots/<cleanup-commit>/colorize/.
+- Task 04b remains: real dialog 2-column grids (ContentAwareFill etc.) were not
+  reproduced at phone width in this campaign.
 
 ## Size check
 Fits one session (one dialog family). The remaining dialog grids are split out
