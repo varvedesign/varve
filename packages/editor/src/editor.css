@@ -506,6 +506,24 @@ input[type="number"] {
   flex: 0 0 auto;
 }
 
+/* Compact tier: the context row carries its own horizontal scroller
+ * (.context-control-bar { overflow-x: auto }) for selection controls wider
+ * than the window, but the component's flex-shrink: 0 made it content-sized
+ * inside this row, so at 320-390px the last tool pills and the Share control
+ * painted past the viewport and were clipped by the shell's overflow: clip,
+ * with no scroller to reach them (measured 2026-10-29: at 320x640 Text
+ * 274..348, Pen 351..425, Share 438..484; at 390x844 Pen 351..426, Share
+ * 439..485). Give the bar the row's remaining width so its own scroller
+ * engages; Share stays fixed at the end. Desktop (>899px) is intentionally
+ * untouched: it has room and its chrome is validated unchanged.
+ * Regression: tests/e2e/responsive/compact-header-containment.spec.ts. */
+@media (max-width: 899px) {
+  .editor-shell__header-row > .context-control-bar {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
 /* ── Vertical group rule (menubar family) ──
  * One recipe for the menubar's group boundaries: the home/menu divider, the
  * two zoom rules, and the workspace dock's overflow divider. Previously these
