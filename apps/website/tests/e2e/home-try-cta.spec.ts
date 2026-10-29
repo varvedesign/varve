@@ -20,3 +20,28 @@ test('home hero and closing CTAs open the browser demo with campaign refs', asyn
   await expect(closingTry).toHaveAttribute('href', /\/try\/\?ref=home-closing/);
   await expect(closingTry).toHaveAttribute('data-analytics-demo-launch');
 });
+
+test('home and product local-first sections link to the local-first storage feature page with a canonical trailing slash', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await dismissAnalyticsBanner(page);
+
+  const homeLink = page
+    .locator('.local-first-section')
+    .getByRole('link', { name: 'local-first storage' });
+  await expect(homeLink).toBeVisible();
+  await expect(homeLink).toHaveAttribute('href', /\/features\/local-first\/$/);
+
+  await page.goto('/product');
+  await dismissAnalyticsBanner(page);
+
+  const productLink = page
+    .locator('.product-section')
+    .filter({
+      has: page.getByRole('heading', { name: 'Local-first, your files, your machine' }),
+    })
+    .getByRole('link', { name: 'local-first storage' });
+  await expect(productLink).toBeVisible();
+  await expect(productLink).toHaveAttribute('href', /\/features\/local-first\/$/);
+});
