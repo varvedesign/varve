@@ -31,7 +31,7 @@ probe (any-pointer: fine still reported in headless Chromium; see D7/limits).
 
 Real defects found (measured, reproducible):
 
-### D1 — Compact header row clips the context tools and Share — HIGH, fix in progress (task 02)
+### D1 — Compact header row clips the context tools and Share — HIGH, FIXED in 59bd283a9 (task 02); regression spec passes 2/2
 
 Measured at 320x640: context-bar pills 'Text' x=274..348, 'Pen' x=351..425 and
 the Share button x=438..484 — all beyond the 320px viewport, document scroll

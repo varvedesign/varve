@@ -54,7 +54,7 @@ the authoritative status. Task files state their own rollback commit when done.
 | # | File | Purpose | Status |
 |---|---|---|---|
 | 01 | tasks/01-global-viewport-foundation.md | safe-area/cover meta + breakpoint constants; shared foundation | blocked (validation method) |
-| 02 | tasks/02-compact-header-containment.md | fix D1: context bar/Share clipping at 320–899 | in-progress |
+| 02 | tasks/02-compact-header-containment.md | fix D1: context bar/Share clipping at 320–899 | done (59bd283a9) |
 | 03 | tasks/03-tables-and-dense-data.md | timeline/layers dense-data targets and fixed columns | not-started |
 | 04 | tasks/04-forms-and-modals.md | fixed dialog floors (Colorize 420px), 2–6 column forms | not-started |
 | 05 | tasks/05-grids-and-reflows.md | Home/site grid ladders; deferred unless a defect is reproduced | deferred |

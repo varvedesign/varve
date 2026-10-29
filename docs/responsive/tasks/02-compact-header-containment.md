@@ -1,6 +1,6 @@
 # Task 02 — Compact header containment (context bar + Share)
 
-Status: in-progress | Depends on: none | Rollback: — (fix landing this session)
+Status: done | Depends on: none | Rollback: 59bd283a9 (revert restores clipping; no schema/data change)
 
 ## Scope
 - packages/editor/src/editor.css (the .editor-shell__header-row block only)

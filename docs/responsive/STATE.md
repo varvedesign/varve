@@ -1,11 +1,11 @@
 # Responsive Adaptation — State
 
-Last updated: 2026-10-29T12:48:57-07:00 | Last commit: 6128380b3 (session base; update this line in the same commit as any status change)
+Last updated: 2026-10-29T12:57:00-07:00 | Last commit: 59bd283a9 (compact-header fix; this docs commit follows)
 
 | # | Task | Status | Commit | Next action / Blocker |
 |---|---|---|---|---|
 | 01 | global viewport foundation (safe-area cover + breakpoint constants) | blocked | — | Question recorded under Blockers: how to validate env(safe-area-inset-*) without iOS/CDP inset emulation. |
-| 02 | compact header containment (context bar + Share) | in-progress | — | CSS rule defined (header-row > .context-control-bar flex:1 1 auto; min-width:0); write tests/e2e/responsive/compact-header-containment.spec.ts, run, capture 320/390/1366 screenshots, commit. |
+| 02 | compact header containment (context bar + Share) | done | 59bd283a9 | — (spec tests/e2e/responsive/compact-header-containment.spec.ts: 2/2 pass; final matrix screenshots land in task 08 commit) |
 | 03 | tables and dense data (timeline rows, layers targets) | not-started | — | Depends on 02. Reproduce before editing (timeline 16px mute/solo, duplicate 120/140px label width). |
 | 04 | forms and modals (Colorize 420px floor, 2–6 column forms) | not-started | — | Depends on 02. Reproduce Colorize at 375 first. |
 | 05 | grids and landing reflow | deferred | — | Deferred: no defect reproduced in bounded audit; re-open only with a screenshot. |
@@ -55,7 +55,8 @@ Last updated: 2026-10-29T12:48:57-07:00 | Last commit: 6128380b3 (session base; 
   document overflow 0; D1 header clipping reproduced at 320/390.
 - docs/responsive/audit-raw.md: 292 evidence rows; auditor reported no source
   edits and only docs/responsive/ untracked.
-- (pending) compact-header-containment.spec.ts run; validate:responsive final
+- compact-header-containment.spec.ts: 2/2 pass (chromium, workers=1, VARVE_E2E_PORT=1541, heavy lease) in 1.3m; see commit 59bd283a9.
+- (pending) validate:responsive final
   run; website routes run.
 
 ## Handoff (in progress — rewrite at session end)
