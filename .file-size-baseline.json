@@ -129,7 +129,6 @@
     "packages/editor/src/canvas/subtreeIrCache.ts": 736,
     "packages/editor/src/canvas/toolContext.ts": 912,
     "packages/editor/src/clipboard.test.ts": 1432,
-    "packages/editor/src/clipboard.ts": 1968,
     "packages/editor/src/collab/CollabSessionContext.tsx": 880,
     "packages/editor/src/collab/CollabSurfaces.tsx": 470,
     "packages/editor/src/collab/ShareDialog.tsx": 594,
