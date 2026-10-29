@@ -40,6 +40,7 @@
 @media (pointer: coarse), (any-pointer: coarse) {
   :root[data-layout-mode="tablet"] .editor-shell {
     --menubar-total-height: calc(
+      env(safe-area-inset-top, 0px) +
       var(--topbar-height) +
       2 *
       var(--space-2) +
@@ -97,7 +98,9 @@
     .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
     .editor__layers-panel {
     position: fixed;
-    inset: var(--menubar-total-height) auto var(--statusbar-height) 0;
+    inset: var(--menubar-total-height) auto
+      calc(var(--statusbar-height) + env(safe-area-inset-bottom, 0px))
+      env(safe-area-inset-left, 0px);
     width: min(320px, 360px);
     z-index: var(--z-overlay);
     transform: translateX(-100%);
@@ -120,6 +123,39 @@
     .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
     .editor__layers-panel:not([data-collapsed]) {
     width: min(320px, calc(100vw - var(--space-3) - var(--space-3)));
+  }
+}
+
+/* Fixed tablet-mode FABs (>=900px) need the notch insets; the <=899px mirrored
+ * rules stay absolute inside the padded canvas grid area. Placed after the
+ * base/mirrored rules so the inset wins the cascade. */
+@media (min-width: 900px) {
+  :root[data-layout-mode="tablet"] .editor__fab--layers {
+    left: calc(var(--space-3) + env(safe-area-inset-left, 0px));
+  }
+  :root[data-layout-mode="tablet"] .editor__fab--inspector {
+    right: calc(var(--space-3) + env(safe-area-inset-right, 0px));
+  }
+  :root[data-layout-mode="tablet"] .editor__fab--library {
+    right: calc(
+      var(--space-3) +
+      var(--editor-panel-launcher-size) +
+      var(--space-2) +
+      env(safe-area-inset-right, 0px)
+    );
+  }
+  :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--layers {
+    left: auto;
+    right: calc(var(--space-3) + env(safe-area-inset-right, 0px));
+  }
+  :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--library {
+    left: calc(
+      var(--space-3) +
+      var(--editor-panel-launcher-size) +
+      var(--space-2) +
+      env(safe-area-inset-left, 0px)
+    );
+    right: auto;
   }
 }
 

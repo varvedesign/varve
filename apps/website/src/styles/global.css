@@ -336,7 +336,11 @@
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
-    padding-inline: var(--space-page-inline);
+    /* viewport-fit=cover: in standalone/landscape the page can run under the
+     * notch; add the safe gutters to the one container every site section
+     * uses. env() is 0 in a normal desktop window, so layout is unchanged. */
+    padding-inline: calc(var(--space-page-inline) + env(safe-area-inset-left, 0px))
+      calc(var(--space-page-inline) + env(safe-area-inset-right, 0px));
     box-sizing: border-box;
     min-width: 0;
   }

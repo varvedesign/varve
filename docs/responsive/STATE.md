@@ -1,10 +1,10 @@
 # Responsive Adaptation — State
 
-Last updated: 2026-10-29T15:59:01-07:00 | Last commit: f04df4bbd (docs split commit is the next commit on master)
+Last updated: 2026-10-29T16:22:00-07:00 | Last commit: eb09422e5 (code checkpoint for 01a is the next commit on master)
 
 | # | Task | Status | Commit | Next action / Blocker |
 |---|---|---|---|---|
-| 01a | safe-area foundation (viewport-fit=cover + shell inset + validation harness) | not-started | — | Decision recorded in the task file: CDP `Emulation.setSafeAreaInsetsOverride` emulates env() on this Chromium. Implement, then run `pnpm validate:safe-area` and the full matrix. |
+| 01a | safe-area foundation (viewport-fit=cover + shell inset + validation harness) | in-progress | — (code commit this session) | Implementation landed: viewport-fit=cover, one shell inset, fixed-overlay geometry, site header/footer/container/nav, `pnpm validate:safe-area` (66/66 smoke pass; 6 screenshots in .tmp-resp-safe-area). Next: full matrix + committed screenshots/<code-sha>/ evidence, then mark done. |
 | 01b | breakpoint constants (JS literals) | not-started | — | No dependency; no user-visible payoff. Run only from a spare session. |
 | 02 | compact header containment | done | 59bd283a9 | — (regression spec 2/2 pass; context bar scrolls, Share on-screen at 320–899) |
 | 03a | timeline dense-data targets + duplicate label column authority | not-started | — | Depends on 01a. Reproduce at 1024x768 / 1180x820 / 1366x1024 with Layers + Timeline open (fine + coarse) before editing. |

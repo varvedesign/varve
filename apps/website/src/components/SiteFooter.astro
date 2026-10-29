@@ -170,6 +170,9 @@ const statusLabel = release.hasRelease && release.version
 
 <style>
   .site-footer {
+    /* viewport-fit=cover: keep the closing content above the iOS home
+     * indicator; the footer surface still paints to the viewport edge. */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--surface-footer);
     color: var(--text-footer);
     border-top: 1px solid var(--border-footer);

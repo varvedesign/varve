@@ -299,6 +299,11 @@ input[type="number"] {
    * instead of covering the context control bar. */
   --menubar-total-height: calc(
     var(--editor-offline-notice-height) +
+    /* Fixed overlays are viewport-relative: this static estimate must include
+     * the safe-area top inset that .editor-shell's padding adds. When the
+     * offline banner is visible, OfflineBanner.tsx sets the variable to the
+     * measured tab-strip bottom, which already includes the inset. */
+    env(safe-area-inset-top, 0px) +
     var(--topbar-height) +
     var(--space-2) +
     var(--toolbar-height) +
@@ -336,6 +341,18 @@ input[type="number"] {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  /* Safe-area foundation (2026-10-29, task 01a): one inset for every grid area
+   * — the header stack, tab strip, panels, canvas, bottom panels and status
+   * bar. The app is installable as a standalone PWA
+   * (apps/desktop/public/manifest.json display: standalone), so with
+   * viewport-fit=cover the viewport can extend under an iPhone/iPad notch, the
+   * iOS status bar and the home indicator; without this the menubar, status
+   * controls and edge tools paint under system chrome. env() resolves to 0 on
+   * desktop/Tauri, so the desktop layout is byte-identical. Viewport-relative
+   * fixed overlays (drawers, FABs, toasts, contextual help) are inset
+   * separately below because they are not grid items. */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   background: var(--color-surface-app);
   color: var(--color-text-primary);
   /* Interface chrome; reading text opts in to the content role (global.css). */
@@ -401,8 +418,8 @@ input[type="number"] {
    * resized independently of the canvas grid track, so a grid-area anchor may
    * leave this control outside the visible window after a portrait resize. */
   position: fixed;
-  top: var(--space-3);
-  right: var(--space-3);
+  top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
+  right: calc(var(--space-3) + env(safe-area-inset-right, 0px));
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
@@ -2206,7 +2223,7 @@ input[type="number"] {
      * so the context control bar and tab strip remain visible and
      * interactive even when a drawer is open. */
     top: var(--menubar-total-height);
-    bottom: 0;
+    bottom: env(safe-area-inset-bottom, 0px);
     grid-area: unset;
     margin: 0;
     z-index: var(--z-overlay);
@@ -2219,26 +2236,26 @@ input[type="number"] {
   }
   .editor__inspector-panel {
     left: auto;
-    right: 0;
+    right: env(safe-area-inset-right, 0px);
     width: var(--inspector-width);
     transform: translateX(100%);
   }
   .editor__logo-panel {
     left: auto;
-    right: 0;
+    right: env(safe-area-inset-right, 0px);
     width: 340px;
     max-width: 90vw;
     transform: translateX(100%);
   }
   .editor__layers-panel {
     --layers-drawer-width: clamp(14rem, 12rem + 8vw, 18rem);
-    left: 0;
+    left: env(safe-area-inset-left, 0px);
     right: auto;
     width: var(--layers-drawer-width);
   }
   .editor__library-panel {
     width: 300px;
-    right: 0;
+    right: env(safe-area-inset-right, 0px);
     transform: translateX(100%);
     z-index: calc(var(--z-overlay) + 1);
   }
@@ -2378,6 +2395,25 @@ input[type="number"] {
 }
 .editor__fab--library {
   right: calc(var(--space-3) + var(--editor-panel-launcher-size) + var(--space-2));
+}
+/* Fixed FABs (>=900px) are viewport-anchored and need the notch insets. The
+ * <=899px variants are position:absolute inside the shell's padded canvas grid
+ * area, so they must NOT add the inset again. */
+@media (min-width: 900px) {
+  .editor__fab--layers {
+    left: calc(var(--space-3) + env(safe-area-inset-left, 0px));
+  }
+  .editor__fab--inspector {
+    right: calc(var(--space-3) + env(safe-area-inset-right, 0px));
+  }
+  .editor__fab--library {
+    right: calc(
+      var(--space-3) +
+      var(--editor-panel-launcher-size) +
+      var(--space-2) +
+      env(safe-area-inset-right, 0px)
+    );
+  }
 }
 
 /* Touchscreen laptops and tablets need the same comfortable target policy as
@@ -3136,18 +3172,18 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
   .editor__library-panel {
     position: fixed;
     top: var(--menubar-total-height);
-    bottom: 0;
+    bottom: env(safe-area-inset-bottom, 0px);
     grid-area: unset;
     margin: 0;
   }
   .editor__layers-panel {
-    left: 0;
+    left: env(safe-area-inset-left, 0px);
     right: auto;
   }
   .editor__inspector-panel,
   .editor__library-panel {
     left: auto;
-    right: 0;
+    right: env(safe-area-inset-right, 0px);
   }
 }
 
@@ -3221,6 +3257,7 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
   .editor-shell {
     --menubar-total-height: calc(
       var(--editor-offline-notice-height) +
+      env(safe-area-inset-top, 0px) +
       var(--topbar-height) +
       var(--space-2) +
       var(--touch-target-min) +
@@ -7314,7 +7351,7 @@ dialog.varve-dialog--workspace-customize[open] {
     .editor__library-panel {
     position: fixed;
     top: var(--menubar-total-height);
-    bottom: var(--statusbar-height);
+    bottom: calc(var(--statusbar-height) + env(safe-area-inset-bottom, 0px));
     grid-area: unset;
     margin: 0;
     z-index: var(--z-overlay);
@@ -7324,7 +7361,7 @@ dialog.varve-dialog--workspace-customize[open] {
 
   .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
     .editor__layers-panel {
-    left: 0;
+    left: env(safe-area-inset-left, 0px);
     right: auto;
     width: var(--sidebar-width);
     transform: translateX(-100%);
@@ -7347,7 +7384,7 @@ dialog.varve-dialog--workspace-customize[open] {
   .editor-shell:not(:has(.editor-shell__canvas-dock[style*="position: absolute"]))
     .editor__library-panel {
     left: auto;
-    right: 0;
+    right: env(safe-area-inset-right, 0px);
     width: var(--inspector-width);
     transform: translateX(100%);
   }

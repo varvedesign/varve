@@ -1934,7 +1934,10 @@
     var(--keyboard-inset-bottom, 0px) +
     env(safe-area-inset-bottom, 0px)
   );
-  right: max(var(--space-4), calc(var(--inspector-width) + var(--space-4)));
+  right: calc(
+    max(var(--space-4), var(--inspector-width) + var(--space-4)) +
+    env(safe-area-inset-right, 0px)
+  );
   z-index: var(--z-toast);
   pointer-events: none;
   max-width: min(28rem, calc(100vw - var(--space-4) * 2));
@@ -1952,8 +1955,8 @@
 }
 @media (max-width: 640px) {
   .varve-toast-container {
-    left: var(--space-4);
-    right: var(--space-4);
+    left: calc(var(--space-4) + env(safe-area-inset-left, 0px));
+    right: calc(var(--space-4) + env(safe-area-inset-right, 0px));
     bottom: calc(
       var(--statusbar-height) +
       var(--space-3) +

@@ -340,6 +340,9 @@ function linkClass(href: string): string[] {
     position: sticky;
     inset-block-start: 0;
     z-index: 100;
+    /* viewport-fit=cover: keep the sticky header content below a standalone
+     * iOS status bar / notch while its surface still paints edge-to-edge. */
+    padding-top: env(safe-area-inset-top, 0px);
     background: var(--surface-header);
     border-block-end: 1px solid var(--border-default);
     box-shadow: 0 1px 0 transparent;
@@ -371,7 +374,10 @@ function linkClass(href: string): string[] {
     max-inline-size: 1280px;
     min-block-size: var(--component-large-height);
     margin-inline: auto;
-    padding: var(--space-2) var(--space-page-inline);
+    padding: var(--space-2)
+      calc(var(--space-page-inline) + env(safe-area-inset-right, 0px))
+      var(--space-2)
+      calc(var(--space-page-inline) + env(safe-area-inset-left, 0px));
   }
 
   .site-logo,
@@ -808,7 +814,15 @@ function linkClass(href: string): string[] {
   }
 
   @media (max-width: 24rem) {
-    .site-nav { flex-wrap: wrap; gap: var(--space-2); padding-inline: var(--space-2); }
+    .site-nav {
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      /* This override replaces the base inline padding, so it must re-add the
+       * safe-area gutters or a 375px standalone-notched view loses them. */
+      padding-inline:
+        calc(var(--space-2) + env(safe-area-inset-left, 0px))
+        calc(var(--space-2) + env(safe-area-inset-right, 0px));
+    }
     .site-logo { gap: var(--space-1); }
     .site-version { display: none; }
     .nav-actions { gap: var(--space-1); }

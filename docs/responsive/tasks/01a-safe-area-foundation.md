@@ -1,6 +1,6 @@
 # Task 01a — Safe-area foundation (viewport-fit=cover + inset chrome)
 
-Status: not-started | Depends on: none | Rollback: — (not started)
+Status: in-progress — implementation landed 2026-10-29, validation evidence pending | Depends on: none | Rollback: revert the 01a code commit (additive CSS/meta + new script only)
 Split from: tasks/01-global-viewport-foundation.md on 2026-10-29T15:59:01-07:00
 
 ## Decision (this unblocks original task 01)

@@ -207,7 +207,7 @@ const csp = [
   <head>
     <meta charset="UTF-8" />
     <meta name="description" content={description} />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     {/*
       Preload the three latin variable faces so font-display: optional can
       apply them on first paint. A cold Chromium (CI, LHCI) otherwise keeps
@@ -500,13 +500,13 @@ const csp = [
   }
 
   .skip-link:focus {
-    inset-block-start: var(--space-2);
+    inset-block-start: calc(var(--space-2) + env(safe-area-inset-top, 0px));
   }
 
   .website-analytics-consent {
     position: fixed;
-    inset-inline-end: var(--space-page-inline);
-    inset-block-end: var(--space-page-inline);
+    inset-inline-end: calc(var(--space-page-inline) + env(safe-area-inset-right, 0px));
+    inset-block-end: calc(var(--space-page-inline) + env(safe-area-inset-bottom, 0px));
     z-index: 1000;
     display: flex;
     align-items: center;
