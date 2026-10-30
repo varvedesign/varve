@@ -109,6 +109,10 @@ describe('VARVE_URLS', () => {
 
   it('exposes the canonical contact and security-txt locations', () => {
     expect(VARVE_URLS.contact).toBe('https://varve.studio/contact');
+    expect(VARVE_URLS.feedback).toBe('https://varve.studio/feedback');
+    expect(VARVE_URLS.newIssueChoose).toBe(
+      'https://github.com/varvedesign/varve/issues/new/choose',
+    );
     expect(VARVE_URLS.securityTxt).toBe('https://varve.studio/.well-known/security.txt');
     expect(VARVE_URLS.changelog).toBe(
       'https://github.com/varvedesign/varve/blob/master/CHANGELOG.md',

@@ -4221,6 +4221,9 @@ dialog.varve-dialog--settings[open] {
   flex-direction: column;
   gap: var(--space-1);
 }
+.settings-about__links .contact-link {
+  align-items: center;
+}
 .settings-about__link {
   font-size: var(--font-size-sm);
   color: var(--color-interactive-default);
