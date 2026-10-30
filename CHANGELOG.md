@@ -12,6 +12,13 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+### Changed
+
+- **Contribution lanes**: docs and examples, translations, plugins in a
+  contributor's own repository, testing and device reports, and the nine MIT
+  OR Apache-2.0 libraries are open. App code stays maintainer-only. CLA terms
+  are replaced by DCO 1.1 sign-off under the licence of the files you change.
+
 ### Security
 
 - Vulnerability reports now have stated response times, a `security.txt`

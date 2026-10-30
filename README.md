@@ -425,13 +425,11 @@ Security vulnerabilities: report privately per <a href="SECURITY.md">SECURITY.md
 
 ## Contributing
 
-External code contributions are temporarily paused while the project
-stabilizes its build, release, and documentation foundations. See
-[CONTRIBUTING.md](CONTRIBUTING.md) and the [current contributor guide](docs/development/contributing.md)
-for the status and future PR workflow. Bug reports, feature ideas, testing,
-documentation, and design feedback are welcome now via
-[Issues](https://github.com/varvedesign/varve/issues) and
-[Discussions](https://github.com/varvedesign/varve/discussions).
+Contributions are open for docs and examples, translations, plugins in your
+own repository, testing and device reports, and the nine MIT OR Apache-2.0
+libraries. App code remains maintainer-only for now. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the lanes and sign-off process. Ideas
+for app changes are welcome in [Discussions](https://github.com/varvedesign/varve/discussions).
 
 ## Security
 

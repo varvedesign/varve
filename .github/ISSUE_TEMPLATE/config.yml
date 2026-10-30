@@ -1,8 +1,14 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
+  - name: Questions and answers
+    url: https://github.com/varvedesign/varve/discussions/categories/q-a
+    about: Ask questions and get help from the community.
+  - name: Show and tell
+    url: https://github.com/varvedesign/varve/discussions/categories/show-and-tell
+    about: Share what you made with Varve.
   - name: Security vulnerability
-    url: https://github.com/varvedesign/varve/security/advisories
-    about: Report vulnerabilities privately by GitHub advisory or email security@varve.studio. Do not open a public issue. See SECURITY.md.
-  - name: Questions and discussion
-    url: https://github.com/varvedesign/varve/discussions
-    about: Q&A, ideas, and show-and-tell that aren't a bug report or a concrete feature request.
+    url: https://github.com/varvedesign/varve/blob/master/SECURITY.md
+    about: Report vulnerabilities privately using the process in SECURITY.md.
+  - name: Product feedback
+    url: mailto:feedback@varve.studio
+    about: Send private product feedback.

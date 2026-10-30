@@ -1,0 +1,16 @@
+name: Documentation issue
+description: Report a problem with Varve documentation.
+labels: ["type: docs", "lane: docs"]
+body:
+  - type: input
+    id: page-url
+    attributes:
+      label: Page URL
+    validations:
+      required: true
+  - type: textarea
+    id: what-is-wrong
+    attributes:
+      label: What is wrong?
+    validations:
+      required: true
