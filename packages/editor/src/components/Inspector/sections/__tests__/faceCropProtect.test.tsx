@@ -2,6 +2,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { notifyAiFeaturesSettingsChanged } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../context', () => {
@@ -55,12 +56,16 @@ function analysis(faces: Array<{ id: string; confidence: number }>) {
   };
 }
 
-vi.mock('@varve/engine', () => ({
-  getModelLoader: () => ({
-    isModelAvailable: mockIsModelAvailable,
-    downloadModel: mockDownloadModel,
-  }),
-}));
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
+  return {
+    ...actual,
+    getModelLoader: () => ({
+      isModelAvailable: mockIsModelAvailable,
+      downloadModel: mockDownloadModel,
+    }),
+  };
+});
 
 vi.mock('@varve/scene', () => ({
   isImageShape: () => true,
@@ -161,6 +166,7 @@ function makeImageNode() {
 
 describe('ImageCropSection - Protect Faces', () => {
   beforeEach(() => {
+    localStorage.clear();
     mockApplyFaceAwareCrop.mockReset();
     mockOpenCafDialog.mockReset();
     mockAnalyzeFaceAwareCrop.mockReset();
@@ -282,6 +288,7 @@ describe('ImageCropSection - Protect Faces', () => {
 
   it('hides face-detect crop when AI features are off', () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
     render(<ImageCropSection nodes={[makeImageNode()]} />);
     expect(screen.queryByRole('button', { name: /detect faces/i })).toBeNull();
     expect(

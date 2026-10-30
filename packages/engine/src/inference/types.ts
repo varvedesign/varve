@@ -208,6 +208,8 @@ export interface ModelComponentEntry {
   sizeBytes: number;
   remoteUrl?: string;
   checksum?: string;
+  /** Alias used by some manifest components; the downloader must read this too. */
+  sha256?: string | null;
   /** SHA-256 of the file exactly as served upstream (pre-repair). */
   upstreamChecksum?: string;
   /** Optional post-download transform; see ModelManifestEntry.repair. */

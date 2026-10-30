@@ -17,6 +17,7 @@ import {
   preprocessSemanticInput,
   type SemanticResizeSpec,
 } from '../semanticSimilarity/preprocess';
+import { applyWorkerAiGate } from './aiFeaturesGate';
 import { createOrtRuntimeLoader } from './core/ortRuntime';
 import { createSessionWithTimeout, SessionCleanupFailedError } from './core/sessionCreation';
 import type { TensorSpec } from './imageTensor';
@@ -144,6 +145,8 @@ export interface WorkerInferRequest {
   sessionPeakBytes?: number;
   /** Host-resolved artifact/runtime identity shared with the session registry. */
   sessionIdentity?: WorkerSessionIdentity;
+  /** Main-thread snapshot of the AI master switch. Omitted means refuse. */
+  aiEnabled?: boolean;
 }
 
 export interface WorkerInferTimings {
@@ -946,11 +949,13 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     externalData,
     sessionPeakBytes,
     sessionIdentity,
+    aiEnabled,
   } = data;
 
   let runHeld = false;
   let runCacheKey: string | null = null;
   try {
+    applyWorkerAiGate(aiEnabled);
     const modelPre = modelRegistry.get(modelType);
     if (!modelPre) {
       throw new Error(`Unknown model type: ${modelType}`);

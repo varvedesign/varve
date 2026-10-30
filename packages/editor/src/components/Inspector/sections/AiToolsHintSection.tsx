@@ -9,16 +9,19 @@
 import { Button } from '@varve/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
+import { useAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
 import { workspaceShortcutLabel } from '../../../workspace/workspaceShortcutLabel';
 import { WORKSPACE_LABELS } from '../../../workspace/workspaceTypes';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 export function AiToolsHintSection() {
+  const aiEnabled = useAiFeaturesEnabled();
   const { requestWorkspaceSwitch } = useEditor();
-
   const handleSwitch = useCallback(() => {
     requestWorkspaceSwitch('image');
   }, [requestWorkspaceSwitch]);
+
+  if (!aiEnabled) return null;
 
   const label = WORKSPACE_LABELS.image;
   const shortcut = workspaceShortcutLabel('image');
