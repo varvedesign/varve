@@ -13,8 +13,8 @@ import { preflightCommands } from './ci-preflight.mjs';
 import { laneArgv } from './validation-lanes.mjs';
 import {
   CI_CATEGORIES,
-  FULL_BROWSER_SHARDS,
   deriveCiCategories,
+  FULL_BROWSER_SHARDS,
   libraryLane,
   promisedLanesForCategories,
   selectedCiLanes,
@@ -90,8 +90,16 @@ assert.deepEqual(libraryLane(['crates/varve-wasm/src/lib.rs']), {
 });
 assert.deepEqual(libraryLane([]), { selected: false, packages: [] });
 const cargoChangeCategories = {
-  pipeline: true, js: false, rust: true, wasm: true, website: false,
-  e2e: false, visual: false, desktop: true, models: false, bench: false,
+  pipeline: true,
+  js: false,
+  rust: true,
+  wasm: true,
+  website: false,
+  e2e: false,
+  visual: false,
+  desktop: true,
+  models: false,
+  bench: false,
 };
 const cargoChangeLanes = selectedCiLanes(
   { tiers: {}, rootCargoChanged: true },
@@ -122,7 +130,10 @@ try {
       other: [],
       app: [],
     },
-    directE2eFiles: [], e2eDomains: [], benchDomains: [], full: false,
+    directE2eFiles: [],
+    e2eDomains: [],
+    benchDomains: [],
+    full: false,
     stats: { jsPackages: [], rustCrates: [] },
   });
   mkdirSync(join(laneRoot, 'crates/varve-core/src'), { recursive: true });
@@ -136,7 +147,10 @@ try {
   git('commit', '-qm', 'library change');
   const libraryHead = git('rev-parse', 'HEAD');
   const libraryPlan = buildCiPlan({
-    base, head: libraryHead, root: laneRoot, planner: plannerFor,
+    base,
+    head: libraryHead,
+    root: laneRoot,
+    planner: plannerFor,
   });
   assert.equal(libraryPlan.libraryOnly, true);
   assert.deepEqual(libraryPlan.libraryPackages, ['varve-media']);
@@ -146,7 +160,12 @@ try {
   git('add', '.');
   git('commit', '-qm', 'root lock change');
   const lockHead = git('rev-parse', 'HEAD');
-  const lockPlan = buildCiPlan({ base: libraryHead, head: lockHead, root: laneRoot, planner: plannerFor });
+  const lockPlan = buildCiPlan({
+    base: libraryHead,
+    head: lockHead,
+    root: laneRoot,
+    planner: plannerFor,
+  });
   assert.equal(lockPlan.libraryOnly, false, 'Cargo.lock does not select library-only lane');
   assert.deepEqual(lockPlan.libraryPackages, []);
   assert.equal(lockPlan.categories.rust, true);

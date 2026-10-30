@@ -852,7 +852,10 @@ assert.deepEqual(
   assert.match(libraryCi, /cargo test -p .* --locked/);
   assert.match(libraryCi, /cargo check --workspace --locked/);
   assert.match(libraryCi, /cargo test --workspace --locked/);
-  assert.match(libraryCi, /cargo check --manifest-path apps\/desktop\/src-tauri\/Cargo\.toml --locked/);
+  assert.match(
+    libraryCi,
+    /cargo check --manifest-path apps\/desktop\/src-tauri\/Cargo\.toml --locked/,
+  );
   assert.match(libraryCi, /persist-credentials: false/);
   const release = fs.readFileSync('.github/workflows/release.yml', 'utf-8');
   assert.match(
