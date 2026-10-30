@@ -16,11 +16,48 @@
     "settings": {
       "type": "object",
       "properties": {
-        "updates": { "type": "object", "properties": { "check": { "type": "boolean" } }, "additionalProperties": true },
-        "ai": { "type": "object", "properties": { "enabled": { "enum": ["on", "off", "user"] }, "modelDownloads": { "type": "boolean" }, "localModelDir": { "type": "string", "minLength": 1 } }, "additionalProperties": true },
-        "network": { "type": "object", "properties": { "allowedHosts": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[^:/\\s]+$" }, "uniqueItems": true }, "offline": { "type": "boolean" } }, "additionalProperties": true },
-        "crashReports": { "type": "object", "properties": { "localOnly": { "const": true } }, "additionalProperties": true },
-        "ui": { "type": "object", "properties": { "lockedSettings": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true } }, "additionalProperties": true },
+        "updates": {
+          "type": "object",
+          "properties": { "check": { "type": "boolean" } },
+          "additionalProperties": true
+        },
+        "ai": {
+          "type": "object",
+          "properties": {
+            "enabled": { "enum": ["on", "off", "user"] },
+            "modelDownloads": { "type": "boolean" },
+            "localModelDir": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": true
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "allowedHosts": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1, "pattern": "^[^:/\\s]+$" },
+              "uniqueItems": true
+            },
+            "offline": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "crashReports": {
+          "type": "object",
+          "properties": { "localOnly": { "const": true } },
+          "additionalProperties": true
+        },
+        "ui": {
+          "type": "object",
+          "properties": {
+            "lockedSettings": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": true
+        },
         "x-varve-security": { "$ref": "#/$defs/security" },
         "_comment": { "type": "string" }
       },
