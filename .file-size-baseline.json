@@ -117,7 +117,6 @@
     "packages/editor/src/canvas/canvasSurface.ts": 495,
     "packages/editor/src/canvas/dirtyRegion.test.ts": 499,
     "packages/editor/src/canvas/dirtyRegion.ts": 666,
-    "packages/editor/src/canvas/inputPipeline.ts": 2780,
     "packages/editor/src/canvas/maskReplay.ts": 773,
     "packages/editor/src/canvas/overlayManager.tsx": 1378,
     "packages/editor/src/canvas/perfRuntime.ts": 960,
