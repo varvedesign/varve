@@ -118,7 +118,9 @@ async function main() {
       summary.passed +
       ' passed, ' +
       summary.failed.length +
-      ' failed; report ' +
+      ' failed, ' +
+      summary.skipped +
+      ' skipped; report ' +
       summary.reportPath,
   );
   process.exitCode = summary.failed.length === 0 ? 0 : 1;
