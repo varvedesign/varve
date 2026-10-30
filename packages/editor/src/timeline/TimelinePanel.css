@@ -390,11 +390,13 @@
    * enlarge inherited text. */
   font-size: var(--font-size-xs);
   /* One authority for the label column. position/z-index keep its launchers
-   * above the track row's absolutely-positioned keyframe dots: the 0% dot
-   * starts at the track's left edge and used to cover the solo button's centre
-   * (measured 2026-10-29 at 1024/1180/1366 fine and 1024 coarse). */
+   * above the track row's absolutely-positioned keyframe dots: the 0% dot's
+   * 28px hit region starts at the track's left edge and covered the solo
+   * button's right half. The keyframe uses z-index 1 (2 while dragging), and
+   * an equal z-index loses on DOM order because the track is later, so the
+   * label needs to sit above both. */
   position: relative;
-  z-index: 1;
+  z-index: 3;
 }
 
 .timeline-track-row__label-header {
