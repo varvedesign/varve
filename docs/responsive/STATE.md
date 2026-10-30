@@ -1,6 +1,6 @@
 # Responsive Adaptation — State
 
-Last updated: 2026-10-29T18:20:00-07:00 | Last commit: 92bafa377 (final evidence + completion record)
+Last updated: 2026-10-29T17:45:00-07:00 | Last commit: 4a8f9cf79 (03b fix commit is next)
 
 | # | Task | Status | Commit | Next action / Blocker |
 |---|---|---|---|---|
@@ -8,7 +8,7 @@ Last updated: 2026-10-29T18:20:00-07:00 | Last commit: 92bafa377 (final evidence
 | 01b | breakpoint constants (JS literals) | deferred | — | No user-visible defect; no session window left. Module split specified in tasks/01b-breakpoint-constants.md; start there when a spare session exists. |
 | 02 | compact header containment | done | 59bd283a9 | — (regression spec 2/2 pass; context bar scrolls, Share on-screen at 320–899) |
 | 03a | timeline dense data (single label authority, hit targets, docked controls) | done | b7ec4c832 + ad39db84a + 39e9be06e | — verified independently by repro-broker: label 120px/13px/27px in a 28px row, solo+mute centres hit their own buttons, panel scroll locked, playback controls scroller reachable. Residual: mute/solo effective boxes 16-19x23 (see 03b). Evidence: screenshots/39e9be06e/timeline/. |
-| 03b | layers/inspector dense targets + mute/solo target size | deferred | — | Reproduced: at container <=260px (incl. 1180 docked) layers solo/details are display:none for both pointer types, so touch loses solo; disclosure/eye/lock are 24x24 elsewhere; timeline mute/solo effective hit boxes 16-19x23 (centres reachable, below the 24px floor). Recipe + numbers in audit.md D3 and .tmp-resp-repro (gitignored); fix per-panel container query and re-measure. |
+| 03b | layers/inspector dense targets + mute/solo target size | in-progress | — (fix commit this session) | Landed: layers solo/details fallback moved from container <=260px to <=220px (the documented 180px minimum), so the 259.6px docked 1180 presentation keeps Solo/Details; timeline mute/solo boxes are now 24x24 (row height unchanged). Re-measure + evidence next. |
 | 04a | Colorize dialog phone fit | done | bf3ef53bc | — NO DEFECT: cited dialog CSS was dead (zero consumers); real inspector section overflow-free and hittable at 375/320. Removed the 9 dead rules. Evidence: screenshots/bf3ef53bc/colorize/. |
 | 04b | remaining dialog 2-column grids | deferred | — | Dead-floor defect was 04a; real dialog grids (ContentAwareFill etc.) were not reproduced at phone width; split per family when reproduced (task file has the list). |
 | 05 | grids and landing reflow | deferred | — | No defect reproduced in the bounded audit; re-open only with a screenshot. |
