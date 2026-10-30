@@ -1,6 +1,6 @@
 # Responsive Adaptation — State
 
-Last updated: 2026-10-29T18:55:00-07:00 | Last commit: 1009de823 (final evidence commit for 03b is next on master)
+Last updated: 2026-10-29T19:05:00-07:00 | Last commit: 999823d15 (03b evidence + completion record)
 
 | # | Task | Status | Commit | Next action / Blocker |
 |---|---|---|---|---|
@@ -107,8 +107,9 @@ Last updated: 2026-10-29T18:55:00-07:00 | Last commit: 1009de823 (final evidence
 implementation, committed visual validation, independent reviews, completion
 record. Code HEAD 1009de823 fixes D1/D2/D3-timeline/D3-layers-targets/D5/D6;
 D4 was dead CSS and was removed. Fourteen campaign commits; three tasks
-deferred with reasons (01b, 04b, 05). The final evidence commit (this file,
-COMPLETION.md, screenshots/1009de823) immediately follows this HEAD.
+deferred with reasons (01b, 04b, 05). The final evidence + completion commit
+(this file, COMPLETION.md, screenshots/1009de823) is 999823d15; code HEAD is
+1009de823.
 
 **Mid-flight.** Nothing: every code and evidence change is committed on master.
 
