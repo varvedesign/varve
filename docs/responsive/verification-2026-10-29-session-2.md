@@ -13,7 +13,7 @@ changed in this session; every product commit in the campaign predates it.
 | 757e304be | R1 harness split: scripts/responsive/server.mjs (146 lines, server lifecycle) and scripts/responsive/editorProbe.mjs (201, serialized editor probes); validate-responsive.mjs 400 -> 287, capture.mjs 400 -> 207 | editor matrix PASS 112/112 (assertions only) |
 | 441bf1127 | Dense-data probe: scripts/responsive/dense-data.mjs + dense/{config,scene,measure,assert,report}.mjs + pnpm validate:dense; replaces the scratch .tmp-resp-repro probe | assertions-only PASS 121/121 |
 | 8adaf3377 | R1 follow-up: ROOT resolution fix after the module move (website dist and default evidence dir resolved under scripts/) | full matrix PASS 152/152 (assertions only) |
-| evidence commit | This record + STATE/COMPLETION/task updates + screenshots/8adaf3377/ | see section 2 |
+| a0ff6f78a | This record + STATE/COMPLETION/task updates + screenshots/8adaf3377/ | see section 2 |
 
 ## 2. Final validation at code HEAD 8adaf3377 (committed evidence)
 
