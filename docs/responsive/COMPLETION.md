@@ -63,7 +63,9 @@ committed evidence; four tasks are explicitly deferred with reasons.
   their own JS and can sit under a landscape notch.
 - Review finding R1: `scripts/validate-responsive.mjs` orchestrator split is
   still queued; the new safe-area harness lives in its own modules to avoid the
-  400-line cap.
+  400-line cap. The task-03a dense-data probe is scratch (.tmp-resp-repro,
+  gitignored); its numbers are committed but a compact re-runnable script is a
+  follow-up.
 - Existing prior-session items O1–O8 in `audit.md` remain open and are out of
   this campaign's changed files.
 

@@ -1,6 +1,6 @@
 # Responsive Adaptation — State
 
-Last updated: 2026-10-29T18:05:00-07:00 | Last commit: 39e9be06e (final evidence commit is the next commit on master)
+Last updated: 2026-10-29T18:20:00-07:00 | Last commit: 92bafa377 (final evidence + completion record)
 
 | # | Task | Status | Commit | Next action / Blocker |
 |---|---|---|---|---|
@@ -91,6 +91,10 @@ Last updated: 2026-10-29T18:05:00-07:00 | Last commit: 39e9be06e (final evidence
 6. **R1** — `scripts/validate-responsive.mjs` orchestrator function split is
    still queued (its two modules sit at the 400-line cap).
 7. Prior-session items O1–O8 in audit.md remain open/out of scope.
+8. The task-03a dense-data verification probe is repro-broker scratch in
+   .tmp-resp-repro (gitignored); committed JSON is the evidence, but a compact
+   re-runnable script should be added under scripts/responsive/ next session
+   (keep it under the 400-line cap).
 
 ## Handoff (final, 2026-10-29)
 
@@ -100,8 +104,8 @@ completion record. Fixed D1/D2/D5/D6 and D3-timeline; D4 was dead CSS and was
 removed. The final tree is shippable on desktop, 13–14in, tablet and phone.
 
 **Mid-flight.** Nothing: every code and evidence change is committed on
-master; the final evidence commit (this file, COMPLETION.md, screenshots
-39e9be06e + timeline/colorize evidence) immediately follows this HEAD.
+master. Code HEAD is 39e9be06e (the validated commit); the final evidence +
+completion commit is 92bafa377.
 
 **Known-broken.** Nothing introduced. The known limitations are listed above
 (real-device evidence, muted residual target size, 03b/04b/01b/05 deferrals);
