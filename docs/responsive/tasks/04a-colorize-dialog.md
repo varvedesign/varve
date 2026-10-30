@@ -1,6 +1,6 @@
 # Task 04a — Colorize dialog phone fit
 
-Status: done — NO DEFECT; dead-CSS cleanup only | Depends on: 02 (done) | Rollback: revert the 04a cleanup commit (restores dead rules; no behavior change)
+Status: done (bf3ef53bc) — NO DEFECT; dead-CSS cleanup only | Depends on: 02 (done) | Rollback: revert bf3ef53bc (restores dead rules; no behavior change)
 Split from: tasks/04-forms-and-modals.md on 2026-10-29T15:59:01-07:00
 
 ## Scope

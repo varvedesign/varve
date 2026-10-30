@@ -1,6 +1,6 @@
 # Task 01b — Breakpoint constants (JS matchMedia values)
 
-Status: not-started | Depends on: none | Rollback: — (not started)
+Status: deferred — no user-visible defect and no remaining session window; the module split is ready to execute in a spare session (see this file) | Depends on: none | Rollback: — (not started)
 Split from: tasks/01-global-viewport-foundation.md on 2026-10-29T15:59:01-07:00
 
 ## Scope

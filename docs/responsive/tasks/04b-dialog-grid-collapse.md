@@ -1,6 +1,6 @@
 # Task 04b — Remaining dialog form-grid collapse
 
-Status: not-started | Depends on: 04a | Rollback: — (not started)
+Status: deferred — the cited fixed-floor defect was dead CSS (removed in 04a); real dialog 2-column grids were not reproduced at phone width in this campaign and each family needs its own reproduction first. | Depends on: 04a (done) | Rollback: — (not started)
 Split from: tasks/04-forms-and-modals.md on 2026-10-29T15:59:01-07:00
 
 ## Scope

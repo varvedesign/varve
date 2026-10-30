@@ -99,6 +99,15 @@ but coarse-visible; at container width <=260px solo and details are
 display:none for both pointer types (touch loses solo at the 1180 docked
 presentation). These are the task 03a/03b reproduced defects.
 
+Task 03a fixed (verified independently on the final SHA, evidence under
+docs/responsive/screenshots/39e9be06e/timeline/): one label authority (120px,
+13px, 27px tall inside the 28px row, not clipped), solo/mute centres hit their
+own buttons, panel content cannot programmatically scroll, and the docked
+playback-controls row owns a real horizontal scroller (48-50px overflow
+reachable). Carried residual: mute/solo effective hit boxes measure 16-19x23
+(centres reachable but below the 24x24 SC 2.5.8 floor) — queue with task 03b.
+Layers <=260px solo/details loss (03b) remains deferred.
+
 ### D4 — Fixed dialog floor wider than a phone — DEAD CSS, NOT REPRODUCIBLE (task 04a, measured 2026-10-29)
 
 Colorize dialog body min-width: 420px (ColorizeSection.css:330; the audit-raw

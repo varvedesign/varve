@@ -1,6 +1,6 @@
 # Task 03b — Layers/inspector target and fixed-column defects
 
-Status: not-started | Depends on: 02 (done) | Rollback: — (not started)
+Status: deferred — defect reproduced but not patched this session; recipe + numbers in audit.md D3 and the repro evidence (layers solo/details display:none at container <=260px, incl. coarse at the 1180 docked presentation). Next session: per-panel container-query fix + re-measure. | Depends on: 02 (done) | Rollback: — (not started)
 Split from: tasks/03-tables-and-dense-data.md on 2026-10-29T15:59:01-07:00
 
 ## Scope

@@ -54,15 +54,15 @@ the authoritative status. Task files state their own rollback commit when done.
 
 | # | File | Purpose | Status |
 |---|---|---|---|
-| 01a | tasks/01a-safe-area-foundation.md | viewport-fit=cover + one shell inset + viewport-relative overlay geometry + site header/footer; CDP safe-area harness | not-started |
-| 01b | tasks/01b-breakpoint-constants.md | extract repeated JS matchMedia literals to one constant module | not-started |
+| 01a | tasks/01a-safe-area-foundation.md | viewport-fit=cover + one shell inset + viewport-relative overlay geometry + site header/footer; CDP safe-area harness | done (95f2b82a0, coverage 811d3519b) |
+| 01b | tasks/01b-breakpoint-constants.md | extract repeated JS matchMedia literals to one constant module | deferred (no user-visible defect; spare-session task) |
 | 02 | tasks/02-compact-header-containment.md | fix D1: context bar/Share clipping at 320–899 | done (59bd283a9) |
-| 03a | tasks/03a-timeline-dense-data.md | timeline row targets + duplicate 120/140px label authority | not-started |
-| 03b | tasks/03b-layers-inspector-targets.md | layers/inspector dense targets and grids (reproduced only) | not-started |
-| 04a | tasks/04a-colorize-dialog.md | Colorize dialog 420px floor → phone fit | not-started |
-| 04b | tasks/04b-dialog-grid-collapse.md | remaining dialog 2-column grids; split per family | not-started |
+| 03a | tasks/03a-timeline-dense-data.md | timeline row targets + duplicate 120/140px label authority | done (b7ec4c832, ad39db84a, 39e9be06e; verified independently) |
+| 03b | tasks/03b-layers-inspector-targets.md | layers/inspector dense targets and grids (reproduced only) | deferred (defect reproduced, fix next session) |
+| 04a | tasks/04a-colorize-dialog.md | Colorize dialog 420px floor → phone fit | done (bf3ef53bc — no defect; dead CSS removed) |
+| 04b | tasks/04b-dialog-grid-collapse.md | remaining dialog 2-column grids; split per family | deferred (real grids unreproduced) |
 | 05 | tasks/05-grids-and-reflows.md | Home/site grid ladders; deferred unless a defect is reproduced | deferred |
 | 06 | tasks/06-thirteen-inch-shell.md | Tauri window bounds + 13–14in coverage (D6/D7) | done (738c9a943, validated 7d81006e6) |
 | 07 | tasks/07-marketing-site.md | site tables, routes, nav breakpoint review (D5) | done (26e8dc5a6) |
 | 08 | tasks/08-docs-and-validation-harness.md | harness + committed screenshots + docs | done (7d81006e6 + artifact commit) |
-| 09 | tasks/09-final-validation-and-review.md | full matrix, desktop-equivalence diff, review gate | not-started |
+| 09 | tasks/09-final-validation-and-review.md | full matrix, desktop-equivalence diff, review gate | done (39e9be06e) |

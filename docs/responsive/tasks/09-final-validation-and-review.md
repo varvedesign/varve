@@ -1,6 +1,6 @@
 # Task 09 — Final validation and review gate
 
-Status: not-started | Depends on: 01, 03, 04 | Rollback: —
+Status: done (39e9be06e) | Depends on: 01a, 03a, 03b, 04a | Rollback: — (validation gate; no production change)
 
 ## Scope
 - whole repo (review), docs/responsive/STATE.md + COMPLETION.md
@@ -25,6 +25,20 @@ non-deferred task is done) and the final Handoff block.
 - Desktop screenshots are unchanged except for intended chrome deltas.
 - git log commit list matches the STATE.md table.
 
-## Size check
-One session, but only after 01/03/04 are done. It is the campaign gate, not a
-place to start implementation work.
+## Final gate record (2026-10-29, HEAD 39e9be06e)
+
+| Gate | Command | Result |
+|---|---|---|
+| Full responsive matrix | pnpm validate:responsive --app all --reuse-website-dist | PASS 152/152 checks, 41 screenshots (18,014,312 bytes) in docs/responsive/screenshots/39e9be06e/ |
+| Safe-area harness | pnpm validate:safe-area | PASS 134/134 checks, 0 skipped, 12 screenshots in docs/responsive/screenshots/39e9be06e/safe-area/ |
+| Deadline devices | matrix includes 13in-125pct 1093x614, 13in default 1180x720, 1180x820, 1366x1024, 1024x1366, 1440x900, 1512x982, 1536x864 | all PASS |
+| States with panel open | matrix captures layers-open frames at every viewport | PASS |
+| Desktop equivalence | 7d81006e6 vs final: 16/16 editor viewports within 1px shell registration; website 18/20 screenshots byte-identical, 2 differ only in animated regions (<0.6% AE) | accepted, documented in review round 2 |
+| Independent review | cdp-scout round 1 (blocker + coverage gaps) and round 2 (coverage gaps) — all findings fixed and re-verified; repro-broker verified task 03a/04a | resolved |
+| Timeline fix verification | repro-broker re-measured label authority/keyframe overlap/docked controls on the final SHA; evidence under screenshots/39e9be06e/timeline/ | verified (see task 03a) |
+| Docs / size / emoji | pnpm audit:docs, audit:filesize, audit:emoji | clean |
+| STATE accuracy | every done row has a commit in git log; deferred rows have reasons; no in-progress rows | verified |
+
+Deferred tasks: 01b (no user-visible defect), 03b (defect reproduced, fix
+queued), 04b (real dialog grids unreproduced), 05 (no defect reproduced).
+COMPLETION.md was written because every non-deferred task is done.
