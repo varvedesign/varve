@@ -58,6 +58,21 @@ const statusLabel = release.hasRelease && release.version
         <span class="footer-status-dot" aria-hidden="true"></span>
         {statusLabel}
       </p>
+      <a
+        class="footer-badge"
+        href="https://www.saashub.com/varve-studio?utm_source=badge&utm_campaign=badge&utm_content=varve-studio&badge_variant=color&badge_kind=approved"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <img
+          src={sitePath('/badges/saashub-approved.png')}
+          alt="Varve is approved on SaaSHub"
+          width="120"
+          height="40"
+          loading="lazy"
+          decoding="async"
+        />
+      </a>
     </div>
 
     <nav class="footer-columns" aria-label="Footer">
@@ -304,6 +319,30 @@ const statusLabel = release.hasRelease && release.version
     height: 7px;
     border-radius: 50%;
     background: var(--status-partial);
+  }
+
+  /* Third-party listing badge. Self-hosted from public/badges so the page
+     makes no request to SaaSHub; kept small and slightly muted so it reads
+     as a footnote, not a call to action. */
+  .footer-badge {
+    display: block;
+    width: fit-content;
+    margin-top: var(--space-4);
+    border-radius: var(--space-2);
+    opacity: 0.85;
+    transition: opacity 150ms ease;
+  }
+
+  .footer-badge:hover,
+  .footer-badge:focus-visible {
+    opacity: 1;
+  }
+
+  .footer-badge img {
+    display: block;
+    width: 120px;
+    max-width: 100%;
+    height: auto;
   }
 
   .footer-columns {
