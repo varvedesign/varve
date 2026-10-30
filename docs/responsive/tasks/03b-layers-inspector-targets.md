@@ -1,6 +1,6 @@
 # Task 03b — Layers/inspector target and fixed-column defects
 
-Status: in-progress — fix landed 2026-10-29, independent re-measurement pending | Depends on: 02 (done) | Rollback: revert the 03b commit (CSS-only)
+Status: done (1009de823) | Depends on: 02 (done) | Rollback: revert 1009de823, 358d9ae2c, b8ae12951 (CSS-only)
 Split from: tasks/03-tables-and-dense-data.md on 2026-10-29T15:59:01-07:00
 
 ## Scope
@@ -31,8 +31,33 @@ measurements and close with no code change.
   inspector-1180x820 (plus coarse variants) under
   docs/responsive/screenshots/<sha>/.
 
+## Verification (2026-10-29, HEAD 1009de823)
+
+Independent drawer-aware probe (repro-broker's scene/measurement recipe, re-run
+by the Lead; results + screenshots in
+docs/responsive/screenshots/1009de823/dense/):
+
+- Layers Solo at the 259.6px docked 1180 presentation: `soloAction` is now
+  `display:flex`, 24x24, hit-testable at rest and hover on fine and coarse
+  (was `display:none` for both pointer types). Details still yields at
+  <=260px by design (panel header + context menu remain the routes); at 1366
+  both details and solo are 24x24 hittable.
+- Layers row still fits: 239.6px row inside a 259.6px panel; document
+  scrollWidth == innerWidth at every run. At 1024x768 (drawer projection) solo
+  and details remain hover-revealed on fine pointer (width 0 at rest, 24x24 on
+  hover) — pre-existing design, unchanged.
+- Timeline mute/solo: boxes are now token-sized 24x24 and the keyframe no
+  longer out-stacks the label, so effective elementFromPoint extents are
+  28x26 (solo) and 26-27x26 (mute) with centre hits in all five runs (was
+  16-19x23); label remains 27px inside the 28px row and unclipped.
+- Residual carried: layers Solo effective width on coarse at 1180 measures
+  20x24 (centre reachable; row is 2.8px narrower than the last slot). Not a
+  lost action; noted rather than silently claimed perfect.
+
 ## Rollback
-Revert the task 03b commit; CSS-only.
+Revert 1009de823, 358d9ae2c then b8ae12951 (CSS-only; restores the <=260px
+Solo/Details fallback, 16px timeline mute/solo boxes, and equal label/keyframe
+z-index).
 
 ## Size check
 Fits one session (two panels, reproduced defects only).

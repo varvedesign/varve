@@ -104,9 +104,14 @@ docs/responsive/screenshots/39e9be06e/timeline/): one label authority (120px,
 13px, 27px tall inside the 28px row, not clipped), solo/mute centres hit their
 own buttons, panel content cannot programmatically scroll, and the docked
 playback-controls row owns a real horizontal scroller (48-50px overflow
-reachable). Carried residual: mute/solo effective hit boxes measure 16-19x23
-(centres reachable but below the 24x24 SC 2.5.8 floor) — queue with task 03b.
-Layers <=260px solo/details loss (03b) remains deferred.
+reachable). Task 03b then fixed the target-size and layers reachability subset:
+timeline mute/solo are 24px boxes whose effective hit extents measure 26-28x26
+(was 16-19x23, below the 24x24 SC 2.5.8 floor), and the Layers Solo/Details
+fallback now starts only at the documented 180px minimum (<=220px container)
+with Details yielding at <=260px, so the 259.6px docked 1180 presentation keeps
+the direct Solo action (hit-testable 24x24 fine; 20x24 coarse residual).
+Evidence: screenshots/1009de823/dense/. Inspector dense grids were not
+reproduced at phone width (nothing changed there; 04b).
 
 ### D4 — Fixed dialog floor wider than a phone — DEAD CSS, NOT REPRODUCIBLE (task 04a, measured 2026-10-29)
 
