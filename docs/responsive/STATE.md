@@ -1,23 +1,26 @@
 # Responsive Adaptation — State
 
-Last updated: 2026-10-29T19:05:00-07:00 | Last commit: 999823d15 (03b evidence + completion record)
+Last updated: 2026-10-29T18:45:00-07:00 | Last commit: 8adaf3377 (session-2 revalidation; this docs+evidence commit follows)
 
 | # | Task | Status | Commit | Next action / Blocker |
 |---|---|---|---|---|
-| 01a | safe-area foundation (viewport-fit=cover + shell inset + CDP validation harness) | done | 95f2b82a0 (+coverage 811d3519b) | — validate:safe-area 134/134, 0 skipped; 12 screenshots in screenshots/1009de823/safe-area/; review blocker fixed; site + editor covered. |
-| 01b | breakpoint constants (JS literals) | deferred | — | No user-visible defect; no session window left. Module split specified in tasks/01b-breakpoint-constants.md; start there when a spare session exists. |
-| 02 | compact header containment | done | 59bd283a9 | — (regression spec 2/2 pass; context bar scrolls, Share on-screen at 320–899) |
-| 03a | timeline dense data (single label authority, hit targets, docked controls) | done | b7ec4c832 + ad39db84a + 39e9be06e | — verified independently: label 120px/13px/27px in a 28px row, solo+mute centres hit their own buttons, panel scroll locked, playback scroller reachable. Target size completed under 03b. Evidence: screenshots/39e9be06e/timeline/. |
-| 03b | layers/action reachability + timeline target size | done | b8ae12951 + 358d9ae2c + 1009de823 | — verified: Layers Solo is display:flex 24x24 hit-testable at the 259.6px docked 1180 presentation (Details yields there by design, panel-header/context-menu alternatives); timeline mute/solo effective extents 26–28x26 (was 16–19x23). Residual: layers Solo coarse effective width 20px at that presentation. Evidence: screenshots/1009de823/dense/. |
-| 04a | Colorize dialog phone fit | done | bf3ef53bc | — NO DEFECT: cited dialog CSS was dead (zero consumers); real inspector section overflow-free and hittable at 375/320. Removed the 9 dead rules. Evidence: screenshots/bf3ef53bc/colorize/. |
-| 04b | remaining dialog 2-column grids | deferred | — | Dead-floor defect was 04a; real dialog grids (ContentAwareFill etc.) were not reproduced at phone width; split per family when reproduced (task file has the list). |
-| 05 | grids and landing reflow | deferred | — | No defect reproduced in the bounded audit; re-open only with a screenshot. |
-| 06 | 13–14in shell/window geometry | done | 738c9a943 | — (Tauri default 1180x720 + center + min 480x400; harness PASS at 1180x720 and 1093x614) |
-| 07 | marketing site dense tables | done | 26e8dc5a6 | — (license/perf tables in .scroll-x regions; 20/20 route-viewport checks pass) |
-| 08 | documentation + committed validation harness | done | 7d81006e6 | — (validate:responsive; carried finding R1: orchestrator split) |
-| 09 | final validation and review gate | done | 1009de823 | — final matrix 152/152 + safe-area 134/134 committed at 1009de823; 03b re-verified; audits clean; see COMPLETION.md |
+| 01a | safe-area foundation (viewport-fit=cover + shell inset + CDP validation harness) | done | 95f2b82a0 (+coverage 811d3519b) | — validate:safe-area 134/134, 0 skipped; 10 PNG (12 files incl. reports) in screenshots/8adaf3377/safe-area/; re-run clean in session 2. |
+| 01b | breakpoint constants (JS matchMedia literals) | deferred | — | Session-2 recon: 5 files / 10 matchMedia sites (899) + 1 numeric comparison; 4 of 5 involved files frozen >400 lines; --bp-* tokens generated + unconsumed; no user-visible defect. Details in tasks/01b. |
+| 02 | compact header containment | done | 59bd283a9 | — regression spec 2/2; context bar scrolls, Share on-screen at 320–899; matrix re-run clean at 8adaf3377. |
+| 03a | timeline dense data (single label authority, hit targets, docked controls) | done | b7ec4c832 + ad39db84a + 39e9be06e | — re-verified by the new committed probe at 8adaf3377 (121/121). |
+| 03b | layers/action reachability + timeline target size | done | b8ae12951 + 358d9ae2c + 1009de823 | — probe re-run at 8adaf3377: panel 259.6/288/273.9/320, label 120x27, mute 26–27x26, solo 28x26, doc no overflow; coarse-1180 Solo residual 20x24 documented. |
+| 04a | Colorize dialog phone fit | done | bf3ef53bc | — no defect; dead CSS removed. |
+| 04b | remaining dialog 2-column grids | deferred | — | Session-2 recon: citations drifted; only ContentAwareFill is a real dialog and its grids sit in a fixed 260px rail at every viewport. Real follow-up = CAF dialog shell at <=480px (recipe in tasks/04b). |
+| 05 | grids and landing reflow | deferred | — | No defect reproduced by 152 matrix checks or review; re-open only with a screenshot. |
+| 06 | 13–14in shell/window geometry | done | 738c9a943 | — Tauri 1180x720 / min 480x400 / centered; harness PASS at 1180x720 and 1093x614. |
+| 07 | marketing site dense tables | done | 26e8dc5a6 | — license/perf tables in .scroll-x regions; 20/20 route-viewport pairs PASS at 8adaf3377. |
+| 08 | documentation + committed validation harness | done | 7d81006e6 + 757e304be/8adaf3377 (R1) + 441bf1127 (dense) | — validate:responsive/safe-area/dense all committed and re-runnable. |
+| 09 | final validation and review gate | done | 1009de823 (first gate) + session-2 re-gate at 8adaf3377 | — matrix 152/152, safe-area 134/134, dense 121/121; evidence under screenshots/8adaf3377/. |
+| 10 | notch-safe floating overlay geometry | deferred | — | Implementation recipe in tasks/10-notch-overlay-geometry.md (10a product geometry + 10b CDP harness probe). No JS reads env(safe-area-inset-*). |
+| 11 | dense-data re-runnable probe (open item 6) | done | 441bf1127 | — `pnpm validate:dense`; PASS 121/121 at 8adaf3377, evidence in screenshots/8adaf3377/dense/. |
+| 12 | R1 harness function/module split (review finding) | done | 757e304be + 8adaf3377 | — validate-responsive 287, capture 207, server 146, editorProbe 201 lines; full matrix green. |
 
-## Campaign commits (oldest → newest, this campaign)
+## Campaign commits (oldest → newest)
 
 | Commit | Summary |
 |---|---|
@@ -33,111 +36,103 @@ Last updated: 2026-10-29T19:05:00-07:00 | Last commit: 999823d15 (03b evidence +
 | 4c79f66dd | 01a evidence (124 safe-area + 152 matrix screenshots) |
 | b7ec4c832 | 03a timeline: one label authority, keyframe overlap fix |
 | bf3ef53bc | 04a dead Colorize CSS removal |
-| 811d3519b | 01a coverage-gap closure (exact tablet deltas, both-orientation exit-focus) |
-| ad39db84a | 03a follow-up: docked playback-controls scroller (superseded by 39e9be06e) |
+| 811d3519b | 01a coverage-gap closure |
+| ad39db84a | 03a follow-up: docked playback-controls scroller |
 | 39e9be06e | 03a follow-up 2: keep select shrink under the playback scroller |
 | 4a8f9cf79 | chore: report skipped checks in safe-area harness summary |
 | b8ae12951 | 03b first pass: layers fallback threshold + 24px timeline targets |
 | 358d9ae2c | 03b follow-up: details yield at 260, solo at 220; unclip label box |
-| 1009de823 | 03b follow-up 2: label stacks above keyframe hit regions (FINAL CODE HEAD) |
+| 1009de823 | 03b follow-up 2: label stacks above keyframe hit regions (first-gate code HEAD) |
+| 92bafa377 | first-gate final matrix + completion record |
+| 999823d15 | first-gate evidence commit (03b) |
+| 757e304be | R1: harness server lifecycle + editor probes extracted into modules |
+| 441bf1127 | dense-data probe (replaces scratch .tmp-resp-repro) + validate:dense |
+| 8adaf3377 | R1 follow-up: ROOT resolution fix after the move (FINAL CODE HEAD) |
 
 ## Decisions
 
-1. Safe-area validation (task 01 blocker) resolved with CDP emulation:
-   Playwright 1.62.1 / Chromium 151 supports
-   Emulation.setSafeAreaInsetsOverride with nested insets; real-device evidence
-   remains the manual checklist in docs/responsive/device-checklist.md.
-   Independently reproduced by cdp-scout and the Lead.
-2. Harness placement: the old matrix orchestrator is at the 400-line cap with
-   R1 open, so safe-area assertions live in new modules and a new
-   validate:safe-area script; the orchestrator was not edited.
-3. Colorize 04a: the cited 420px floor was dead CSS, so the task closes
-   no-defect and deletes the dead rules instead of adding a capped floor.
-4. Review-driven coverage: tablet launcher inset terms are proven by exact
-   with-insets-vs-cleared deltas (not floor checks), exit-focus is measured in
-   both orientations, and skipped checks are reported separately.
-5. Layers fallback belongs to the documented 180px minimum (220px container),
-   not every rail under 260px; Details yields at 260px because it has
-   panel-header/context-menu alternatives and frees the slot Solo needs.
+1. Safe-area validation resolved with CDP emulation (Playwright 1.62.1 / Chromium 151, Emulation.setSafeAreaInsetsOverride); real-device evidence remains the manual checklist.
+2. Harness placement: old matrix orchestrator at the 400-line cap with R1 open, so safe-area assertions live in new modules and a new validate:safe-area script.
+3. Colorize 04a: the cited 420px floor was dead CSS, so the task closes no-defect and deletes the dead rules.
+4. Review-driven coverage: tablet launcher insets proven by exact with-insets-vs-cleared deltas; exit-focus measured in both orientations; skipped checks reported separately.
+5. Layers fallback belongs to the documented 180px minimum (220px container), not every rail under 260px; Details yields at 260px (panel header + context menu remain).
+6. Session-2: completion claims were re-audited against git and corrected where stale (safe-area screenshot count, desktop-equivalence ratio, tasks/09 header). Docs now match the committed evidence.
+7. Session-2: 04b and 01b are re-deferred after bounded recon; their citations were drifted and the cited failures are not viewport-dependent or frozen-file-trapped. Notch overlays are deferred with a concrete two-commit recipe (tasks/10).
+8. Session-2: evidence is anchored to code HEAD 8adaf3377; product code is unchanged since 1009de823 (only harness scripts and docs changed), and the re-run matches the prior geometry within animated-region tolerance.
 
-## Validation receipts (final, 2026-10-29)
+## Validation receipts (final, 2026-10-29 session 2)
 
-- validate:responsive --app all --reuse-website-dist on 1009de823 — PASS 152/152
-  checks, 41 screenshots (17,962,619 bytes) in
-  docs/responsive/screenshots/1009de823/. Includes 1180x820, 1366x1024,
-  1024x1366, 1366x768, 1280x800, 1440x900, 1512x982, 1536x864 and the
-  layers-open frame at every viewport.
-- validate:safe-area — PASS 134/134, 0 failed, 0 skipped; 12 screenshots in
-  screenshots/1009de823/safe-area/ (portrait + landscape phones, forced tablet
-  >=900 standard/mirrored with exact inset deltas, exit-focus both
-  orientations, env()=0 desktop baseline, served site build).
-- Task 03b verification — drawer-aware probe at 1180x820 / 1366x1024 / 1024x768
-  fine + coarse: layers Solo display:flex 24x24 hit-testable at 1180 (was
-  display:none); timeline mute/solo effective 26–28x26 (was 16–19x23); label
-  27/28px; no document overflow. Evidence: screenshots/1009de823/dense/.
-- Desktop equivalence vs 7d81006e6: 16/16 editor viewports within 1px shell
-  registration (uniform capture offset, no layout delta); website 18/20
-  screenshots byte-identical, 2 differ only in animated regions (<0.6% AE).
-- Independent reviews: cdp-scout rounds 1–2 (cascade blocker + vacuity gaps)
-  fixed and re-verified; repro-broker verified tasks 03a/04a and the 03b
-  probe recipe was re-run by the Lead.
-- Audits: audit:docs, audit:emoji, audit:filesize, biome clean on the changed
-  set; agent map regenerated each commit.
+- `validate:responsive --app all --reuse-website-dist` on 8adaf3377 — PASS
+  152/152 checks, 0 failed, 41 PNGs (18,029,601 bytes) in
+  screenshots/8adaf3377/ (16 editor viewports incl. 1093x614, 1180x720,
+  1180x820, 1366x1024, 1024x1366, 1440x900, 1512x982, 1536x864 + layers-open
+  frames; 20 site route-viewport pairs).
+- `validate:safe-area` — PASS 134/134, 0 failed, 0 skipped, 10 PNGs (12 files)
+  in screenshots/8adaf3377/safe-area/.
+- `validate:dense` — PASS 121/121, 0 failed, 10 PNGs (12 files) in
+  screenshots/8adaf3377/dense/.
+- Desktop equivalence vs 1009de823: editor 20/21 byte-identical (desktop-1536x864
+  AE 0.33%); website 18/20 byte-identical (product-375x800 AE 0.17%,
+  home-1366x900 AE 0.019%) — all within the <0.6% animated-region tolerance.
+- Drift checks on a3796c0ba (assertions only): matrix 152/152, safe-area
+  134/134, dense 121/121.
+- Audits: audit:docs, audit:emoji, audit:filesize clean; biome exit 0 on the
+  campaign-touched set.
+- Independent auditor (read-only) re-checked task rows vs git, evidence dirs and
+  audits: PASS except the stale doc counts, fixed in this commit.
 
 ## Open items / carried risks
 
-1. Packaged Tauri window-manager clamping (task 06 config geometry is validated;
-   needs a packaged run).
-2. Real iOS/device evidence — docs/responsive/device-checklist.md is still
-   unchecked; no iOS/iPadOS/Android/screen-reader run.
-3. Layers Solo coarse effective hit box is 20x24 at the 259.6px docked 1180
-   presentation (centre reachable; row ~2.8px narrower than the last slot).
-4. Transient overlays — spotlight tooltip and floating-layer portals are
-   JS-positioned and can sit under a landscape notch.
-5. R1 — scripts/validate-responsive.mjs orchestrator function split is still
-   queued (its two modules sit at the 400-line cap).
-6. The dense-data verification probe is scratch (.tmp-resp-repro, gitignored);
-   committed JSON is the evidence, but a compact re-runnable script should be
-   added under scripts/responsive/ next session (400-line cap).
+1. Notch-safe floating overlays — deferred; recipe in tasks/10 (previously
+   carried risk #4).
+2. Real iOS/Android/screen-reader evidence — docs/responsive/device-checklist.md
+   still unchecked; CDP proves the CSS contract, not OS values.
+3. Packaged Tauri window-manager clamping — config geometry validated, packaged
+   run still needed.
+4. Layers Solo coarse effective hit box is 20x24 at the 259.6px docked
+   presentation (centre reachable; fine-pointer layouts 24x24).
+5. ContentAwareFill dialog shell at <=480px — real phone defect found during the
+   04b recon, out of the 04b grid-collapse scope; needs its own task.
+6. 01b breakpoint constants — maintainability only; split shape recorded in
+   tasks/01b.
 7. Prior-session items O1–O8 in audit.md remain open/out of scope.
 
-## Handoff (final, 2026-10-29)
+## Handoff (final, 2026-10-29 session 2)
 
-**Done.** Whole campaign: research, bounded inventory, audit, task splits,
-implementation, committed visual validation, independent reviews, completion
-record. Code HEAD 1009de823 fixes D1/D2/D3-timeline/D3-layers-targets/D5/D6;
-D4 was dead CSS and was removed. Fourteen campaign commits; three tasks
-deferred with reasons (01b, 04b, 05). The final evidence + completion commit
-(this file, COMPLETION.md, screenshots/1009de823) is 999823d15; code HEAD is
+**Done.** Session 2 independently re-ran all three harnesses, closed R1 and the
+dense-data probe, fixed the R1 ROOT follow-up, corrected stale completion
+claims, and committed fresh evidence under screenshots/8adaf3377/. Campaign
+state: 11 done, 4 deferred (01b, 04b, 05, 10 — each with a recorded
+reason), 0 in-progress. Code HEAD 8adaf3377; product code unchanged since
 1009de823.
 
-**Mid-flight.** Nothing: every code and evidence change is committed on master.
+**Mid-flight.** Nothing.
 
-**Known-broken.** Nothing introduced. Known limitations are listed above; none
+**Known-broken.** Nothing. Known limitations are the open items above; none
 breaks a supported layout.
 
-**Environment facts for the next session.** Repo
-/home/kevina/CodingProjects/varve on master. Shared checkout: commit
-path-scoped only; regenerate docs/agents/repo-map.generated.md before
-committing (pre-commit hook enforces it). pnpm commands work but may print a
-read-only store warning; node_modules is installed. Editor dev server:
-XDG_RUNTIME_DIR=/tmp pnpm --filter @varve/desktop exec vite --port 1420
---strictPort. Validation runs are heavy-lease wrapped; screenshots go to
-docs/responsive/screenshots/<short-sha>/. CSS is not capped; .mjs files are
-capped at 400 lines. The old matrix orchestrator is at the cap (R1).
+**Environment facts.** Repo /home/kevina/CodingProjects/varve on master. Main
+checkout shared with another session: commit path-scoped only and never stage
+its untracked files (see git status). `XDG_RUNTIME_DIR=/tmp` is required for
+heavy-lease runs here (validation-queue path is EROFS); pnpm pre-scripts print a
+read-only-store warning but direct node entrypoints work. Regenerate the agent
+map (`node scripts/quality/generate-agent-map.mjs --write`) before any commit
+that adds/removes tracked files. Editor dev server:
+`XDG_RUNTIME_DIR=/tmp pnpm --filter @varve/desktop exec vite --port 1420 --strictPort`.
 
-**Literal next action.** If continuing: task 04b (reproduce one real dialog
-family at 375, e.g. ContentAwareFill, then collapse its 2-column grids per
-family) or 01b (extract JS breakpoint literals). Also commit a compact
-re-runnable dense-data probe. Re-run validate:responsive and
-validate:safe-area after any change and commit fresh screenshots/<sha>/.
+**Literal next action.** Tackle task 10 (notch overlays): implement 10a
+(root env() bridge + safeAreaInsets in overlayGeometry.ts + SpotlightOverlay
+clamp, with unit tests), then 10b (safe-area harness overlay checks under
+LANDSCAPE_INSETS), re-run validate:safe-area and commit screenshots/<sha>/.
 
 ## Resumption prompt (paste into a fresh session)
 
-Read docs/responsive/STATE.md and docs/responsive/COMPLETION.md, then run
-git log --oneline -20 and git status. Do not re-read the codebase. Pick the
-first deferred task with a concrete next action (04b first, then 01b) or the
-carried open items above, follow the task file's Scope/Change/Validation/
-Rollback and its Size check, and update STATE.md in the same commit as any
-status change. If you must stop, follow the handoff protocol: update the
-ledger, leave the repo shippable, and record the literal next command.
+Read docs/responsive/STATE.md, docs/responsive/COMPLETION.md and
+docs/responsive/verification-2026-10-29-session-2.md, then run
+git log --oneline -15 and git status. Do not re-read the codebase. Pick the
+first deferred task with a concrete next action (10 notch overlays, then 04b
+CAF shell / 01b), or the carried open items above. Follow the task file's
+Scope/Change/Validation/Rollback and Size check, re-run
+validate:responsive/safe-area/dense after any change, commit fresh
+screenshots/<sha>/, and update this ledger in the same commit as any status
+change.

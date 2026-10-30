@@ -40,6 +40,17 @@ current short SHA. Flags: --app editor|website|all, --out, --no-screenshots,
   rejected by audit:filesize:staged at 403/404). Splitting the orchestrator is
   the first action of this task's follow-up.
 
+## Session-2 follow-ups (2026-10-29)
+- R1 resolved: scripts/responsive/server.mjs (editor/website lifecycle) and
+  scripts/responsive/editorProbe.mjs (serialized probes + checks) extracted;
+  validate-responsive.mjs 400 -> 287 lines, capture.mjs 400 -> 207. Follow-up
+  fix 8adaf3377 restores ROOT resolution after the move. Full matrix re-run
+  PASS 152/152.
+- Dense-data probe added: scripts/responsive/dense-data.mjs + dense/ modules
+  (replaces the scratch .tmp-resp-repro probe), wired as `pnpm validate:dense`;
+  assertions-only PASS 121/121. Evidence JSON/PNGs are committed under
+  docs/responsive/screenshots/<sha>/dense/.
+
 ## Size check
 Three small modules + data + docs: one session for the harness; docs are
 updated in the same commit as status changes.

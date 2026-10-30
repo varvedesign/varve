@@ -35,5 +35,5 @@ dense-<run>-layers.png, dense-<run>-playback-end.png.
 
 - validate:responsive --app all --reuse-website-dist — PASS 152/152, 41
   screenshots (17,962,619 bytes) in screenshots/1009de823/.
-- validate:safe-area — PASS 134/134, 0 skipped, 12 screenshots in
-  screenshots/1009de823/safe-area/.
+- validate:safe-area — PASS 134/134, 0 skipped, 10 PNG screenshots (12 files
+  including report.json/report.md) in screenshots/1009de823/safe-area/.

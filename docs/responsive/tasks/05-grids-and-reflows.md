@@ -24,3 +24,8 @@ redesign.
 
 ## Size check
 Not scheduled. Mark deferred until evidence exists.
+
+## Session-2 recon (2026-10-29)
+Re-checked the session-2 audit findings: no grid/reflow defect was reported by
+any of the 152 matrix checks or the reviewed screenshots. Stays deferred until a
+specific grid at a specific width is reproduced.

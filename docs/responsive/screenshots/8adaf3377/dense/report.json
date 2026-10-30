@@ -1,0 +1,1779 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-10-30T01:33:44.502Z",
+  "commit": "8adaf3377",
+  "command": "node scripts/responsive/dense-data.mjs",
+  "scene": {
+    "layersRows": 2,
+    "trackRows": 1
+  },
+  "runs": [
+    {
+      "label": "1180x820-fine",
+      "viewport": {
+        "width": 1180,
+        "height": 820
+      },
+      "media": {
+        "pointerCoarse": false,
+        "anyPointerCoarse": false,
+        "anyPointerFine": true,
+        "hoverNone": false,
+        "hoverHover": true,
+        "compactTier": false
+      },
+      "metrics": {
+        "document": {
+          "scrollWidth": 1180,
+          "innerWidth": 1180
+        },
+        "timeline": {
+          "rowHeight": 28,
+          "label": {
+            "width": 120,
+            "height": 27,
+            "fontSize": "13px",
+            "contentClippedY": false
+          },
+          "mute": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 26,
+            "effectiveHeight": 26
+          },
+          "solo": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 28,
+            "effectiveHeight": 26
+          },
+          "keyframeCount": 1,
+          "keyframeOverlapsSolo": 0,
+          "playbackMaxScrollWidth": 120,
+          "playbackScrollLeftAchievable": true,
+          "tracksScrollWidth": 320,
+          "tracksClientWidth": 320
+        },
+        "layers": {
+          "panel": {
+            "width": 259.6,
+            "position": null
+          },
+          "row": {
+            "width": 239.6,
+            "height": 37.3
+          },
+          "soloHover": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          },
+          "soloRest": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          },
+          "detailsRest": {
+            "width": 0,
+            "height": 0,
+            "display": "none",
+            "hit": false,
+            "hitPoints": "0/0",
+            "effectiveWidth": 0,
+            "effectiveHeight": 0
+          },
+          "disclosure": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          }
+        }
+      },
+      "steps": {
+        "openLayers": "already-visible",
+        "closeLayers": "escape"
+      },
+      "screenshots": [
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1180x820-fine.png",
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1180x820-fine-layers.png"
+      ]
+    },
+    {
+      "label": "1366x1024-fine",
+      "viewport": {
+        "width": 1366,
+        "height": 1024
+      },
+      "media": {
+        "pointerCoarse": false,
+        "anyPointerCoarse": false,
+        "anyPointerFine": true,
+        "hoverNone": false,
+        "hoverHover": true,
+        "compactTier": false
+      },
+      "metrics": {
+        "document": {
+          "scrollWidth": 1366,
+          "innerWidth": 1366
+        },
+        "timeline": {
+          "rowHeight": 28,
+          "label": {
+            "width": 120,
+            "height": 27,
+            "fontSize": "13px",
+            "contentClippedY": false
+          },
+          "mute": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 26,
+            "effectiveHeight": 26
+          },
+          "solo": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 28,
+            "effectiveHeight": 26
+          },
+          "keyframeCount": 1,
+          "keyframeOverlapsSolo": 0,
+          "playbackMaxScrollWidth": 123,
+          "playbackScrollLeftAchievable": true,
+          "tracksScrollWidth": 320,
+          "tracksClientWidth": 320
+        },
+        "layers": {
+          "panel": {
+            "width": 288,
+            "position": null
+          },
+          "row": {
+            "width": 279.2,
+            "height": 39.2
+          },
+          "soloHover": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          },
+          "soloRest": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          },
+          "detailsRest": {
+            "width": 24,
+            "height": 24,
+            "display": "inline-flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          },
+          "disclosure": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          }
+        }
+      },
+      "steps": {
+        "openLayers": "already-visible",
+        "closeLayers": "escape"
+      },
+      "screenshots": [
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1366x1024-fine.png",
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1366x1024-fine-layers.png"
+      ]
+    },
+    {
+      "label": "1024x768-fine",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "media": {
+        "pointerCoarse": false,
+        "anyPointerCoarse": false,
+        "anyPointerFine": true,
+        "hoverNone": false,
+        "hoverHover": true,
+        "compactTier": false
+      },
+      "metrics": {
+        "document": {
+          "scrollWidth": 1024,
+          "innerWidth": 1024
+        },
+        "timeline": {
+          "rowHeight": 28,
+          "label": {
+            "width": 120,
+            "height": 27,
+            "fontSize": "13px",
+            "contentClippedY": false
+          },
+          "mute": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 27,
+            "effectiveHeight": 26
+          },
+          "solo": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 28,
+            "effectiveHeight": 26
+          },
+          "keyframeCount": 1,
+          "keyframeOverlapsSolo": 0,
+          "playbackMaxScrollWidth": 0,
+          "playbackScrollLeftAchievable": null,
+          "tracksScrollWidth": 1024,
+          "tracksClientWidth": 1024
+        },
+        "layers": {
+          "panel": {
+            "width": 273.9,
+            "position": null
+          },
+          "row": {
+            "width": 254.4,
+            "height": 38.5
+          },
+          "soloHover": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          },
+          "soloRest": {
+            "width": 0,
+            "height": 24,
+            "display": "flex",
+            "hit": false,
+            "hitPoints": "0/0",
+            "effectiveWidth": 0,
+            "effectiveHeight": 0
+          },
+          "detailsRest": {
+            "width": 0,
+            "height": 24,
+            "display": "inline-flex",
+            "hit": false,
+            "hitPoints": "0/0",
+            "effectiveWidth": 0,
+            "effectiveHeight": 0
+          },
+          "disclosure": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          }
+        }
+      },
+      "steps": {
+        "openLayers": "fab-click",
+        "closeLayers": "escape"
+      },
+      "screenshots": [
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1024x768-fine.png",
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1024x768-fine-layers.png"
+      ]
+    },
+    {
+      "label": "1180x820-coarse",
+      "viewport": {
+        "width": 1180,
+        "height": 820
+      },
+      "media": {
+        "pointerCoarse": true,
+        "anyPointerCoarse": true,
+        "anyPointerFine": false,
+        "hoverNone": true,
+        "hoverHover": false,
+        "compactTier": false
+      },
+      "metrics": {
+        "document": {
+          "scrollWidth": 1180,
+          "innerWidth": 1180
+        },
+        "timeline": {
+          "rowHeight": 28,
+          "label": {
+            "width": 120,
+            "height": 27,
+            "fontSize": "13px",
+            "contentClippedY": false
+          },
+          "mute": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 26,
+            "effectiveHeight": 26
+          },
+          "solo": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 28,
+            "effectiveHeight": 26
+          },
+          "keyframeCount": 1,
+          "keyframeOverlapsSolo": 0,
+          "playbackMaxScrollWidth": 120,
+          "playbackScrollLeftAchievable": true,
+          "tracksScrollWidth": 320,
+          "tracksClientWidth": 320
+        },
+        "layers": {
+          "panel": {
+            "width": 259.6,
+            "position": null
+          },
+          "row": {
+            "width": 239.6,
+            "height": 37.3
+          },
+          "soloHover": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "6/9",
+            "effectiveWidth": 20,
+            "effectiveHeight": 24
+          },
+          "soloRest": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "6/9",
+            "effectiveWidth": 20,
+            "effectiveHeight": 24
+          },
+          "detailsRest": {
+            "width": 0,
+            "height": 0,
+            "display": "none",
+            "hit": false,
+            "hitPoints": "0/0",
+            "effectiveWidth": 0,
+            "effectiveHeight": 0
+          },
+          "disclosure": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          }
+        }
+      },
+      "steps": {
+        "openLayers": "already-visible",
+        "closeLayers": "escape"
+      },
+      "screenshots": [
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1180x820-coarse.png",
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1180x820-coarse-layers.png"
+      ]
+    },
+    {
+      "label": "1024x768-coarse",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "media": {
+        "pointerCoarse": true,
+        "anyPointerCoarse": true,
+        "anyPointerFine": false,
+        "hoverNone": true,
+        "hoverHover": false,
+        "compactTier": false
+      },
+      "metrics": {
+        "document": {
+          "scrollWidth": 1024,
+          "innerWidth": 1024
+        },
+        "timeline": {
+          "rowHeight": 28,
+          "label": {
+            "width": 120,
+            "height": 27,
+            "fontSize": "13px",
+            "contentClippedY": false
+          },
+          "mute": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 27,
+            "effectiveHeight": 26
+          },
+          "solo": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 28,
+            "effectiveHeight": 26
+          },
+          "keyframeCount": 1,
+          "keyframeOverlapsSolo": 0,
+          "playbackMaxScrollWidth": 0,
+          "playbackScrollLeftAchievable": null,
+          "tracksScrollWidth": 1024,
+          "tracksClientWidth": 1024
+        },
+        "layers": {
+          "panel": {
+            "width": 320,
+            "position": null
+          },
+          "row": {
+            "width": 311.5,
+            "height": 37
+          },
+          "soloHover": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          },
+          "soloRest": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": false,
+            "hitPoints": "0/9",
+            "effectiveWidth": 0,
+            "effectiveHeight": 0
+          },
+          "detailsRest": null,
+          "disclosure": {
+            "width": 24,
+            "height": 24,
+            "display": "flex",
+            "hit": true,
+            "hitPoints": "9/9",
+            "effectiveWidth": 24,
+            "effectiveHeight": 24
+          }
+        }
+      },
+      "steps": {
+        "openLayers": "fab-click",
+        "closeLayers": "escape"
+      },
+      "screenshots": [
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1024x768-coarse.png",
+        "docs/responsive/screenshots/8adaf3377/dense/dense-1024x768-coarse-layers.png"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "run": "scene",
+      "id": "scene.denseSeeded",
+      "pass": true,
+      "expected": ">=2 layers rows and >=1 track row",
+      "measured": {
+        "layersRows": 2,
+        "trackRows": 1
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "document.noHorizontalOverflow",
+      "pass": true,
+      "expected": "scrollWidth <= innerWidth + 1",
+      "measured": {
+        "scrollWidth": 1180,
+        "innerWidth": 1180
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "media.emulation",
+      "pass": true,
+      "expected": "fine pointer, hover",
+      "measured": {
+        "pointerCoarse": false,
+        "hoverHover": true,
+        "compactTier": false
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.row.height",
+      "pass": true,
+      "expected": "row height 26-30px",
+      "measured": 28
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.label.authority",
+      "pass": true,
+      "expected": "label 120px +/- 2, 13px font",
+      "measured": {
+        "width": 120,
+        "fontSize": "13px"
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.label.unclipped",
+      "pass": true,
+      "expected": "label fits vertically inside the row",
+      "measured": {
+        "labelHeight": 27,
+        "rowHeight": 28,
+        "contentClippedY": false
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.mute.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.mute.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.mute.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 26,
+        "height": 26
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.solo.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.solo.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.solo.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 28,
+        "height": 26
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.solo.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.solo.notCovered",
+      "pass": true,
+      "expected": "no keyframe rect overlaps Solo",
+      "measured": 0
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.playback.overflowReachable",
+      "pass": true,
+      "expected": "any transport overflow is scrollable",
+      "measured": {
+        "maxScrollWidth": 120,
+        "scrollLeftAchievable": true
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "timeline.tracks.noClippedOverflow",
+      "pass": true,
+      "expected": "track content fits horizontally",
+      "measured": {
+        "scrollWidth": 320,
+        "clientWidth": 320
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.panel.visible",
+      "pass": true,
+      "expected": "panel width >= 250px",
+      "measured": {
+        "left": 0,
+        "top": 154,
+        "right": 259.6,
+        "bottom": 793.8,
+        "width": 259.6,
+        "height": 639.9
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.content.noHorizontalOverflow",
+      "pass": true,
+      "expected": "layer content fits horizontally",
+      "measured": {
+        "scrollWidth": 251,
+        "clientWidth": 251
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.row.fits",
+      "pass": true,
+      "expected": "row inside panel content",
+      "measured": {
+        "rowRight": 248.1,
+        "panelRight": 259.6,
+        "rowWidth": 239.6,
+        "contentWidth": 251
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.solo.hover.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.solo.hover.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "path"
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.solo.hover.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.solo.hover.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.solo.rest.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.solo.rest.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "path"
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.solo.rest.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-fine",
+      "id": "layers.solo.rest.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "document.noHorizontalOverflow",
+      "pass": true,
+      "expected": "scrollWidth <= innerWidth + 1",
+      "measured": {
+        "scrollWidth": 1366,
+        "innerWidth": 1366
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "media.emulation",
+      "pass": true,
+      "expected": "fine pointer, hover",
+      "measured": {
+        "pointerCoarse": false,
+        "hoverHover": true,
+        "compactTier": false
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.row.height",
+      "pass": true,
+      "expected": "row height 26-30px",
+      "measured": 28
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.label.authority",
+      "pass": true,
+      "expected": "label 120px +/- 2, 13px font",
+      "measured": {
+        "width": 120,
+        "fontSize": "13px"
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.label.unclipped",
+      "pass": true,
+      "expected": "label fits vertically inside the row",
+      "measured": {
+        "labelHeight": 27,
+        "rowHeight": 28,
+        "contentClippedY": false
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.mute.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.mute.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.mute.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 26,
+        "height": 26
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.solo.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.solo.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.solo.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 28,
+        "height": 26
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.solo.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.solo.notCovered",
+      "pass": true,
+      "expected": "no keyframe rect overlaps Solo",
+      "measured": 0
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.playback.overflowReachable",
+      "pass": true,
+      "expected": "any transport overflow is scrollable",
+      "measured": {
+        "maxScrollWidth": 123,
+        "scrollLeftAchievable": true
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "timeline.tracks.noClippedOverflow",
+      "pass": true,
+      "expected": "track content fits horizontally",
+      "measured": {
+        "scrollWidth": 320,
+        "clientWidth": 320
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.panel.visible",
+      "pass": true,
+      "expected": "panel width >= 250px",
+      "measured": {
+        "left": 0,
+        "top": 154.5,
+        "right": 288,
+        "bottom": 997.4,
+        "width": 288,
+        "height": 842.9
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.content.noHorizontalOverflow",
+      "pass": true,
+      "expected": "layer content fits horizontally",
+      "measured": {
+        "scrollWidth": 285,
+        "clientWidth": 285
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.row.fits",
+      "pass": true,
+      "expected": "row inside panel content",
+      "measured": {
+        "rowRight": 282.1,
+        "panelRight": 288,
+        "rowWidth": 279.2,
+        "contentWidth": 285
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.solo.hover.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.solo.hover.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "path"
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.solo.hover.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.solo.hover.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.solo.rest.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.solo.rest.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "path"
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.solo.rest.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.solo.rest.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1366x1024-fine",
+      "id": "layers.details.restTarget",
+      "pass": true,
+      "expected": "details 24px target reachable at 1366",
+      "measured": {
+        "width": 24,
+        "height": 24,
+        "display": "inline-flex",
+        "hit": true,
+        "hitPoints": "9/9",
+        "effectiveWidth": 24,
+        "effectiveHeight": 24
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "document.noHorizontalOverflow",
+      "pass": true,
+      "expected": "scrollWidth <= innerWidth + 1",
+      "measured": {
+        "scrollWidth": 1024,
+        "innerWidth": 1024
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "media.emulation",
+      "pass": true,
+      "expected": "fine pointer, hover",
+      "measured": {
+        "pointerCoarse": false,
+        "hoverHover": true,
+        "compactTier": false
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.row.height",
+      "pass": true,
+      "expected": "row height 26-30px",
+      "measured": 28
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.label.authority",
+      "pass": true,
+      "expected": "label 120px +/- 2, 13px font",
+      "measured": {
+        "width": 120,
+        "fontSize": "13px"
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.label.unclipped",
+      "pass": true,
+      "expected": "label fits vertically inside the row",
+      "measured": {
+        "labelHeight": 27,
+        "rowHeight": 28,
+        "contentClippedY": false
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.mute.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.mute.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.mute.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 27,
+        "height": 26
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.solo.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.solo.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.solo.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 28,
+        "height": 26
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.solo.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.solo.notCovered",
+      "pass": true,
+      "expected": "no keyframe rect overlaps Solo",
+      "measured": 0
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.playback.overflowReachable",
+      "pass": true,
+      "expected": "any transport overflow is scrollable",
+      "measured": {
+        "maxScrollWidth": 0,
+        "scrollLeftAchievable": null
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "timeline.tracks.noClippedOverflow",
+      "pass": true,
+      "expected": "track content fits horizontally",
+      "measured": {
+        "scrollWidth": 1024,
+        "clientWidth": 1024
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "layers.panel.visible",
+      "pass": true,
+      "expected": "panel width >= 250px",
+      "measured": {
+        "left": 0,
+        "top": 119.5,
+        "right": 273.9,
+        "bottom": 742,
+        "width": 273.9,
+        "height": 622.5
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "layers.content.noHorizontalOverflow",
+      "pass": true,
+      "expected": "layer content fits horizontally",
+      "measured": {
+        "scrollWidth": 265,
+        "clientWidth": 265
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "layers.row.fits",
+      "pass": true,
+      "expected": "row inside panel content",
+      "measured": {
+        "rowRight": 262.7,
+        "panelRight": 273.9,
+        "rowWidth": 254.4,
+        "contentWidth": 265
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "layers.solo.hover.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "layers.solo.hover.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "path"
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "layers.solo.hover.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1024x768-fine",
+      "id": "layers.solo.hover.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "document.noHorizontalOverflow",
+      "pass": true,
+      "expected": "scrollWidth <= innerWidth + 1",
+      "measured": {
+        "scrollWidth": 1180,
+        "innerWidth": 1180
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "media.emulation",
+      "pass": true,
+      "expected": "coarse pointer, no hover",
+      "measured": {
+        "pointerCoarse": true,
+        "hoverHover": false,
+        "compactTier": false
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.row.height",
+      "pass": true,
+      "expected": "row height 26-30px",
+      "measured": 28
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.label.authority",
+      "pass": true,
+      "expected": "label 120px +/- 2, 13px font",
+      "measured": {
+        "width": 120,
+        "fontSize": "13px"
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.label.unclipped",
+      "pass": true,
+      "expected": "label fits vertically inside the row",
+      "measured": {
+        "labelHeight": 27,
+        "rowHeight": 28,
+        "contentClippedY": false
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.mute.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.mute.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.mute.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 26,
+        "height": 26
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.solo.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.solo.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.solo.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 28,
+        "height": 26
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.solo.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.solo.notCovered",
+      "pass": true,
+      "expected": "no keyframe rect overlaps Solo",
+      "measured": 0
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.playback.overflowReachable",
+      "pass": true,
+      "expected": "any transport overflow is scrollable",
+      "measured": {
+        "maxScrollWidth": 120,
+        "scrollLeftAchievable": true
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "timeline.tracks.noClippedOverflow",
+      "pass": true,
+      "expected": "track content fits horizontally",
+      "measured": {
+        "scrollWidth": 320,
+        "clientWidth": 320
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "layers.panel.visible",
+      "pass": true,
+      "expected": "panel width >= 250px",
+      "measured": {
+        "left": 0,
+        "top": 173.3,
+        "right": 259.6,
+        "bottom": 793.8,
+        "width": 259.6,
+        "height": 620.5
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "layers.content.noHorizontalOverflow",
+      "pass": true,
+      "expected": "layer content fits horizontally",
+      "measured": {
+        "scrollWidth": 251,
+        "clientWidth": 251
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "layers.row.fits",
+      "pass": true,
+      "expected": "row inside panel content",
+      "measured": {
+        "rowRight": 248.1,
+        "panelRight": 259.6,
+        "rowWidth": 239.6,
+        "contentWidth": 251
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "layers.solo.hover.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "layers.solo.hover.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "path"
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "layers.solo.hover.effective",
+      "pass": true,
+      "expected": "effective >= 20x24",
+      "measured": {
+        "width": 20,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "layers.solo.rest.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "layers.solo.rest.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "path"
+      }
+    },
+    {
+      "run": "1180x820-coarse",
+      "id": "layers.solo.rest.effective",
+      "pass": true,
+      "expected": "effective >= 20x24",
+      "measured": {
+        "width": 20,
+        "height": 24
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "document.noHorizontalOverflow",
+      "pass": true,
+      "expected": "scrollWidth <= innerWidth + 1",
+      "measured": {
+        "scrollWidth": 1024,
+        "innerWidth": 1024
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "media.emulation",
+      "pass": true,
+      "expected": "coarse pointer, no hover",
+      "measured": {
+        "pointerCoarse": true,
+        "hoverHover": false,
+        "compactTier": false
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.row.height",
+      "pass": true,
+      "expected": "row height 26-30px",
+      "measured": 28
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.label.authority",
+      "pass": true,
+      "expected": "label 120px +/- 2, 13px font",
+      "measured": {
+        "width": 120,
+        "fontSize": "13px"
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.label.unclipped",
+      "pass": true,
+      "expected": "label fits vertically inside the row",
+      "measured": {
+        "labelHeight": 27,
+        "rowHeight": 28,
+        "contentClippedY": false
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.mute.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.mute.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.mute.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 27,
+        "height": 26
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.solo.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.solo.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "button"
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.solo.effective",
+      "pass": true,
+      "expected": "effective >= 24x24",
+      "measured": {
+        "width": 28,
+        "height": 26
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.solo.fullBoxHit",
+      "pass": true,
+      "expected": "9-of-9 inset points resolve to target",
+      "measured": {
+        "owned": 9,
+        "total": 9
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.solo.notCovered",
+      "pass": true,
+      "expected": "no keyframe rect overlaps Solo",
+      "measured": 0
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.playback.overflowReachable",
+      "pass": true,
+      "expected": "any transport overflow is scrollable",
+      "measured": {
+        "maxScrollWidth": 0,
+        "scrollLeftAchievable": null
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "timeline.tracks.noClippedOverflow",
+      "pass": true,
+      "expected": "track content fits horizontally",
+      "measured": {
+        "scrollWidth": 1024,
+        "clientWidth": 1024
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "layers.panel.visible",
+      "pass": true,
+      "expected": "panel width >= 250px",
+      "measured": {
+        "left": 0,
+        "top": 141.8,
+        "right": 320,
+        "bottom": 742,
+        "width": 320,
+        "height": 600.2
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "layers.content.noHorizontalOverflow",
+      "pass": true,
+      "expected": "layer content fits horizontally",
+      "measured": {
+        "scrollWidth": 317,
+        "clientWidth": 317
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "layers.row.fits",
+      "pass": true,
+      "expected": "row inside panel content",
+      "measured": {
+        "rowRight": 314.3,
+        "panelRight": 320,
+        "rowWidth": 311.5,
+        "contentWidth": 317
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "layers.solo.hover.box",
+      "pass": true,
+      "expected": "box >= 23.5x23.5",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "layers.solo.hover.centreHit",
+      "pass": true,
+      "expected": "elementFromPoint(centre) resolves to target",
+      "measured": {
+        "hit": true,
+        "target": "path"
+      }
+    },
+    {
+      "run": "1024x768-coarse",
+      "id": "layers.solo.hover.effective",
+      "pass": true,
+      "expected": "effective >= 20x24",
+      "measured": {
+        "width": 24,
+        "height": 24
+      }
+    }
+  ],
+  "errors": [],
+  "fatalError": null,
+  "summary": {
+    "total": 121,
+    "passed": 121,
+    "failed": 0,
+    "result": "PASS"
+  }
+}
