@@ -1,0 +1,71 @@
+# Source of truth for repository labels. No sync workflow is configured.
+- name: good first issue
+  color: "7057ff"
+- name: help wanted
+  color: "008672"
+- name: good second issue
+  color: "5319e7"
+- name: type: bug
+  color: "d73a4a"
+- name: type: feature
+  color: "a2eeef"
+- name: type: docs
+  color: "0075ca"
+- name: type: performance
+  color: "fbca04"
+- name: type: question
+  color: "d876e3"
+- name: lane: library
+  color: "1d76db"
+- name: lane: app
+  color: "5319e7"
+- name: lane: docs
+  color: "0075ca"
+- name: lane: plugin
+  color: "0e8a16"
+- name: lane: translation
+  color: "c2e0c6"
+- name: lane: testing
+  color: "bfd4f2"
+- name: area: canvas
+  color: "c5def5"
+- name: area: text
+  color: "c5def5"
+- name: area: print
+  color: "c5def5"
+- name: area: colour
+  color: "c5def5"
+- name: area: layout
+  color: "c5def5"
+- name: area: plugins
+  color: "c5def5"
+- name: area: linux
+  color: "c5def5"
+- name: area: packaging
+  color: "c5def5"
+- name: area: i18n
+  color: "c5def5"
+- name: status: needs triage
+  color: "ededed"
+- name: status: needs repro
+  color: "ededed"
+- name: status: accepted
+  color: "0e8a16"
+- name: status: blocked
+  color: "d93f0b"
+- name: status: maintainer only
+  color: "b60205"
+- name: os: linux
+  color: "ededed"
+- name: os: windows
+  color: "ededed"
+- name: os: macos
+  color: "ededed"
+- name: dependencies
+  color: "0366d6"
+- name: duplicate
+  color: "cfd3d7"
+- name: invalid
+  color: "e4e669"
+- name: wontfix
+  color: "ffffff"

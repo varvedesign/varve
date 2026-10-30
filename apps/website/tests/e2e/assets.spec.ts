@@ -99,6 +99,7 @@ test('known routes return 200 and unknown routes return the 404 page', async ({
     '/docs/touch-and-pen',
     '/support',
     '/support/troubleshooting',
+    '/feedback',
     '/contribute',
     '/learn',
     '/about',

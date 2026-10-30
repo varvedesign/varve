@@ -12,8 +12,23 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+### Changed
+
+- **Contribution lanes**: docs and examples, translations, plugins in a
+  contributor's own repository, testing and device reports, and the nine MIT
+  OR Apache-2.0 libraries are open. App code stays maintainer-only. CLA terms
+  are replaced by DCO 1.1 sign-off under the licence of the files you change.
+
 ### Security
 
+- **AI off loads no models.** Turning AI features off now refuses every
+  model download and session, including the three web workers that previously
+  skipped the check, and skips the startup probes that HEAD bundled model
+  files. AI-backed controls (Lens Blur, Object Selection, export and batch
+  cutout methods, Home visual search) hide and point to Settings. A missing
+  settings key still starts with AI on. A corrupt or unreadable settings blob
+  is treated as off and logged. Model files that stored their SHA-256 under a
+  field the downloader did not read are hash-verified again.
 - **Desktop file commands only accept user-picked paths.** Custom Tauri
   commands that read or write a frontend-supplied path now check a Rust-side
   allowlist. A path is admitted only after a native open/save/folder dialog

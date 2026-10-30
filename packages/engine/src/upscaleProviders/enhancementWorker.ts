@@ -4,6 +4,7 @@
  */
 
 import { computeUpscalePreview, type UpscaleOptions, upscaleImageData } from '../imageEnhancement';
+import { applyWorkerAiGate } from '../inference/aiFeaturesGate';
 import { type RasterTraceOptions, traceRasterToPaths } from '../rasterTrace';
 import { upscaleWithRealEsrganWithMetadata } from './aiUpscale';
 import type { EnhancementWorkerRequest, EnhancementWorkerResponse } from './enhancementWorkerHost';
@@ -33,6 +34,9 @@ self.onmessage = async (event: MessageEvent<EnhancementWorkerRequest>) => {
     const options = msg.options as UpscaleOptions;
 
     if (msg.type === 'upscale') {
+      if (options.method === 'ai') {
+        applyWorkerAiGate(msg.aiEnabled);
+      }
       let result: { imageData: ImageData; executionProvider?: string };
       if (options.preview) {
         // Preview mode: use CPU preview for non-AI, AI preview handled via downsample

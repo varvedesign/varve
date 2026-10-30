@@ -30,6 +30,7 @@ import {
   type PreparedBackgroundRemoval,
   runtimeForBackgroundRemovalProvider,
 } from '../backgroundRemoval/commitRasterMask';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../features/useAiFeaturesEnabled';
 import { ModelDownloadDialog } from './BackgroundRemoval/ModelDownloadDialog';
 import './BatchBgRemoveDialog.css';
 
@@ -115,6 +116,7 @@ export function BatchBgRemoveDialog({
   document: sourceDocument,
   onNodeUpdate,
 }: BatchBgRemoveDialogProps) {
+  const aiEnabled = useAiFeaturesEnabled();
   const [stage, setStage] = useState<BgStage>('select');
   const [method, setMethod] = useState<BackgroundRemovalMethod>('quick');
   const [files, setFiles] = useState<ProcessingFile[]>([]);
@@ -139,13 +141,13 @@ export function BatchBgRemoveDialog({
   const requiredModelId = workerModelIdForMethod(method);
 
   const refreshModelStatus = useCallback(async () => {
-    if (method === 'quick' || !requiredModelId) {
-      setAiAvailable(true);
+    if (!aiEnabled || method === 'quick' || !requiredModelId) {
+      setAiAvailable(method === 'quick');
       return;
     }
     const loader = await getModelLoaderReady();
     setAiAvailable(await loader.isModelAvailable(requiredModelId));
-  }, [method, requiredModelId]);
+  }, [aiEnabled, method, requiredModelId]);
 
   useEffect(() => {
     if (open) void refreshModelStatus();
@@ -454,7 +456,10 @@ export function BatchBgRemoveDialog({
                     role="radiogroup"
                     aria-label="Background removal method"
                   >
-                    {METHOD_OPTIONS.map((opt) => (
+                    {(aiEnabled
+                      ? METHOD_OPTIONS
+                      : METHOD_OPTIONS.filter((opt) => opt.value === 'quick')
+                    ).map((opt) => (
                       <label
                         key={opt.value}
                         className={`batch-bg-remove__method-item ${method === opt.value ? 'batch-bg-remove__method-item--active' : ''}`}
@@ -467,7 +472,7 @@ export function BatchBgRemoveDialog({
                           onChange={() => {
                             setMethod(opt.value);
                             void (async () => {
-                              if (opt.value === 'quick') {
+                              if (!aiEnabled || opt.value === 'quick') {
                                 setAiAvailable(true);
                                 return;
                               }
@@ -487,9 +492,10 @@ export function BatchBgRemoveDialog({
                       </label>
                     ))}
                   </div>
+                  {!aiEnabled && <p className="batch-bg-remove__hint">{AI_DISABLED_HINT}</p>}
                 </section>
 
-                {method !== 'quick' && !aiAvailable && (
+                {aiEnabled && method !== 'quick' && !aiAvailable && (
                   <div className="batch-bg-remove__section">
                     <p className="batch-bg-remove__hint">
                       AI model not downloaded. Download it first or switch to Quick mode.
