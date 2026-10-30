@@ -379,7 +379,11 @@
   flex-direction: column;
   justify-content: center;
   padding: 0 var(--space-2);
-  overflow: hidden;
+  /* No clip on the column itself: the buttons must be hit-testable to their
+   * full 24px box, and overflow:hidden was cutting Solo's right half at the
+   * label edge (effective width 19px). Truncation stays on the text children
+   * (.timeline-track-row__node-name / __prop-name both ellipsize). */
+  overflow: visible;
   border-right: 1px solid var(--color-border-subtle);
   /* Pre-fix the legacy editor.css rule contributed 13px here; keep the value
    * in the single owning rule so removing the duplicate does not silently

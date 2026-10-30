@@ -995,7 +995,10 @@
   margin-top: var(--space-2);
 }
 
-@container layers (max-width: 220px) {
+/* Details yields at 260px (it has panel-header and context-menu alternatives
+ * and costs a 24px slot). Solo does NOT yield here: with details hidden there
+ * is room for it, and losing it cost touch users a direct action. */
+@container layers (max-width: 260px) {
   .layers-row__details-trigger {
     display: none;
   }
@@ -2367,13 +2370,11 @@
   }
 }
 
-/* The details/Solo fallback belongs to the documented 180px minimum, not to
- * every rail under 260px. At 260px the row was treated like the floor: the
- * 259.6px docked 1180 presentation lost Solo for touch users even though the
- * row still had room. Keep the fallback only near the real minimum; the row
- * context menu stays the alternative there. */
+/* Solo only yields near the documented 180px minimum, where the row genuinely
+ * runs out of slots (the context menu/bulk bar/command palette stay the
+ * alternatives). Above this the 24px slot fits now that details yields at
+ * 260px, so the 259.6px docked 1180 presentation keeps the direct Solo action. */
 @container layers (max-width: 220px) {
-  .layers-row__details-trigger,
   .layers-row [data-row-action="solo"][data-row-action-pinned="false"] {
     display: none;
   }
