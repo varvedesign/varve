@@ -110,3 +110,27 @@ Environment notes: heavy runs need `XDG_RUNTIME_DIR=/tmp` on this machine
 read-only-store warning but node entrypoints run normally. The main checkout is
 shared with another session; every commit here was path-scoped and the foreign
 untracked files were never staged.
+
+## 7. Independent verifier (read-only; post-evidence HEAD d4252b827)
+
+Fresh-context verifier subagent re-ran every definition-of-done check against the
+repo (not the ledger) and left tracked files untouched.
+
+| Row | Verdict | Decisive evidence |
+|---|---|---|
+| D1 matrix | PASS | `validate:responsive --app all --reuse-website-dist --no-screenshots` exit 0, "SUMMARY PASS: 152/152 checks, 0 failed" |
+| D2 safe-area | PASS | `validate:safe-area --no-screenshots` exit 0, "134 passed, 0 failed, 0 skipped" |
+| D4 dense probe | PASS | `validate:dense --no-screenshots` exit 0, "SUMMARY PASS: 121/121 checks, 0 failed"; thresholds match the documented 03b numbers |
+| D3 claims/audits | PASS | audit:docs (1351 docs), audit:emoji, audit:filesize exit 0; all 11 done rows cite existing commits touching expected paths; deferred rows have reasons |
+| D5 carried items | PASS | 04b/01b/10 recon checked against the repo; R1 + dense probe closed; STATE 11 done / 4 deferred / 0 in-progress |
+| D6 evidence | PASS | report.json: matrix 152/152 + 41 PNG/18,029,601 B; safe-area 134/134, 10 PNGs; dense 121/121; disk 67 files/20,252,844 B; byte-identity deltas verified <0.6% AE |
+| D7 verifier | PASS | this report; `git diff`/`--cached` empty, git status only the pre-existing foreign entries |
+| D8 commits | PASS | five session commits touch only scripts/, docs/, package.json; no foreign untracked paths; no AI attribution |
+
+Caveats recorded by the verifier: historical receipts (the a3796c0ba drift
+runs and the 757e304be 112/112 refactor run) were not re-run; biome was not part
+of the gate list it was asked to run; /tmp is per-execution ephemeral, so the
+fresh `/tmp/verify-*` report.json files were gone after each bash call (the
+decisive stdout was captured instead). No environment-blocked check, missing
+deliverable, or regression was found.
+

@@ -80,6 +80,9 @@ Last updated: 2026-10-29T18:50:00-07:00 | Last commit: a0ff6f78a (session-2 evid
   campaign-touched set.
 - Independent auditor (read-only) re-checked task rows vs git, evidence dirs and
   audits: PASS except the stale doc counts, fixed in this commit.
+- Independent verifier subagent (D7) re-ran matrix 152/152, safe-area 134/134,
+  dense 121/121 plus claim/commit checks on HEAD d4252b827: all PASS, tracked
+  files untouched (report in verification-2026-10-29-session-2.md §7).
 
 ## Open items / carried risks
 
