@@ -27,6 +27,7 @@ import {
   CrashReportService,
   type CrashReportStorage,
   type CrashUploader,
+  crashUploaderIsConfigured,
   enterSafeMode,
   exitSafeMode,
   IndexedDbCrashReportStorage,
@@ -69,6 +70,8 @@ export interface CrashUiState {
   /** Safe mode can stay active after the startup screen is dismissed. */
   safeModeVisible: boolean;
   dialogVisible: boolean;
+  /** True only when the current uploader has an ingestion endpoint. */
+  canSendReports: boolean;
 }
 
 export interface CrashControllerDeps {
@@ -96,6 +99,7 @@ const EMPTY_UI: CrashUiState = {
   safeMode: null,
   safeModeVisible: false,
   dialogVisible: false,
+  canSendReports: false,
 };
 
 function localStorageLike(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
@@ -128,9 +132,15 @@ export class CrashCenterController {
   private loopRecorded = false;
   private consent!: CrashConsentProvider;
   private safeModeStore: SafeModeStore = new MemorySafeModeStore();
+  private uploader: CrashUploader;
 
   constructor(deps: CrashControllerDeps) {
     this.deps = deps;
+    this.uploader = deps.uploader ?? new NoopCrashUploader();
+    this.ui = {
+      ...EMPTY_UI,
+      canSendReports: crashUploaderIsConfigured(this.uploader),
+    };
     this.release = deps.release ?? getReleaseInfo();
     const storage = localStorageLike();
     this.consent =
@@ -148,7 +158,7 @@ export class CrashCenterController {
     return new CrashReportService({
       consent: this.consent,
       queue,
-      uploader: this.deps.uploader ?? new NoopCrashUploader(),
+      uploader: this.uploader,
       metrics,
       appVersion: this.release.appVersion,
       buildChannel: this.release.buildChannel,
@@ -165,6 +175,11 @@ export class CrashCenterController {
 
   getState(): CrashUiState {
     return this.ui;
+  }
+
+  /** False when the default build has no ingestion endpoint. */
+  canSendReports(): boolean {
+    return crashUploaderIsConfigured(this.uploader);
   }
 
   subscribe(listener: (state: CrashUiState) => void): () => void {
@@ -436,7 +451,9 @@ export class CrashCenterController {
 
   /** Test-only: replaces the transport (see crashTestHooks). */
   setUploaderForTesting(uploader: CrashUploader): void {
+    this.uploader = uploader;
     this.service.setUploaderForTesting(uploader);
+    this.setState({ canSendReports: crashUploaderIsConfigured(uploader) });
   }
 
   // ---- Dialog actions -----------------------------------------------------
