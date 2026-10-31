@@ -6131,7 +6131,7 @@ mod policy_cli_tests {
 
     #[test]
     fn validate_policy_cli_returns_success_for_a_valid_file_and_failure_for_bad_json() {
-        let path = std::env::temp_dir().join(format!("policy-cli-{}.json", std::process::id()));
+        let path = crate::policy::canonical_temp_dir().join(format!("policy-cli-{}.json", std::process::id()));
         std::fs::write(&path, r#"{"schemaVersion":1,"policies":{},"recommended":{}}"#).unwrap();
         let valid = vec!["varve".to_string(), "--validate-policy".to_string(), path.display().to_string()];
         assert_eq!(validate_policy_args(&valid), Some(0));
@@ -7832,10 +7832,14 @@ mod tests {
     #[test]
     fn resolve_user_path_approved_rejects_unpicked_system_paths() {
         let scope = file_scope::FileScope::new();
+        let path = file_scope::unpicked_system_path();
         let err = scope
-            .resolve("/etc/hosts")
-            .expect_err("unpicked /etc/hosts must be rejected");
-        assert!(err.contains("outside the allowed file scope"));
+            .resolve(&path)
+            .expect_err("unpicked system path must be rejected");
+        assert!(
+            err.contains("outside the allowed file scope"),
+            "unpicked system path {path} must be outside scope, got {err:?}"
+        );
     }
 
     #[test]
