@@ -468,28 +468,38 @@ function buildIR(doc: Document): IRDocument {
 }
 
 /**
- * Active-page artwork plus leftover flat roots, excluding other pages'
- * content roots and any leaked inactive descendants.
+ * Active-page artwork plus leftover flat roots, excluding page and Design
+ * Canvas content roots and any leaked inactive descendants.
  */
 export function documentSceneRootIds(doc: Document): string[] {
   const pageRoots = activePageNodes(doc);
-  // activePageNodes already includes the active page and global roots. The
-  // legacy root list is still needed for flat documents, but in paged
-  // documents it also contains roots from other pages.
-  const pageContentRoots = new Set<string>();
-  const inactivePageNodes = new Set<string>();
-  if (doc.activePageId && doc.pages?.length) {
+  // activePageNodes already includes the active page / canvas children and
+  // global roots. The legacy root list is still needed for flat documents,
+  // but in paged and Design Canvas documents it also contains the surface
+  // content roots themselves, which would emit the whole email twice.
+  const excludedRoots = new Set<string>();
+  const inactiveSurfaceNodes = new Set<string>();
+  if (doc.pages?.length) {
+    const activePage = doc.pages.find((page) => page.id === doc.activePageId) ?? doc.pages[0];
     for (const page of doc.pages) {
-      pageContentRoots.add(page.contentRoot);
-      if (page.id !== doc.activePageId)
-        collectSceneSubtree(page.contentRoot, doc, inactivePageNodes);
+      excludedRoots.add(page.contentRoot);
+      if (page.id !== activePage?.id)
+        collectSceneSubtree(page.contentRoot, doc, inactiveSurfaceNodes);
     }
+  }
+  const canvases = doc.designCanvases ?? [];
+  const activeCanvas =
+    canvases.find((canvas) => canvas.id === doc.activeDesignCanvasId) ?? canvases[0];
+  for (const canvas of canvases) {
+    excludedRoots.add(canvas.contentRoot);
+    if (canvas.id !== activeCanvas?.id)
+      collectSceneSubtree(canvas.contentRoot, doc, inactiveSurfaceNodes);
   }
   return [
     ...new Set([
       ...pageRoots,
       ...doc.rootChildren.filter(
-        (rootId) => !pageContentRoots.has(rootId) && !inactivePageNodes.has(rootId),
+        (rootId) => !excludedRoots.has(rootId) && !inactiveSurfaceNodes.has(rootId),
       ),
     ]),
   ];

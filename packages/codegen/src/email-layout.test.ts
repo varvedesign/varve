@@ -312,6 +312,7 @@ describe('email layout inference', () => {
     const overlap = diagnostics.find((item) => item.code === 'OVERLAP_SEMANTIC_CONTENT');
     expect(overlap?.severity).toBe('error');
     expect(overlap?.sourceNodeId).toBe('headline');
+    expect(overlap?.suggestedFix).toMatch(/put each text block in its own frame/i);
   });
 
   it('does not pin a width or height on live text', () => {

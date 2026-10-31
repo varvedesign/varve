@@ -154,7 +154,7 @@ test('both existing pipeline jobs own the strict scanner and its diagnostic uplo
     const install = steps.find(
       (step) => step.name === 'Install pinned advisory scanner (verified)',
     );
-    assert.equal(install.uses, 'taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172');
+    assert.equal(install.uses, 'taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037');
     assert.deepEqual(install.with, {
       tool: 'cargo-audit@0.22.2',
       checksum: true,

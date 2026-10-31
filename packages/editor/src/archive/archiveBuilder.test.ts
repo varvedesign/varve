@@ -158,6 +158,20 @@ describe('archiveBuilder', () => {
       expect(Object.keys(result.manifest.checksums).length).toBeGreaterThan(0);
       expect(result.manifest.checksums['document.varve']).toMatch(/^[a-f0-9]{64}$/);
     });
+
+    it('surfaces encode warnings instead of silently dropping a mask', async () => {
+      const { createDocument, makeGroupNode, makeShapeNode } = await import('@varve/scene');
+      const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+      const group = makeGroupNode('clip', { children: ['content'] });
+      group.mask = { type: 'clip', sourceNodeId: 'missing', visible: true };
+      const doc = {
+        ...createDocument('Broken mask archive', true),
+        nodes: { clip: group, content },
+        rootChildren: ['clip'],
+      };
+      const result = await buildFullArchive(doc, { kind: 'full' });
+      expect(result.warnings?.some((warning) => warning.includes('clip'))).toBe(true);
+    });
   });
 
   describe('buildSettingsArchive', () => {

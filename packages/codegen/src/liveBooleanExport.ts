@@ -38,7 +38,7 @@ function transformPathPoint(point: PathPoint, transform: Affine): PathPoint {
  */
 export function resolveLiveBooleanForExport(node: SceneNode, document: Document): ShapeNode | null {
   if (!isLiveBooleanNode(node)) return null;
-  const resolved = resolveLiveBooleanShape(document, node.id);
+  const resolved = resolveLiveBooleanShape(document, node.id, [], { retry: true });
   if (resolved?.shape.kind !== 'path') return null;
 
   const inverse = tryInvertAffine(nodeWorldTransform(document, node.id));

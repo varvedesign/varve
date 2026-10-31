@@ -54,6 +54,7 @@ import {
 
 export { svgPatternFillForNode } from './svg-patterns';
 
+import { legacyPathToPathShape, pathNodeBoundCorners, pathNodeClipElement } from './svgLegacyPath';
 import {
   collectGradientDefs,
   strokeAttrs,
@@ -417,6 +418,9 @@ function nodeSvgBounds(
       worldTransform,
     );
   }
+  if (node.kind === 'path') {
+    return transformedBounds(pathNodeBoundCorners(node), worldTransform);
+  }
   if (node.kind !== 'shape') return null;
   // Warped geometry routinely extends past the source box, so bounds must be
   // measured on the baked result or the viewBox would clip the export.
@@ -578,10 +582,37 @@ function collectClipElements(doc: SceneDocument, node: SceneNode): string[] {
     const el = shapeClipPath(node);
     return el ? [el] : [];
   }
+  if (node.kind === 'path') {
+    const el = pathNodeClipElement(node);
+    return el ? [el] : [];
+  }
   if (node.kind === 'frame' || node.kind === 'group') {
     return getChildren(doc, node).flatMap((child) => collectClipElements(doc, child));
   }
   return [];
+}
+
+const maskDefCache = new WeakMap<SceneDocument, Map<string, string | null>>();
+
+function maskDefFor(doc: SceneDocument, nodeId: string, mask: Mask): string | null {
+  let cached = maskDefCache.get(doc);
+  if (!cached) {
+    cached = new Map();
+    maskDefCache.set(doc, cached);
+  }
+  const hit = cached.get(nodeId);
+  if (hit !== undefined) return hit;
+  const def = buildMaskDef(doc, nodeId, mask);
+  cached.set(nodeId, def);
+  return def;
+}
+
+function maskReferenceAttributes(doc: SceneDocument, node: SceneNode): string {
+  const mask = resolveMask(node, doc);
+  if (!mask) return '';
+  if (!maskDefFor(doc, node.id, mask)) return '';
+  const url = `url(#mask-${node.id})`;
+  return mask.type === 'clip' && !mask.inverted ? ` clip-path="${url}"` : ` mask="${url}"`;
 }
 
 /**
@@ -652,6 +683,11 @@ function renderSourceNodeAsMaskContent(
         )
         .join('\n');
       return `${indent}<g${withTransform}>\n${children}\n${indent}</g>`;
+    }
+    case 'path': {
+      const data = pathToData(legacyPathToPathShape(node));
+      if (!data) return '';
+      return `${indent}<path d="${data}" fill="${fillColor}"${withTransform} />`;
     }
     default:
       return '';
@@ -832,7 +868,7 @@ function collectSubtreeMaskDefs(doc: SceneDocument, node: SceneNode): string[] {
   const defs: string[] = [];
   const mask = resolveMask(node, doc);
   if (mask) {
-    const def = buildMaskDef(doc, node.id, mask);
+    const def = maskDefFor(doc, node.id, mask);
     if (def) defs.push(def);
   }
   // Recurse into containers (frame, group) to check children.
@@ -932,11 +968,9 @@ function buildMaskedNode(
   doc: SceneDocument,
   indent: string,
 ): string {
-  const mask = resolveMask(node, doc);
-  if (!mask) return inner;
-  const maskId = `url(#mask-${node.id})`;
-  const attr = mask.type === 'clip' && !mask.inverted ? `clip-path` : `mask`;
-  return `${indent}<g ${attr}="${maskId}">\n${inner}\n${indent}</g>`;
+  const maskAttr = maskReferenceAttributes(doc, node).trim();
+  if (!maskAttr) return inner;
+  return `${indent}<g ${maskAttr}>\n${inner}\n${indent}</g>`;
 }
 
 /**
@@ -1095,12 +1129,7 @@ function nodeToSvgTag(
           ? `${indent}  <clipPath id="${cropClipId}" clipPathUnits="userSpaceOnUse"><rect ${svgRect(placement.sampleDrawRect)} /></clipPath>\n`
           : '';
         const cropAttr = img.crop ? ` clip-path="url(#${cropClipId})"` : '';
-        const nodeMask = resolveMask(node, doc);
-        const maskAttr = nodeMask
-          ? nodeMask.type === 'clip' && !nodeMask.inverted
-            ? ` clip-path="url(#mask-${node.id})"`
-            : ` mask="url(#mask-${node.id})"`
-          : '';
+        const maskAttr = maskReferenceAttributes(doc, node);
         const imageTag = `${indent}    <image href="${href}" ${svgRect(placement.drawRect)} preserveAspectRatio="none" />`;
         const shapeInner = [
           `${indent}<g${withTransform}${maskAttr}${compositingSuffix}>`,
@@ -1312,14 +1341,8 @@ ${shapeInner}`
         .join('\n');
       let groupAttrs = withTransform;
       groupAttrs += compositingSuffix;
-      if (mask) {
-        const maskId = `url(#mask-${node.id})`;
-        if (mask.type === 'clip' && !mask.inverted) {
-          groupAttrs = ` clip-path="${maskId}"${groupAttrs}`;
-        } else {
-          groupAttrs = ` mask="${maskId}"${groupAttrs}`;
-        }
-      }
+      const maskAttr = maskReferenceAttributes(doc, node);
+      if (maskAttr) groupAttrs = `${maskAttr}${groupAttrs}`;
 
       if (node.kind === 'frame') {
         return frameContainerSvg({
@@ -1333,6 +1356,24 @@ ${shapeInner}`
       }
 
       return `${indent}${warpNotBakedComment(node)}<g${groupAttrs}>\n${children}\n${indent}</g>`;
+    }
+    case 'path': {
+      const pathShape = {
+        kind: 'path' as const,
+        points: node.points,
+        closed: node.closed,
+        tolerance: 1,
+      };
+      const pathTag = `${indent}<path d="${pathToData(pathShape)}" fill="${fillAttr}"${fillOpacityAttr}${strokeAttrsForNode(node, node.id)}${withTransform} />`;
+      return buildMaskedNode(
+        comment
+          ? `${indent}<!-- ${comment} -->
+${pathTag.replace(' />', `${compositingSuffix} />`)}`
+          : pathTag.replace(' />', `${compositingSuffix} />`),
+        node,
+        doc,
+        indent,
+      );
     }
     case 'table': {
       // ADR-0016: native tables export as flattened cells (SVG has no table

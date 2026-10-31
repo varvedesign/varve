@@ -319,6 +319,8 @@ export interface ToolContext {
   announce: (msg: string) => void;
   announceSelection: (selected: SceneNode[]) => void;
   announceOperation: (op: string, result: string) => void;
+  /** Optional: production contexts toast Shape Builder and similar failures. */
+  showToast?: (opts: { message: string; type?: 'info' | 'success' | 'warning' | 'error' }) => void;
   setDraft: (draft: DraftShape | null) => void;
   setPixelProbe?: (probe: PixelProbe | null) => void;
   setDropTargetFrame: (id: NodeId | null) => void;

@@ -190,17 +190,43 @@ pub fn initialize() { let _ = &*POLICY; }
 pub fn model_directory() -> Option<PathBuf> { POLICY.policy.ai.local_model_dir.clone() }
 pub fn validate_file(path: &Path) -> Result<(), String> { parse_contents(&read_bounded(path)?)?; Ok(()) }
 
+/// System temp with OS prefix aliases resolved (`/var` -> `/private/var` on macOS).
+/// Tests write here so the fail-closed symlink walk in `read_bounded` sees a
+/// real path. Production policy paths are never rewritten.
+#[cfg(test)]
+pub(crate) fn canonical_temp_dir() -> PathBuf {
+    std::fs::canonicalize(std::env::temp_dir()).expect("system temp dir must resolve")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     fn wrap(policies: &str) -> String { format!(r#"{{"schemaVersion":1,"policies":{policies},"recommended":{{}}}}"#) }
-    fn state(text: &str) -> PolicyState { static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0); let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed); let path = std::env::temp_dir().join(format!("policy-test-{}-{id}.json", std::process::id())); std::fs::write(&path, text).unwrap(); let value = read_policy_at(&path); let _ = std::fs::remove_file(path); value }
+    fn state(text: &str) -> PolicyState { static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0); let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed); let path = canonical_temp_dir().join(format!("policy-test-{}-{id}.json", std::process::id())); std::fs::write(&path, text).unwrap(); let value = read_policy_at(&path); let _ = std::fs::remove_file(path); value }
     #[test] fn schema_version_is_required_and_supported() { assert!(parse_contents(r#"{"policies":{}}"#).is_err()); assert!(parse_contents(r#"{"schemaVersion":2,"policies":{}}"#).is_err()); assert!(parse_contents(r#"{"schemaVersion":1,"policies":{}}"#).is_ok()); }
     #[test] fn missing_file_is_no_policy() { let s=read_policy_at(Path::new("/definitely/missing/policy.json")); assert!(!s.present && !s.restricted); }
     #[test] fn unusable_files_restrict() { let too_big = " ".repeat(65_537); for content in ["{bad", "\u{fffd}", too_big.as_str(), r#"{"schemaVersion":7,"policies":{}}"#] { let s=state(content); assert!(s.restricted); assert!(matches!(s.policy.ai.enabled, Some(AiMode::Off))); assert!(!s.permits_network_url("https://example.org")); assert!(!s.permits_model_downloads()); assert!(!s.permits_updates()); assert!(s.allows_setting_write("appearance.theme", "dark").is_ok()); } }
-    #[test] fn unreadable_path_is_restricted() { let dir=std::env::temp_dir().join(format!("policy-dir-{}",std::process::id())); std::fs::create_dir_all(&dir).unwrap(); assert!(read_policy_at(&dir).restricted); let _=std::fs::remove_dir(dir); }
-    #[test] fn invalid_utf8_is_restricted() { let path=std::env::temp_dir().join(format!("policy-utf8-{}.json",std::process::id())); std::fs::write(&path,[0xff,0xfe]).unwrap(); assert!(read_policy_at(&path).restricted); let _=std::fs::remove_file(path); }
-    #[cfg(unix)] #[test] fn symlink_is_rejected() { use std::os::unix::fs::symlink; let p=std::env::temp_dir().join(format!("policy-link-{}.json",std::process::id())); let t=std::env::temp_dir().join(format!("policy-target-{}.json",std::process::id())); std::fs::write(&t, r#"{"schemaVersion":1,"policies":{}}"#).unwrap(); let _=std::fs::remove_file(&p); symlink(&t,&p).unwrap(); assert!(read_policy_at(&p).restricted); let _=std::fs::remove_file(p); let _=std::fs::remove_file(t); }
+    #[test] fn unreadable_path_is_restricted() { let dir=canonical_temp_dir().join(format!("policy-dir-{}",std::process::id())); std::fs::create_dir_all(&dir).unwrap(); assert!(read_policy_at(&dir).restricted); let _=std::fs::remove_dir(dir); }
+    #[test] fn invalid_utf8_is_restricted() { let path=canonical_temp_dir().join(format!("policy-utf8-{}.json",std::process::id())); std::fs::write(&path,[0xff,0xfe]).unwrap(); assert!(read_policy_at(&path).restricted); let _=std::fs::remove_file(path); }
+    #[cfg(unix)] #[test] fn symlink_is_rejected() { use std::os::unix::fs::symlink; let p=canonical_temp_dir().join(format!("policy-link-{}.json",std::process::id())); let t=canonical_temp_dir().join(format!("policy-target-{}.json",std::process::id())); std::fs::write(&t, r#"{"schemaVersion":1,"policies":{}}"#).unwrap(); let _=std::fs::remove_file(&p); symlink(&t,&p).unwrap(); assert!(read_policy_at(&p).restricted); let _=std::fs::remove_file(p); let _=std::fs::remove_file(t); }
+    #[cfg(unix)] #[test] fn symlink_ancestor_is_rejected() {
+        use std::os::unix::fs::symlink;
+        let root = canonical_temp_dir();
+        let real = root.join(format!("policy-real-{}", std::process::id()));
+        let link = root.join(format!("policy-linkdir-{}", std::process::id()));
+        std::fs::create_dir_all(&real).unwrap();
+        let _ = std::fs::remove_file(&link);
+        let _ = std::fs::remove_dir(&link);
+        symlink(&real, &link).unwrap();
+        let path = link.join("policy.json");
+        std::fs::write(&path, r#"{"schemaVersion":1,"policies":{}}"#).unwrap();
+        let state = read_policy_at(&path);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir_all(&real);
+        let _ = std::fs::remove_file(&link);
+        assert!(state.restricted, "a symlink anywhere in the policy path must fail closed");
+        assert!(state.error.as_deref().is_some_and(|error| error.contains("symlink")), "got {:?}", state.error);
+    }
     #[test] fn keys_are_applied_and_invalid_ordinary_values_default() { let p=parse_contents(&wrap(r#"{"updates":{"check":false},"ai":{"enabled":"off","modelDownloads":false,"localModelDir":"relative"},"network":{"allowedHosts":["allowed.example"],"offline":false},"crashReports":{"localOnly":false},"ui":{"lockedSettings":["ai.enabled"]}}"#)).unwrap(); assert_eq!(p.updates.check,Some(false)); assert!(matches!(p.ai.enabled,Some(AiMode::Off))); assert_eq!(p.ai.local_model_dir,None); assert_eq!(p.network.allowed_hosts,Some(vec!["allowed.example".into()])); assert_eq!(p.crash_reports.local_only,Some(true)); assert_eq!(p.ui.locked_settings,Some(vec!["ai.enabled".into()])); }
     #[test] fn network_allowlist_blocks_unlisted_host() { let s=state(&wrap(r#"{"network":{"allowedHosts":["allowed.example"]}}"#)); assert!(s.permits_network_url("https://allowed.example/path")); assert!(!s.permits_network_url("https://other.example")); }
     #[test] fn offline_and_security_invalid_values_fail_closed() { let s=state(r#"{"schemaVersion":1,"policies":{},"x-varve-security":{"offlineMode":"bad","updates":"bad","modelDownloads":"bad","crashUpload":"bad","telemetry":"bad"}}"#); assert!(!s.permits_network_url("https://example.org")); assert!(!s.permits_updates()); assert!(!s.permits_model_downloads()); assert!(s.policy.security.crash_upload_disabled && s.policy.security.telemetry_disabled); }

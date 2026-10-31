@@ -5,6 +5,8 @@ export type { BooleanOpType as BooleanOpKind } from './boolean/engine';
 export {
   booleanAnchorForNode,
   booleanOp,
+  isDegradedBooleanShape,
+  markDegradedBooleanShape,
   placeBooleanResult,
   shapeNodesInWorldSpace,
   shapeToPolygon,

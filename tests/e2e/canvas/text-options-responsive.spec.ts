@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
+import { openToolOptions } from './open-tool-options';
 
 async function inspectControl(control: Locator) {
   return control.evaluate((element) => {
@@ -52,8 +53,7 @@ for (const theme of ['light', 'dark', 'high-contrast']) {
       await page.setViewportSize({ width, height: 740 });
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await page.keyboard.press('t');
-      const popover = page.locator('.tool-options__popover');
-      await expect(popover).toBeVisible();
+      const popover = await openToolOptions(page);
       const writing = popover.getByRole('combobox', { name: 'Writing mode', exact: true });
       const orientation = popover.getByRole('combobox', {
         name: 'Character orientation',

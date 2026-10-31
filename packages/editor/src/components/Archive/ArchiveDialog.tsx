@@ -322,7 +322,11 @@ export function ArchiveDialog({
 
       setCreatePhase('complete');
       setCreateProgress(1);
-      setCreateStatus('Archive created successfully');
+      setCreateStatus(
+        result.warnings && result.warnings.length > 0
+          ? `Archive created with ${result.warnings.length} document warning${result.warnings.length === 1 ? '' : 's'}`
+          : 'Archive created successfully',
+      );
       setCreateResult(result);
       onCreateArchive?.(result);
     } catch (err) {
@@ -824,6 +828,18 @@ export function ArchiveDialog({
                   {createResult.manifest.encryption.algorithm} +{' '}
                   {createResult.manifest.encryption.kdf}
                 </span>
+              </div>
+            )}
+            {createResult.warnings && createResult.warnings.length > 0 && (
+              <div className="archive-dialog__preview-row">
+                <span className="archive-dialog__preview-key">
+                  Warnings ({createResult.warnings.length})
+                </span>
+                <ul className="archive-dialog__preview-value archive-dialog__preview-warnings">
+                  {createResult.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>

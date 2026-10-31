@@ -19,6 +19,7 @@ import {
   validateDocumentAsset,
   validateIccProfileEntry,
 } from './assets';
+import { migrateShapedCalloutFills } from './callout';
 import { validateDepthMaskRecipe } from './depthMaskRecipe';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
@@ -35,6 +36,7 @@ import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import { normalizeLogoProject } from './logo/logoProject';
 import { isVisualMaskTarget } from './maskCapability';
 import {
+  canBeClipMaskSource,
   getOwnRasterMaskAsset,
   validateMaskSource,
   validateRasterMaskAsset,
@@ -53,12 +55,16 @@ import { normalizeStrokeIds } from './strokeIdentity';
 import { emptyTableModel, tableContentNodeIds } from './table';
 import { normalizeTableModelDefensively } from './tableOps';
 import {
+  type Fill,
+  type ManagedColor,
   type NodeId,
   normalizeConceptArtReferenceMetadata,
   normalizeImageFillData,
   type Page,
   type RasterMaskAsset,
   type SceneNode,
+  type TextEffectState,
+  type TextNode,
 } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
@@ -713,14 +719,7 @@ function normalizeRasterTiles(
 }
 
 function isSupportedClipSource(node: SceneNode | undefined): boolean {
-  if (!node) return false;
-  if (node.kind === 'frame') return true;
-  if (node.kind !== 'shape') return false;
-  return (
-    node.shape.kind !== 'line' &&
-    node.shape.kind !== 'arrow' &&
-    (node.shape.kind !== 'path' || node.shape.closed)
-  );
+  return node !== undefined && canBeClipMaskSource(node);
 }
 
 /**
@@ -765,6 +764,74 @@ function sanitizeStructuralMaskState(doc: Document, warnings: DocumentCodecWarni
         `${nodeId}.mask`,
       ),
     );
+  }
+  return changed ? { ...doc, nodes } : doc;
+}
+
+function isManagedColorValue(value: unknown): value is ManagedColor {
+  return isRecord(value) && typeof value.space === 'string';
+}
+
+function normalizeSolidRestoreFill(value: unknown): Fill | undefined {
+  if (!isRecord(value) || value.type !== 'solid') return undefined;
+  if (!isManagedColorValue(value.color)) return undefined;
+  const opacity =
+    typeof value.opacity === 'number' && Number.isFinite(value.opacity)
+      ? Math.min(1, Math.max(0, value.opacity))
+      : 1;
+  return {
+    type: 'solid',
+    color: value.color,
+    opacity,
+    blendMode: 'normal',
+    visible: value.visible !== false,
+  };
+}
+
+function normalizeTextEffectValue(raw: unknown): TextEffectState | undefined {
+  if (!isRecord(raw) || typeof raw.preset !== 'string' || raw.preset.length === 0) return undefined;
+  const next: TextEffectState = { preset: raw.preset };
+  if (isManagedColorValue(raw.restoreFill)) next.restoreFill = raw.restoreFill;
+  if (Array.isArray(raw.restoreFills)) {
+    const fills = raw.restoreFills
+      .map(normalizeSolidRestoreFill)
+      .filter((fill): fill is Fill => fill !== undefined);
+    if (fills.length > 0) next.restoreFills = fills;
+  }
+  return next;
+}
+
+function sanitizeTextEffectState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  let changed = false;
+  const nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
+  for (const [nodeId, node] of Object.entries(doc.nodes)) {
+    if (node.kind !== 'text' || node.textEffect === undefined) continue;
+    const normalized = normalizeTextEffectValue(node.textEffect);
+    if (!normalized) {
+      const { textEffect: _discarded, ...rest } = node;
+      nodes[nodeId] = rest as TextNode;
+      warnings.push(
+        warning(
+          'document.invalid-text-effect',
+          `Lettering preset metadata on node ${nodeId} was invalid and was removed`,
+          'warning',
+          `${nodeId}.textEffect`,
+        ),
+      );
+      changed = true;
+      continue;
+    }
+    const current = node.textEffect;
+    if (
+      current.preset === normalized.preset &&
+      current.restoreFill === normalized.restoreFill &&
+      current.restoreFills === normalized.restoreFills &&
+      Object.keys(current).length === Object.keys(normalized).length
+    ) {
+      continue;
+    }
+    nodes[nodeId] = { ...node, textEffect: normalized };
+    changed = true;
   }
   return changed ? { ...doc, nodes } : doc;
 }
@@ -995,6 +1062,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = normalizeImageFillGeometry(document);
   document = normalizeInlineImageFills(document, warnings);
   document = sanitizeStructuralMaskState(document, warnings);
+  document = sanitizeTextEffectState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
   document = validatePhotoSourceState(document, warnings);
@@ -1782,6 +1850,7 @@ export const DocumentCodec = {
 
     const normalized = normalizeDocument(migration.document as unknown as Document);
     const warnings = [...normalized.warnings];
+    const withCallouts = migrateShapedCalloutFills(normalized.document, warnings);
     for (const legacyWarning of legacyWarnings) {
       if (
         !warnings.some(
@@ -1806,7 +1875,7 @@ export const DocumentCodec = {
       ),
     );
 
-    const repaired = validateAndRepairDocument(normalized.document);
+    const repaired = validateAndRepairDocument(withCallouts);
     if (repaired.repaired.changed) {
       warnings.unshift(
         warning('document.repaired', 'Document references were repaired at load time', 'warning'),
@@ -1816,13 +1885,20 @@ export const DocumentCodec = {
     return { ok: true, document: repaired.repaired.doc as Document, warnings };
   },
 
-  encode(doc: Document): string {
+  encode(doc: Document, warningsOut?: DocumentCodecWarning[]): string {
     const patternGraphError = validatePatternDefinitionDependencies(
       doc.patternDefinitions ?? {},
       doc,
     )[0];
     if (patternGraphError) throw new Error(patternGraphError);
-    return serializeVersionedDocument(normalizeDocument(doc).document);
+    const normalized = normalizeDocument(doc);
+    if (warningsOut) warningsOut.push(...normalized.warnings);
+    return serializeVersionedDocument(normalized.document);
+  },
+
+  encodeWithWarnings(doc: Document): { json: string; warnings: DocumentCodecWarning[] } {
+    const warnings: DocumentCodecWarning[] = [];
+    return { json: DocumentCodec.encode(doc, warnings), warnings };
   },
 
   normalize: normalizeDocument,

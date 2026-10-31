@@ -2,9 +2,13 @@ import type { Document } from '@varve/scene';
 import {
   addChild,
   addNode,
+  createCallout,
+  createClippingMask,
   createDocument,
   createLiveBooleanDoc,
+  defaultStroke,
   makeGroupNode,
+  makePathNode,
   makeShapeNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
@@ -140,5 +144,130 @@ describe('SVG path export', () => {
       .map(Number);
     expect(computeDocumentBounds(doc).w).toBeGreaterThanOrEqual(250);
     expect(viewBoxParts[2]).toBeGreaterThanOrEqual(250);
+  });
+
+  it('exports a callout tail as SVG path data', () => {
+    const created = createCallout(createDocument('Balloon export', true), {
+      x: 10,
+      y: 20,
+      w: 180,
+      h: 90,
+      text: 'Hello',
+      tailEndpoint: { x: 90, y: 140 },
+    });
+    const svg = exportNodeToSvg(created.document.nodes[created.groupId]!, created.document, {
+      background: 'transparent',
+    });
+    const tail = created.document.nodes[created.tailNodeIds[0]!];
+    expect(tail?.kind).toBe('path');
+    expect(svg).toContain('<path');
+    expect(svg).toContain('d="M ');
+    expect(svg).toMatch(/L 90 140|C .* 90 140/);
+  });
+
+  it('exports a standalone legacy path node', () => {
+    const node = makePathNode('legacy-tail', {
+      closed: false,
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 40, y: 80, handleIn: null, handleOut: null },
+        { x: 80, y: 0, handleIn: null, handleOut: null },
+      ],
+    });
+    const doc = {
+      ...createDocument('Legacy path export', true),
+      rootChildren: ['legacy-tail'],
+      nodes: { 'legacy-tail': node },
+    };
+    const svg = exportNodeToSvg(node, doc, { background: 'transparent' });
+    expect(svg).toContain('<path');
+    expect(svg).toContain('d="M 0 0 L 40 80 L 80 0"');
+  });
+
+  it('includes bezier handles and half stroke width in path bounds', () => {
+    const node = makePathNode('curve', {
+      closed: false,
+      strokes: [{ ...defaultStroke(), weight: 20 }],
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: [80, 0] },
+        { x: 10, y: 0, handleIn: [80, 0], handleOut: null },
+      ],
+    });
+    const doc = {
+      ...createDocument('Curved path bounds', true),
+      rootChildren: ['curve'],
+      nodes: { curve: node },
+    };
+    const svg = exportNodeToSvg(node, doc, { background: 'transparent' });
+    const viewBox = svg
+      .match(/viewBox="([^"]+)"/)?.[1]
+      ?.split(' ')
+      .map(Number);
+    expect(viewBox).toBeDefined();
+    if (!viewBox) return;
+    expect(viewBox[0]).toBeLessThanOrEqual(-10);
+    expect(viewBox[2]).toBeGreaterThanOrEqual(100);
+  });
+
+  it('exports a closed legacy path clip source as clip-path geometry', () => {
+    let doc = createDocument('Path clip export', true);
+    doc = addNode(doc, makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 80, h: 60 }));
+    doc = addNode(
+      doc,
+      makePathNode('clip-src', {
+        closed: true,
+        points: [
+          { x: 0, y: 0, handleIn: null, handleOut: null },
+          { x: 80, y: 0, handleIn: null, handleOut: null },
+          { x: 80, y: 60, handleIn: null, handleOut: null },
+          { x: 0, y: 60, handleIn: null, handleOut: null },
+        ],
+      }),
+    );
+    const clipped = createClippingMask(doc, 'clip-src', ['content']);
+    const svg = exportNodeToSvg(clipped.doc.nodes[clipped.groupId]!, clipped.doc, {
+      background: 'transparent',
+    });
+    expect(svg).toContain(`<clipPath id="mask-${clipped.groupId}"`);
+    expect(svg).toContain(`clip-path="url(#mask-${clipped.groupId})"`);
+    expect(svg).toContain('<path d="M 0 0 L 80 0 L 80 60 L 0 60 Z"');
+    expect(svg.includes(`clip-path="url(#mask-missing)"`)).toBe(false);
+  });
+
+  it('omits mask urls when the source is missing or the mask is hidden', () => {
+    let missing = createDocument('Missing mask source', true);
+    missing = addNode(
+      missing,
+      makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 80, h: 60 }),
+    );
+    missing = addNode(missing, {
+      ...makeGroupNode('clipped', { children: ['content'] }),
+      mask: { type: 'clip', sourceNodeId: 'missing', visible: true },
+    });
+    const missingSvg = exportNodeToSvg(missing.nodes.clipped!, missing, {
+      background: 'transparent',
+    });
+    expect(missingSvg.includes('url(#mask-')).toBe(false);
+
+    let hidden = createDocument('Hidden mask', true);
+    hidden = addNode(hidden, makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 80, h: 60 }));
+    hidden = addNode(hidden, makeShapeNode('clip-src', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }));
+    const clipped = createClippingMask(hidden, 'clip-src', ['content']);
+    const group = clipped.doc.nodes[clipped.groupId]!;
+    const hiddenDoc = {
+      ...clipped.doc,
+      nodes: {
+        ...clipped.doc.nodes,
+        [clipped.groupId]: {
+          ...group,
+          mask: { ...group.mask!, visible: false },
+        },
+      },
+    };
+    const hiddenSvg = exportNodeToSvg(hiddenDoc.nodes[clipped.groupId]!, hiddenDoc, {
+      background: 'transparent',
+    });
+    expect(hiddenSvg.includes('url(#mask-')).toBe(false);
   });
 });
