@@ -146,6 +146,16 @@ describe('computeGridLayout', () => {
     }
   });
 
+  it('reports damaged persisted track arrays without throwing', () => {
+    for (const raw of [null, '1fr', [{ id: 'valid', size: '1fr' }, null]]) {
+      const invalid = makeLayoutStyle({
+        gridColumnTracks: raw as LayoutStyle['gridColumnTracks'],
+      });
+      const result = computeGridLayoutDetailed(makeDoc(), 'parent', 300, 100, invalid, []);
+      expect(result).toEqual({ items: [], diagnostic: 'invalid-track-identities' });
+    }
+  });
+
   it('resolves empty explicit tracks and exposes the same coordinates used by items', () => {
     const style = makeLayoutStyle({
       layoutSemanticsVersion: 2,

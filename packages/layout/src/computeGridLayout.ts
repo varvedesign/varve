@@ -69,6 +69,22 @@ const MAX_GRID_SPAN = 128;
 const MAX_GRID_PLACEMENT_CELLS = 262_144;
 const MAX_TRACK_ID_LENGTH = 256;
 
+function validPersistedTrackArray(tracks: LayoutStyle['gridColumnTracks']): boolean {
+  if (tracks === undefined) return true;
+  if (!Array.isArray(tracks) || tracks.length > MAX_GRID_TRACKS) return false;
+  for (const track of tracks) {
+    if (
+      !track ||
+      typeof track !== 'object' ||
+      typeof track.id !== 'string' ||
+      typeof track.size !== 'string'
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function invalidTrackIdentities(ids: string[] | undefined, count: number): boolean {
   return (
     ids !== undefined &&
@@ -281,6 +297,12 @@ export function computeGridLayoutDetailed(
   }
   if (layoutStyle.padding.some((value) => value < 0)) {
     return { items: [], diagnostic: 'invalid-grid-bounds' };
+  }
+  if (
+    !validPersistedTrackArray(layoutStyle.gridColumnTracks) ||
+    !validPersistedTrackArray(layoutStyle.gridRowTracks)
+  ) {
+    return { items: [], diagnostic: 'invalid-track-identities' };
   }
 
   const columnTemplate = layoutStyle.gridColumnTracks?.length

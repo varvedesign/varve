@@ -55,6 +55,14 @@ function renderTrackEditor(columns: string, withSpan = false) {
 }
 
 describe('GridTrackEditor blocked operations', () => {
+  it('closes a removal preview when Escape comes from outside the dialog', () => {
+    renderTrackEditor('1fr 1fr');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove column 1' }));
+    expect(screen.getByRole('dialog', { name: 'Preview track removal' })).toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Preview track removal' })).not.toBeInTheDocument();
+  });
+
   it('explains when moving a track would change a placed span', () => {
     renderTrackEditor('1fr 2fr 3fr', true);
     fireEvent.click(screen.getByRole('button', { name: 'Move column 1 later' }));

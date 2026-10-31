@@ -241,6 +241,9 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
     await page.screenshot({ path: testInfo.outputPath('grid-tracks-before-removal.png') });
     for (const width of [900, 820]) {
       await page.setViewportSize({ width, height: 700 });
+      if (width < 900) {
+        await page.getByRole('button', { name: 'Show inspector panel' }).click();
+      }
       for (const action of ['Move column 1 later', 'Move column 2 earlier', 'Remove column 1']) {
         const button = page.getByRole('button', { name: action, exact: true });
         const bounds = await button.boundingBox();

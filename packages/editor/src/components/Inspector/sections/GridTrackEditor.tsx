@@ -100,14 +100,34 @@ export function GridTrackEditor({ frameId, layoutStyle, document }: GridTrackEdi
         bounds.top < globalThis.innerHeight;
       if (trigger.isConnected && !trigger.disabled && intersectsViewport) {
         trigger.focus();
-      } else {
-        const fallback = globalThis.document.querySelector<HTMLElement>(
+      }
+      if (globalThis.document.activeElement !== trigger) {
+        const fallbacks = globalThis.document.querySelectorAll<HTMLElement>(
           '[data-dialog-focus-fallback], canvas.editor-canvas__content-layer',
         );
-        if (fallback) fallback.focus();
-        else if (editorRef.current?.getClientRects().length) editorRef.current.focus();
+        let focused = false;
+        for (const fallback of fallbacks) {
+          if (!fallback.getClientRects().length) continue;
+          fallback.focus();
+          if (globalThis.document.activeElement === fallback) {
+            focused = true;
+            break;
+          }
+        }
+        if (!focused && editorRef.current?.getClientRects().length) editorRef.current.focus();
       }
     }
+  }, [pendingRemoval]);
+  useEffect(() => {
+    if (!pendingRemoval) return;
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      setPendingRemoval(null);
+    };
+    globalThis.document.addEventListener('keydown', dismissOnEscape, true);
+    return () => globalThis.document.removeEventListener('keydown', dismissOnEscape, true);
   }, [pendingRemoval]);
 
   function tracks(axis: GridTrackAxis): GridTrack[] {
@@ -311,9 +331,6 @@ export function GridTrackEditor({ frameId, layoutStyle, document }: GridTrackEdi
             tabIndex={-1}
             className="insp-grid-track-editor__dialog"
             aria-labelledby="grid-track-removal-title"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setPendingRemoval(null);
-            }}
           >
             <h3 id="grid-track-removal-title">Preview track removal</h3>
             {!pendingRemoval.preview.valid && (

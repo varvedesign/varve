@@ -98,6 +98,18 @@ describe('grid track mutations', () => {
     }
   });
 
+  it('rejects damaged track arrays before accessing their entries', () => {
+    for (const raw of [null, '1fr', [{ id: 'valid', size: '1fr' }, null]]) {
+      const imported = {
+        ...style,
+        gridColumnTracks: raw as LayoutStyle['gridColumnTracks'],
+      };
+      expect(initializeGridTracks(imported, 'columns', 'frame')).toBeNull();
+      expect(createGridTrack(imported, 'columns', 'frame')).toBeNull();
+      expect(resizeGridTrack(imported, 'columns', 'frame', 'valid', '2fr')).toBeNull();
+    }
+  });
+
   it('keeps track identities through add, resize, and reorder', () => {
     const initial = initializeGridTracks(style, 'columns', 'frame');
     expect(initial?.map(({ id, size }) => [id, size])).toEqual([

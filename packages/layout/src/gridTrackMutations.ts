@@ -73,11 +73,13 @@ export function initializeGridTracks(
   frameId: NodeId,
 ): GridTrack[] | null {
   const existing = tracksFor(style, axis);
-  if (existing) {
-    if (existing.length > MAX_GRID_TRACKS) return null;
+  if (existing !== undefined) {
+    if (!Array.isArray(existing) || existing.length > MAX_GRID_TRACKS) return null;
     const ids = new Set<string>();
     for (const track of existing) {
       if (
+        !track ||
+        typeof track !== 'object' ||
         typeof track.id !== 'string' ||
         !track.id.trim() ||
         track.id.length > MAX_TRACK_ID_LENGTH ||
