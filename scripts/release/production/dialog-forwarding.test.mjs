@@ -38,7 +38,7 @@ assert.notEqual(
 );
 assert.equal(context.window.__TAURI__.core.markerExport, 'preserved');
 assert.equal(
-  await context.window.__TAURI__.core.invoke('plugin:dialog|save', {}),
+  await context.window.__TAURI__.core.invoke('pick_save_path', {}),
   'C:/qualification/result.varve',
 );
 assert.equal(forwarded.length, 0, 'only the picker result is supplied');
@@ -57,13 +57,13 @@ for (const command of [
   assert.equal(forwarded.at(-1).args, args, 'native args forwarded unchanged');
 }
 await assert.rejects(
-  context.window.__TAURI__.core.invoke('plugin:dialog|save', {}),
+  context.window.__TAURI__.core.invoke('pick_save_path', {}),
   /Unexpected save dialog/,
 );
 await context.destination('C:/qualification/result.png');
 await assert.rejects(context.destination('C:/qualification/other.png'), /Previous destination/);
 assert.equal(
-  await context.window.__TAURI__.core.invoke('plugin:dialog|save', {}),
+  await context.window.__TAURI__.core.invoke('pick_save_path', {}),
   'C:/qualification/result.png',
 );
 console.log(

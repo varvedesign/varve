@@ -176,3 +176,16 @@ The following items in the CLA drafts require qualified legal review:
 
 These are separate from the CLA implementation and were discovered during
 the initial repository audit. They do not block the CLA workflow.
+
+## Superseded decision (2026-10-22)
+
+The prior CLA-based decision above is superseded. Contributions are open for
+docs and examples, translations, plugins in the contributor's own repository,
+testing and device reports, and the nine libraries (`varve-core`,
+`varve-colour`, `varve-layout`, `varve-effects`, `varve-media`, `varve-trace`,
+`varve-upscale`, `varve-bgremove`, and `varve-accel`) under MIT OR
+Apache-2.0. App code under FSL-1.1-MIT remains maintainer-only for now.
+
+Contributors sign off under DCO 1.1 (`git commit -s`). Inbound contributions
+are licensed under the licence of the files changed, and inbound equals
+outbound. No CLA or additional licence grant is used.

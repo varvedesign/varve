@@ -1,7 +1,10 @@
 # OSV-Scanner allowlist for lockfile findings that already exist on master.
 # This does not hide anything from scripts/security/dependency-advisories.mjs.
-# Each entry names the remaining exposure and why this PR does not bump the
-# lockfile. ignoreUntil is about 90 days out (2027-01-21); revisit then.
+# Each IgnoredVulns entry names the remaining exposure and why this PR does
+# not bump the lockfile. ignoreUntil is about 90 days out (2027-01-21);
+# revisit then. PackageOverrides for leftover minimatch 3.x/5.x expire
+# 2026-12-30 (~60 days) because those majors cannot take the patched 11.x
+# CJS namespace without rewriting mocha and ts-prune.
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0436"
@@ -67,3 +70,25 @@ reason = "smol-toml 1.7.1 is Knip/WDIO tooling parsing repo-controlled config. P
 id = "GHSA-qwgh-2vcv-g2f7"
 ignoreUntil = 2027-01-21
 reason = "block-buffer 0.10.4 has no 0.10.x patch. GHSA-qwgh-2vcv-g2f7 is EagerBuffer/ReadBuffer (0.11+), fixed only in 0.12.1. Pulled by sha2 0.10 via tauri-codegen/wry; digest 0.10 cannot take 0.12. cargo-audit does not flag 0.10.4."
+
+# GHSA-g3hv-75wg-m249 is fixed only in minimatch 11.0.1. The workspace
+# overrides 9.x/10.x onto that line. 3.x/5.x cannot take the major: mocha
+# and ts-prune still `require('minimatch')` as a function, while 11.x CJS
+# is a namespace. Ignore the leftover versions, not the advisory id, so a
+# later 9.x/10.x regression still fails the scan.
+
+[[PackageOverrides]]
+name = "minimatch"
+version = "3.1.5"
+ecosystem = "npm"
+ignore = true
+effectiveUntil = 2026-12-30
+reason = "Dev-only @ts-morph/common 0.12.3 (ts-prune) and recursive-readdir 2.2.3 (create-wdio). Both require() minimatch as a CJS function or Minimatch constructor; 11.x CJS is not callable. Patterns are repo-controlled. 3.x has no firstPhasePreProcess / optimizationLevel >= 2 path from GHSA-g3hv-75wg-m249."
+
+[[PackageOverrides]]
+name = "minimatch"
+version = "5.1.9"
+ecosystem = "npm"
+ignore = true
+effectiveUntil = 2026-12-30
+reason = "Dev-only mocha 10.8.2 (WDIO), filelist 1.0.6, readdir-glob 1.1.3 (archiver), and mocha's glob 8.1.0. mocha calls require('minimatch') as a function; 11.x CJS is not callable. Patterns are repo-controlled WDIO/archive paths. 5.x has no firstPhasePreProcess / optimizationLevel >= 2 path from GHSA-g3hv-75wg-m249."

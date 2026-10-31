@@ -24,7 +24,7 @@ every surface reads from it.
 |---|---|---|
 | General inquiries | `hello@varve.studio` | `/contact`, Organization JSON-LD, README |
 | Product support | `support@varve.studio` | `/contact`, `/support`, footer, Help > Contact Support, Settings > About |
-| Product feedback | `feedback@varve.studio` | `/contact`, Help > Send Feedback |
+| Product feedback | `feedback@varve.studio` | `/contact`, `/feedback`, Help > Send Feedback |
 | Security | `security@varve.studio` | `/contact`, `/security`, `security.txt`, `SECURITY.md`, Help > Report a Security Issue |
 | Privacy | `privacy@varve.studio` | `/contact`, `/about/privacy`, Settings > Privacy & Diagnostics |
 | Press and media | `press@varve.studio` | `/contact`, `/press` |

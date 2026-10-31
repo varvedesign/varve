@@ -221,6 +221,22 @@ remain dependency risk for release review.
   a documented override. The resolved graph no longer contains 7.x; remove
   the override when WDIO widens its dependency range.
 
+- **[GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4):
+  glob 10.5.0 / 13.0.6 (npm, dev-only)**. AbortSignal cancellation does not
+  stop the walker. The patched line is 14.0.2+; 10.x and 13.x still export
+  `sync` / `globSync`, so the workspace overrides `glob@>=9` to 14.0.3.
+  mocha's glob 8.1.0 is outside the advisory range (introduced in 9.0.0).
+
+- **[GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249):
+  minimatch (npm, dev-only)**. Pattern amplification in
+  `firstPhasePreProcess` when `optimizationLevel >= 2`. Fixed only in
+  11.0.1+. The workspace overrides `minimatch@>=9` to 11.0.3 (Stryker,
+  typescript-eslint, and the glob 10 leftover). mocha 10 and ts-prune still
+  `require('minimatch')` as a function, so 3.1.5 and 5.1.9 stay on their
+  lines and are ignored in `osv-scanner.toml` until 2026-12-30. Those
+  consumers match repo-controlled paths; the 3.x/5.x code does not have
+  the described preprocessor.
+
 - **[RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html) (GHSA-wrw7-89jp-8q8g): glib 0.18.x (cargo, desktop runtime)**.
   Unsoundness in `Iterator`/`DoubleEndedIterator` impls for
   `glib::VariantStrIter`; fixed in glib 0.20.0. The whole gtk-rs 0.18 stack
