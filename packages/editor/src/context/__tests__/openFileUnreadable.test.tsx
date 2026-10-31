@@ -135,4 +135,29 @@ describe('openFile with an unreadable document', () => {
     expect(encodeToasts()).toHaveLength(2);
     warn.mockRestore();
   });
+
+  it('clears encode-warning memory after File > New', async () => {
+    const { read, toasts } = await mount();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+    const group = makeGroupNode('clip', { children: ['content'] });
+    group.mask = { type: 'clip', sourceNodeId: 'missing', visible: true };
+    const broken = {
+      ...createDocument('Broken mask encode', true),
+      nodes: { clip: group, content },
+      rootChildren: ['clip'],
+    };
+    const encodeToasts = () => toasts.filter((toast) => /clip|mask/i.test(toast.message));
+
+    encodeDocumentJson(broken);
+    expect(encodeToasts()).toHaveLength(1);
+
+    act(() => {
+      read().newDocument();
+    });
+
+    encodeDocumentJson(broken);
+    expect(encodeToasts()).toHaveLength(2);
+    warn.mockRestore();
+  });
 });

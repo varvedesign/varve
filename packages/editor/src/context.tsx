@@ -3113,6 +3113,7 @@ export function EditorProvider({
    */
   const newDocument = useCallback(() => {
     const created = createNewDocument({});
+    clearEncodeWarningState();
     openInNewSession(created.ok ? created.result.document : createDocument('Untitled', true));
   }, [openInNewSession]);
 
