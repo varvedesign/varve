@@ -13,24 +13,38 @@
 
 import {
   AI_DISABLED_HINT,
+  isInferenceError,
   getAiFeaturesEnabled as readPersistedAiFeaturesEnabled,
   subscribeAiFeaturesEnabled,
+  toUserMessage,
 } from '@varve/engine';
 import type { BackgroundRemovalMethod } from '@varve/scene';
 import { useSyncExternalStore } from 'react';
-import { useOptionalSettings } from '../components/Settings/SettingsContext';
 
 export { AI_DISABLED_HINT };
 
 export function useAiFeaturesEnabled(): boolean {
-  const settings = useOptionalSettings();
-  const persisted = useSyncExternalStore(
+  return useSyncExternalStore(
     subscribeAiFeaturesEnabled,
     readPersistedAiFeaturesEnabled,
     readPersistedAiFeaturesEnabled,
   );
-  if (settings) return settings.settings.ai.enabled && persisted;
-  return persisted;
+}
+
+/** Map engine / worker failures to the copy the inspector should show. */
+export function formatAiUserError(error: unknown, fallback: string): string {
+  if (isInferenceError(error)) return error.userMessage;
+  if (error instanceof Error && error.message === 'AI features are disabled') {
+    return AI_DISABLED_HINT;
+  }
+  const mapped = toUserMessage(error);
+  if (
+    mapped === 'Something went wrong. Please try again.' ||
+    mapped === 'An unexpected error occurred.'
+  ) {
+    return fallback;
+  }
+  return mapped;
 }
 
 /**

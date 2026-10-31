@@ -562,7 +562,7 @@ export function quantizePalette(
     ];
   }
 
-  return buckets
+  const palette = buckets
     .map((bucket) => {
       let sumR = 0;
       let sumG = 0;
@@ -581,6 +581,126 @@ export function quantizePalette(
       };
     })
     .sort((a, b) => b.count - a.count);
+
+  return preserveDistinctHues(samples, palette, maxColors);
+}
+
+/** Oklab distance² above which a colour is a distinct hue, not a shade of a palette entry. */
+const DISTINCT_HUE_DIST_SQ = 0.018;
+const MIN_CHROMA = 0.04;
+/** Ignore 1-3 px specks. A 6 px triangle on 16x16 (2.3%) still qualifies. */
+const MIN_HUE_SHARE = 0.0025;
+const MIN_HUE_PIXELS = 4;
+
+function preserveDistinctHues(
+  samples: OklabSample[],
+  palette: QuantizedColor[],
+  maxColors: number,
+): QuantizedColor[] {
+  if (palette.length === 0 || samples.length === 0) return palette;
+  const next = [...palette];
+  const minCount = Math.max(MIN_HUE_PIXELS, Math.ceil(samples.length * MIN_HUE_SHARE));
+
+  const nearestDist = (r: number, g: number, b: number): number => {
+    let best = Number.POSITIVE_INFINITY;
+    for (const color of next) {
+      const d = oklabDistanceSq(r, g, b, color);
+      if (d < best) best = d;
+    }
+    return best;
+  };
+
+  const unique = new Map<
+    number,
+    { r: number; g: number; b: number; count: number; chroma: number }
+  >();
+  for (const sample of samples) {
+    const key = (sample.r << 16) | (sample.g << 8) | sample.b;
+    const existing = unique.get(key);
+    if (existing) existing.count += 1;
+    else {
+      unique.set(key, {
+        r: sample.r,
+        g: sample.g,
+        b: sample.b,
+        count: 1,
+        chroma: Math.hypot(sample.a, sample.b_),
+      });
+    }
+  }
+
+  const outliers = [...unique.values()]
+    .filter(
+      (color) =>
+        color.count >= minCount &&
+        color.chroma >= MIN_CHROMA &&
+        nearestDist(color.r, color.g, color.b) >= DISTINCT_HUE_DIST_SQ,
+    )
+    .sort((a, b) => b.count - a.count || a.r - b.r || a.g - b.g || a.b - b.b);
+
+  for (const outlier of outliers) {
+    if (nearestDist(outlier.r, outlier.g, outlier.b) < DISTINCT_HUE_DIST_SQ) continue;
+    const entry = { r: outlier.r, g: outlier.g, b: outlier.b, count: outlier.count };
+    if (next.length < maxColors) {
+      next.push(entry);
+      continue;
+    }
+    recountPalette(unique, next);
+    let steal = -1;
+    let survivor = -1;
+    let stealDist = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < next.length; i++) {
+      for (let j = i + 1; j < next.length; j++) {
+        const d = oklabDistanceSq(next[i]!.r, next[i]!.g, next[i]!.b, next[j]!);
+        if (d < stealDist) {
+          stealDist = d;
+          const choice = stealChoice(next, i, j);
+          steal = choice.steal;
+          survivor = choice.survivor;
+        }
+      }
+    }
+    if (steal < 0 || survivor < 0) break;
+    next[survivor] = {
+      ...next[survivor]!,
+      count: (next[survivor]!.count ?? 0) + (next[steal]!.count ?? 0),
+    };
+    next[steal] = entry;
+  }
+  return next.sort((a, b) => b.count - a.count);
+}
+
+function recountPalette(
+  unique: Map<number, { r: number; g: number; b: number; count: number }>,
+  palette: QuantizedColor[],
+): void {
+  for (const color of palette) color.count = 0;
+  for (const color of unique.values()) {
+    const idx = assignPaletteIndex(color.r, color.g, color.b, palette);
+    palette[idx]!.count += color.count;
+  }
+}
+
+/** Evict the less common of a pair; on a count tie keep the higher-chroma colour. */
+function stealChoice(
+  palette: QuantizedColor[],
+  i: number,
+  j: number,
+): { steal: number; survivor: number } {
+  const countI = palette[i]!.count ?? 0;
+  const countJ = palette[j]!.count ?? 0;
+  if (countI < countJ) return { steal: i, survivor: j };
+  if (countJ < countI) return { steal: j, survivor: i };
+  const chromaI = oklabChroma(palette[i]!.r, palette[i]!.g, palette[i]!.b);
+  const chromaJ = oklabChroma(palette[j]!.r, palette[j]!.g, palette[j]!.b);
+  if (chromaI < chromaJ) return { steal: i, survivor: j };
+  return { steal: j, survivor: i };
+}
+
+function oklabChroma(r: number, g: number, b: number): number {
+  const linear = [srgbToLinear(r), srgbToLinear(g), srgbToLinear(b)] as [number, number, number];
+  const [, a, b_] = linearSrgbToOklab(linear);
+  return Math.hypot(a, b_);
 }
 
 function oklabDistanceSq(

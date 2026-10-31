@@ -34,6 +34,7 @@ import { PluginRuntimeBridge } from '../../plugins/PluginRuntimeBridge';
 import type { ThemeMode, UnitType } from '../../settings';
 import { DEFAULT_NUDGE_SETTINGS, NUDGE_MAX, NUDGE_MIN } from '../../settings';
 import {
+  applyOrganizationAiPolicy,
   isOrganizationLocked,
   loadOrganizationPolicy,
   type OrganizationPolicyStatus,
@@ -803,7 +804,10 @@ function AISection() {
     lockedSettings: [],
   });
   useEffect(() => {
-    void loadOrganizationPolicy().then(setOrganizationPolicy);
+    void loadOrganizationPolicy().then((policy) => {
+      applyOrganizationAiPolicy(policy);
+      setOrganizationPolicy(policy);
+    });
   }, []);
   const aiLocked =
     organizationPolicy.aiEnabled === 'on' ||

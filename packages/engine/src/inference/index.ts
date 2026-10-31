@@ -110,12 +110,15 @@ export {
   InferenceAdmissionError,
   resetInferenceAdmission,
 } from './admission';
+export type { AiPolicyMode } from './aiFeaturesGate';
 export {
   AI_DISABLED_HINT,
   AI_FEATURES_CHANGED_EVENT,
   applyWorkerAiGate,
   assertAiFeaturesEnabled,
+  configureAiPolicyOverride,
   getAiFeaturesEnabled,
+  getAiPolicyOverride,
   notifyAiFeaturesSettingsChanged,
   subscribeAiFeaturesEnabled,
 } from './aiFeaturesGate';

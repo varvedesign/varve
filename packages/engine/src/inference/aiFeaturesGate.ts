@@ -33,7 +33,11 @@ const SETTINGS_KEY = 'varve-editor-settings';
 const LEGACY_SETTINGS_KEY = 'strata-editor-settings';
 export const AI_FEATURES_CHANGED_EVENT = 'varve-ai-settings-changed';
 
+export type AiPolicyMode = 'on' | 'off' | 'user';
+
 let workerSnapshot: boolean | undefined;
+/** Forced by machine-wide admin policy. `undefined` means the user setting wins. */
+let policyOverride: boolean | undefined;
 let cachedEnabled: boolean | undefined;
 let loggedUnreadable = false;
 let domListening = false;
@@ -76,9 +80,26 @@ export function configureAiFeaturesEnabled(enabled: boolean): void {
   workerSnapshot = enabled;
 }
 
+/**
+ * Apply the administrator `ai.enabled` policy (`on` / `off` / `user`).
+ * Forced off or on wins over the persisted user setting so a school-lab
+ * policy cannot be bypassed by a leftover `settings.ai.enabled: true`.
+ */
+export function configureAiPolicyOverride(mode: AiPolicyMode | null | undefined): void {
+  if (mode === 'off') policyOverride = false;
+  else if (mode === 'on') policyOverride = true;
+  else policyOverride = undefined;
+  invalidateCache();
+}
+
+export function getAiPolicyOverride(): boolean | undefined {
+  return policyOverride;
+}
+
 /** Test-only: drop a worker snapshot so the next read goes back to storage. */
 export function resetAiFeaturesGateForTests(): void {
   workerSnapshot = undefined;
+  policyOverride = undefined;
   cachedEnabled = undefined;
   loggedUnreadable = false;
   for (const listener of listeners) listener();
@@ -128,6 +149,8 @@ function readEnabledFromStorage(): boolean {
 
 export function getAiFeaturesEnabled(): boolean {
   if (workerSnapshot !== undefined) return workerSnapshot;
+  if (policyOverride === false) return false;
+  if (policyOverride === true) return true;
   ensureDomListeners();
   if (cachedEnabled !== undefined) return cachedEnabled;
   const enabled = readEnabledFromStorage();

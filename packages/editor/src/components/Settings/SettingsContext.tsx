@@ -28,6 +28,7 @@ import {
   setLayoutPreference,
   setTabletControlsMirrored,
 } from '../../settings/layoutPresentation';
+import { beginOrganizationPolicyLoad } from '../../settings/organizationPolicy';
 import {
   dispatchIconRemoteSearchChanged,
   ICON_REMOTE_SEARCH_CHANGED_EVENT,
@@ -128,6 +129,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     syncAiEnabledToNative(settings.ai.enabled);
   }, [settings.ai.enabled]);
+
+  useEffect(() => {
+    void beginOrganizationPolicyLoad();
+  }, []);
 
   const updateSettings = useCallback(
     (patch: EditorSettingsPatch) => {

@@ -807,6 +807,7 @@ export {
 } from './imageResourceRegistry';
 export * from './imageTreatments';
 export type {
+  AiPolicyMode,
   BertTokenization,
   DownloadProgress,
   EmbeddingCacheOptions,
@@ -852,6 +853,7 @@ export {
   bertTokenize,
   buildGroundingDinoInputs,
   buildGroundingDinoInputsFromModelImage,
+  configureAiPolicyOverride,
   createDiagnosticsLabel,
   DownloadManager,
   decodeEfficientSamDecoderOutput,
@@ -879,6 +881,7 @@ export {
   GROUNDING_DINO_PREPROCESSING_VERSION,
   GROUNDING_DINO_TOKENIZER_ID,
   getAiFeaturesEnabled,
+  getAiPolicyOverride,
   getInferenceAdmission,
   getInferenceWorkerHost,
   getModelById,
@@ -923,6 +926,7 @@ export {
   SAM2_QUALITY_VALIDATION,
   SessionManager,
   subscribeAiFeaturesEnabled,
+  toUserMessage,
 } from './inference';
 export { clampImageToMaxDimension } from './inference/imageTensor';
 export type {

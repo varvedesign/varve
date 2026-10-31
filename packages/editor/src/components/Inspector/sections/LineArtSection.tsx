@@ -13,6 +13,11 @@ import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import {
+  AI_DISABLED_HINT,
+  formatAiUserError,
+  useAiFeaturesEnabled,
+} from '../../../features/useAiFeaturesEnabled';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 const MODEL_ID = 'lineart';
@@ -47,6 +52,7 @@ function loadImageToImageData(src: string): Promise<ImageData> {
 
 export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, updateDoc, announce } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const node = nodes[0];
   const abortRef = useRef<AbortController | null>(null);
   const downloadAbortRef = useRef<AbortController | null>(null);
@@ -79,6 +85,10 @@ export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
   }, [isImage]);
 
   const handleDownload = useCallback(async () => {
+    if (!aiEnabled) {
+      setLineArt((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     setLineArt((prev) => ({ ...prev, status: 'downloading', errorMessage: null }));
     setDownloadProgress(0);
     const controller = new AbortController();
@@ -99,12 +109,12 @@ export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
         setLineArt((prev) => ({ ...prev, status: 'idle' }));
         return;
       }
-      const message = err instanceof Error ? err.message : 'Download failed';
+      const message = formatAiUserError(err, 'Download failed');
       setLineArt((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     } finally {
       downloadAbortRef.current = null;
     }
-  }, [announce]);
+  }, [aiEnabled, announce]);
 
   const handleCancelDownload = useCallback(() => {
     downloadAbortRef.current?.abort();
@@ -161,6 +171,10 @@ export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
   );
 
   const handleGenerate = useCallback(async () => {
+    if (!aiEnabled) {
+      setLineArt((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -179,12 +193,16 @@ export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
       announce('Line art preview ready');
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Line art generation failed';
+      const message = formatAiUserError(err, 'Line art generation failed');
       setLineArt((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
-  }, [runLineArt, announce]);
+  }, [aiEnabled, runLineArt, announce]);
 
   const handleApply = useCallback(async () => {
+    if (!aiEnabled) {
+      setLineArt((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -218,10 +236,10 @@ export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
       setLineArt((prev) => ({ ...prev, status: 'idle', previewDataUrl: null }));
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Apply failed';
+      const message = formatAiUserError(err, 'Apply failed');
       setLineArt((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
-  }, [runLineArt, state.document, state.selection, updateDoc, announce]);
+  }, [aiEnabled, runLineArt, state.document, state.selection, updateDoc, announce]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -242,7 +260,7 @@ export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
     <DisclosureSection title="Line Art" sectionId="line-art">
       <div className="insp-field-group">
         <p className="insp-hint">
-          Converts the photo into a clean line drawing — a good starting point for tracing in Draw
+          Converts the photo into a clean line drawing, a good starting point for tracing in Draw
           mode. Runs locally in a web worker.
         </p>
 
