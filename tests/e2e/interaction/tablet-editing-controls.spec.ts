@@ -30,6 +30,8 @@ test.describe('keyboardless tablet editing controls', () => {
 
       const panel = page.getByRole('dialog', { name: 'Tablet editing controls' });
       await expect(panel).toBeVisible();
+      const portal = page.locator('.tablet-touch-controls__portal');
+      await expect(portal).toBeVisible();
       await expect(panel.getByRole('button', { name: 'Constrain movement' })).toBeVisible();
       await expect(panel.getByRole('button', { name: 'From centre' })).toBeVisible();
       await expect(panel.getByRole('button', { name: 'Bypass snapping' })).toBeVisible();
@@ -46,16 +48,25 @@ test.describe('keyboardless tablet editing controls', () => {
         expect(target?.height ?? 0).toBeGreaterThanOrEqual(44);
       }
 
-      const panelBounds = await panel.boundingBox();
-      expect(panelBounds).not.toBeNull();
-      expect(panelBounds?.x ?? -1).toBeGreaterThanOrEqual(0);
-      expect(panelBounds?.y ?? -1).toBeGreaterThanOrEqual(0);
-      expect((panelBounds?.x ?? 0) + (panelBounds?.width ?? 0)).toBeLessThanOrEqual(
+      // The inner dialog can be taller than the visible floating surface. The
+      // portal owns scrolling and must stay inside the viewport and above the
+      // toolbar; measuring the inner dialog falsely flags its scrollable tail.
+      const portalBounds = await portal.boundingBox();
+      expect(portalBounds).not.toBeNull();
+      expect(portalBounds?.x ?? -1).toBeGreaterThanOrEqual(0);
+      expect(portalBounds?.y ?? -1).toBeGreaterThanOrEqual(0);
+      expect((portalBounds?.x ?? 0) + (portalBounds?.width ?? 0)).toBeLessThanOrEqual(
         viewport.width + 1,
       );
-      expect((panelBounds?.y ?? 0) + (panelBounds?.height ?? 0)).toBeLessThanOrEqual(
+      expect((portalBounds?.y ?? 0) + (portalBounds?.height ?? 0)).toBeLessThanOrEqual(
         viewport.height + 1,
       );
+      const toolbarBounds = await page.locator('.floating-toolbar').boundingBox();
+      if (toolbarBounds) {
+        expect((portalBounds?.y ?? 0) + (portalBounds?.height ?? 0)).toBeLessThanOrEqual(
+          toolbarBounds.y + 1,
+        );
+      }
 
       const constrain = panel.getByRole('button', { name: 'Constrain movement' });
       if (latchedConstrain !== undefined) {
@@ -73,6 +84,14 @@ test.describe('keyboardless tablet editing controls', () => {
         path: screenshotPath,
         contentType: 'image/png',
       });
+      const gestureGuide = panel.getByRole('heading', { name: 'Gestures' });
+      await gestureGuide.scrollIntoViewIfNeeded();
+      const guideBounds = await gestureGuide.boundingBox();
+      const scrolledPortalBounds = await portal.boundingBox();
+      expect(guideBounds).not.toBeNull();
+      expect((guideBounds?.y ?? 0) + (guideBounds?.height ?? 0)).toBeLessThanOrEqual(
+        (scrolledPortalBounds?.y ?? 0) + (scrolledPortalBounds?.height ?? 0),
+      );
       await page.keyboard.press('Escape');
       await expect(panel).toBeHidden();
     }

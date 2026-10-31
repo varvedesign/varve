@@ -1,6 +1,6 @@
 /**
- * The Layers panel header packs a title/count group and up to five action
- * buttons (settings, auto-reveal, collapse-all, a conditional "Exit Solo"
+ * The Layers panel header packs a title/count group and up to four action
+ * buttons (settings, collapse-all, a conditional "Exit Solo"
  * text button, detach) onto one non-wrapping flex row. Solo mode's "Exit
  * Solo" button is the one action-row item that is text plus an icon, not
  * just an icon — with it present, the action row's own natural width alone
