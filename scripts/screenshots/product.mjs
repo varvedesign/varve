@@ -1546,7 +1546,7 @@ const SCENES = [
       await dialog.getByRole('combobox', { name: 'Enhancement operation' }).click();
       await page.getByRole('option', { name: 'Upscale', exact: true }).click();
       await dialog
-        .getByAltText('Enhanced preview — same crop and output size as original')
+        .getByAltText('Enhanced preview: same crop and output size as original')
         .waitFor({ state: 'visible', timeout: 20000 });
     },
   },

@@ -36,6 +36,11 @@ import { truncateGraphemes } from '@varve/shared';
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import {
+  AI_DISABLED_HINT,
+  formatAiUserError,
+  useAiFeaturesEnabled,
+} from '../../../features/useAiFeaturesEnabled';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 
@@ -54,6 +59,7 @@ interface OcrState {
 
 export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, updateDoc, announce } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const node = nodes[0];
   const abortRef = useRef<AbortController | null>(null);
   const [state_, setState] = useState<OcrState>({
@@ -104,6 +110,10 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
   }, []);
 
   const handleDownload = useCallback(async () => {
+    if (!aiEnabled) {
+      setState((p) => ({ ...p, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -125,12 +135,16 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
       setState((p) => ({
         ...p,
         status: 'error',
-        errorMessage: err instanceof Error ? err.message : 'Download failed',
+        errorMessage: formatAiUserError(err, 'Download failed'),
       }));
     }
-  }, [announce]);
+  }, [aiEnabled, announce]);
 
   const handleRecognize = useCallback(async () => {
+    if (!aiEnabled) {
+      setState((p) => ({ ...p, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     if (!imageSrc) return;
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -177,10 +191,10 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
       setState((p) => ({
         ...p,
         status: 'error',
-        errorMessage: err instanceof Error ? err.message : 'OCR failed',
+        errorMessage: formatAiUserError(err, 'OCR failed'),
       }));
     }
-  }, [imageSrc, loadImageData, announce]);
+  }, [aiEnabled, imageSrc, loadImageData, announce]);
 
   const handleWordChange = useCallback((index: number, text: string) => {
     setState((p) => {

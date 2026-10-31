@@ -128,6 +128,46 @@ const AI_ENTRY_POINTS = [
     function: 'selectSpecificObject',
     description: 'Selection-sources Object Selection',
   },
+  {
+    file: 'packages/editor/src/components/Inspector/sections/LineArtSection.tsx',
+    function: 'handleGenerate',
+    description: 'Line art extraction',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/sections/OcrSection.tsx',
+    function: 'handleRecognize',
+    description: 'OCR recognition',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/sections/AIDenoiseSection.tsx',
+    function: 'handlePreview',
+    description: 'SCUNet denoise',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/sections/BlendImagesSection.tsx',
+    function: 'handleGenerate',
+    description: 'Frame interpolation',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/sections/DetectTextSection.tsx',
+    function: 'handleDetect',
+    description: 'PaddleOCR text detection',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/sections/FontDetectSection.tsx',
+    function: 'handleDetect',
+    description: 'Font classifier',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/sections/ColorizeSection.tsx',
+    function: 'runColorize',
+    description: 'Photo colorization',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/sections/ImageCropSection.tsx',
+    function: 'handleDetectSubject',
+    description: 'DETR object crop',
+  },
 ] as const;
 
 /** Take the source from `start` through the matching closing brace. */

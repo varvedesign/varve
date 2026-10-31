@@ -13,6 +13,11 @@ import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import {
+  AI_DISABLED_HINT,
+  formatAiUserError,
+  useAiFeaturesEnabled,
+} from '../../../features/useAiFeaturesEnabled';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
@@ -30,6 +35,7 @@ interface DenoiseState {
 
 export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, updateDoc, announce } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const node = nodes[0];
   const strengthId = useId();
   const abortRef = useRef<AbortController | null>(null);
@@ -145,6 +151,10 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
   );
 
   const handleDownload = useCallback(async () => {
+    if (!aiEnabled) {
+      setDenoise((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -179,7 +189,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
         }));
         return;
       }
-      const message = err instanceof Error ? err.message : 'Download failed';
+      const message = formatAiUserError(err, 'Download failed');
       setDenoise((prev) => ({
         ...prev,
         status: 'error',
@@ -187,9 +197,13 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
         modelDownloading: false,
       }));
     }
-  }, [announce]);
+  }, [aiEnabled, announce]);
 
   const handlePreview = useCallback(async () => {
+    if (!aiEnabled) {
+      setDenoise((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     if (!imageSrc) return;
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -243,12 +257,16 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
       announce('Denoise preview ready');
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Preview failed';
+      const message = formatAiUserError(err, 'Preview failed');
       setDenoise((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
-  }, [imageSrc, loadImageData, runDenoise, announce]);
+  }, [aiEnabled, imageSrc, loadImageData, runDenoise, announce]);
 
   const handleApply = useCallback(async () => {
+    if (!aiEnabled) {
+      setDenoise((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     if (!imageSrc) return;
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -294,10 +312,11 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
       resetState();
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Apply failed';
+      const message = formatAiUserError(err, 'Apply failed');
       setDenoise((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
   }, [
+    aiEnabled,
     imageSrc,
     loadImageData,
     runDenoise,

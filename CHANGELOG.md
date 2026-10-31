@@ -12,6 +12,13 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Admin AI-off policy now blocks webview inference.** A machine-wide `ai.enabled: off` policy used to paint the Settings switch Off while leftover `settings.ai.enabled: true` still let the browser ONNX path download and run models. The engine gate now honours the policy overlay, the same way native IPC already did.
+- **Quick background removal no longer treats leftover RGB in transparent pixels as a subject.** Chroma-key and k-means ignored source alpha, so a cutout PNG with green or other fringe in a=0 pixels could keep that fringe or invent a second colour cluster. Transparent pixels are background. When the remaining opaque pixels never touch the frame, k-means keeps them as the subject instead of dropping the cutout.
+- **Inspector AI actions refuse the user switch, not only the panel hide.** Line art, OCR, denoise, frame interpolation, text detection, font detect, photo colorize, and DETR crop now check the master switch in the handler and show the standard Settings hint. Failures use the shared InferenceError user copy instead of raw engine text.
+- **Enhance dialog user-facing copy no longer uses em dashes.** Preview alts, comparison labels, and pixel-art / AI-scale hints use colons or periods.
+
 ### Changed
 
 - **Contribution lanes**: docs and examples, translations, plugins in a

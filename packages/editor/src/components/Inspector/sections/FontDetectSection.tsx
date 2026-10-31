@@ -29,6 +29,11 @@ import { truncateGraphemes } from '@varve/shared';
 import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import {
+  AI_DISABLED_HINT,
+  formatAiUserError,
+  useAiFeaturesEnabled,
+} from '../../../features/useAiFeaturesEnabled';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FONT_DETECT_MAX_EDGE, loadFontDetectionImage } from './fontDetectImage';
 import {
@@ -94,6 +99,7 @@ function candidateNeedsReview(candidate: FontCandidate): boolean {
 export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
   const editor = useEditor();
   const { announce } = editor;
+  const aiEnabled = useAiFeaturesEnabled();
   const node = nodes[0];
   const abortRef = useRef<AbortController | null>(null);
   const downloadAbortRef = useRef<AbortController | null>(null);
@@ -213,6 +219,10 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
   }, [imageSrc, visibleCrop?.x, visibleCrop?.y, visibleCrop?.w, visibleCrop?.h]);
 
   const handleDownload = useCallback(async () => {
+    if (!aiEnabled) {
+      setDetect((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     setDetect((prev) => ({ ...prev, status: 'downloading', errorMessage: null }));
     setDownloadProgress(0);
     const controller = new AbortController();
@@ -234,18 +244,23 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
         setDetect((prev) => ({ ...prev, status: 'idle' }));
         return;
       }
-      const message = err instanceof Error ? err.message : 'Download failed';
+      const message = formatAiUserError(err, 'Download failed');
       setDetect((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     } finally {
       downloadAbortRef.current = null;
     }
-  }, [announce]);
+  }, [aiEnabled, announce]);
 
   const handleCancelDownload = useCallback(() => {
     downloadAbortRef.current?.abort();
   }, []);
 
   const handleRecognizeText = useCallback(async () => {
+    if (!aiEnabled) {
+      setOcrStatus('error');
+      setOcrError(AI_DISABLED_HINT);
+      return;
+    }
     if (!ocrAvailable) return;
     ocrAbortRef.current?.abort();
     const controller = new AbortController();
@@ -286,11 +301,11 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
     } catch (err) {
       if (controller.signal.aborted) return;
       setOcrStatus('error');
-      setOcrError(err instanceof Error ? err.message : 'Local OCR failed');
+      setOcrError(formatAiUserError(err, 'Local OCR failed'));
     } finally {
       if (ocrAbortRef.current === controller) ocrAbortRef.current = null;
     }
-  }, [analyzeVisibleCrop, announce, image, imageSrc, ocrAvailable, visibleCrop]);
+  }, [aiEnabled, analyzeVisibleCrop, announce, image, imageSrc, ocrAvailable, visibleCrop]);
 
   const handleCancelOcr = useCallback(() => {
     ocrAbortRef.current?.abort();
@@ -299,6 +314,10 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
   }, []);
 
   const handleDetect = useCallback(async () => {
+    if (!aiEnabled) {
+      setDetect((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -358,10 +377,10 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
       );
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Font detection failed';
+      const message = formatAiUserError(err, 'Font detection failed');
       setDetect((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
-  }, [analyzeVisibleCrop, announce, image, imageSrc, recognizedText, visibleCrop]);
+  }, [aiEnabled, analyzeVisibleCrop, announce, image, imageSrc, recognizedText, visibleCrop]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();

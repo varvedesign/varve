@@ -22,6 +22,11 @@ import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { commitColorizationResult, planColorizeApply } from '../../../colorizationCommit';
 import { useEditor } from '../../../context';
+import {
+  AI_DISABLED_HINT,
+  formatAiUserError,
+  useAiFeaturesEnabled,
+} from '../../../features/useAiFeaturesEnabled';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
@@ -192,6 +197,7 @@ function ColorizeCompare({ sourceSrc, previewSrc }: { sourceSrc: string; preview
 
 export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, updateDoc, announce, setSelection, groupCompoundOperation } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const node = nodes[0];
   const hueId = useId();
   const satId = useId();
@@ -423,6 +429,9 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       expectedSignature: string,
       controller: AbortController,
     ): Promise<ColorizationResultContract> => {
+      if (workflow === 'photo' && !aiEnabled) {
+        throw new Error(AI_DISABLED_HINT);
+      }
       const { clampImageToMaxDimension, dispatchColorization, generateColorizationRequestId } =
         await import('@varve/engine');
       const liveState = liveStateRef.current;
@@ -553,6 +562,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       return result;
     },
     [
+      aiEnabled,
       workflow,
       recolorScope,
       mask,
@@ -640,7 +650,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       announce('Colorize preview ready');
     } catch (error) {
       if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
-      const message = error instanceof Error ? error.message : 'Preview failed';
+      const message = formatAiUserError(error, 'Preview failed');
       setColorize((previous) => ({
         ...previous,
         status: 'error',

@@ -200,6 +200,17 @@ describe('AI master switch choke point', () => {
     expect(getAiFeaturesEnabled()).toBe(false);
   });
 
+  it('refuses inference when admin policy forces AI off despite a true user setting', async () => {
+    const { configureAiPolicyOverride } = await import('../aiFeaturesGate');
+    enableAi();
+    configureAiPolicyOverride('off');
+    expect(getAiFeaturesEnabled()).toBe(false);
+    const loader = getModelLoader();
+    await expect(loader.downloadModel('u2netp')).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+  });
+
   it('prefers varve-editor-settings over the legacy key', () => {
     localStorage.setItem('strata-editor-settings', JSON.stringify({ ai: { enabled: false } }));
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));

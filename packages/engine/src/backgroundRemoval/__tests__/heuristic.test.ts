@@ -114,6 +114,34 @@ describe('chromaKeyMask', () => {
     expect(mask[0 * 10 + 4]).toBe(0);
     expect(mask[0 * 10 + 5]).toBe(255);
   });
+
+  it('treats leftover RGB in transparent pixels as background, not a key hit', () => {
+    const img = makeTestImage(10, 10, (x, _y) => {
+      if (x < 3) return [0, 255, 0, 0];
+      return [255, 0, 0, 255];
+    });
+    const mask = chromaKeyMask(img, { r: 0, g: 255, b: 0 }, 30);
+    for (let y = 0; y < 10; y++) {
+      expect(mask[y * 10 + 0]).toBe(0);
+      expect(mask[y * 10 + 2]).toBe(0);
+      expect(mask[y * 10 + 3]).toBe(255);
+    }
+  });
+
+  it('ignores leftover RGB that does not match the key colour', () => {
+    // Old chroma keyed only on RGB, so leftover magenta in a=0 pixels
+    // became a false subject when the key was green.
+    const img = makeTestImage(10, 10, (x, _y) => {
+      if (x < 3) return [255, 0, 255, 0];
+      return [255, 0, 0, 255];
+    });
+    const mask = chromaKeyMask(img, { r: 0, g: 255, b: 0 }, 30);
+    for (let y = 0; y < 10; y++) {
+      expect(mask[y * 10 + 0]).toBe(0);
+      expect(mask[y * 10 + 2]).toBe(0);
+      expect(mask[y * 10 + 3]).toBe(255);
+    }
+  });
 });
 
 describe('kMeansMask', () => {
@@ -131,6 +159,33 @@ describe('kMeansMask', () => {
     const mask = kMeansMask(img);
     const unique = new Set(mask);
     expect(unique.size).toBeLessThanOrEqual(2);
+  });
+
+  it('does not let leftover RGB in transparent pixels become a colour cluster', () => {
+    const img = makeTestImage(12, 12, (x, y) => {
+      if (x >= 3 && x < 9 && y >= 3 && y < 9) return [40, 80, 200, 255];
+      return [0, 255, 0, 0];
+    });
+    const mask = kMeansMask(img);
+    expect(mask[0]).toBe(0);
+    expect(mask[11 * 12 + 11]).toBe(0);
+    expect(mask[6 * 12 + 6]).toBe(255);
+  });
+
+  it('keeps an inset cutout when leftover RGB has similar luminance', () => {
+    const img = makeTestImage(16, 16, (x, y) => {
+      const subject = x >= 4 && x < 12 && y >= 4 && y < 12;
+      return subject ? [200, 40, 40, 255] : [255, 0, 255, 0];
+    });
+    const mask = kMeansMask(img);
+    expect(mask[0]).toBe(0);
+    expect(mask[8 * 16 + 8]).toBe(255);
+    expect([...mask].filter((v) => v >= 128)).toHaveLength(64);
+  });
+
+  it('returns an all-background mask for a fully transparent PNG', () => {
+    const img = makeTestImage(8, 8, () => [12, 34, 56, 0]);
+    expect(kMeansMask(img).every((v) => v === 0)).toBe(true);
   });
 });
 
@@ -206,6 +261,47 @@ describe('removeBackgroundHeuristic', () => {
     expect(typeof result.maskDataUrl).toBe('string');
     expect(result.width).toBe(1);
     expect(result.height).toBe(1);
+  });
+
+  it('keeps a hard-edge logo on a white field', async () => {
+    const img = makeTestImage(24, 24, (x, y) => {
+      const logo = x >= 6 && x < 18 && y >= 6 && y < 18;
+      return logo ? [20, 20, 20, 255] : [255, 255, 255, 255];
+    });
+    const result = await removeBackgroundHeuristic(img, {
+      method: 'quick',
+      heuristicMethod: 'auto',
+    });
+    expect(result.rawMask?.[12 * 24 + 12]).toBe(255);
+    expect(result.rawMask?.[0]).toBe(0);
+  });
+
+  it('keeps a central subject on a wide panoramic strip', async () => {
+    const img = makeTestImage(80, 8, (x, y) => {
+      const subject = x >= 32 && x < 48 && y >= 1 && y < 7;
+      return subject ? [30, 90, 200, 255] : [240, 240, 240, 255];
+    });
+    const result = await removeBackgroundHeuristic(img, {
+      method: 'quick',
+      heuristicMethod: 'auto',
+    });
+    expect(result.width).toBe(80);
+    expect(result.height).toBe(8);
+    expect(result.rawMask?.[4 * 80 + 40]).toBe(255);
+    expect(result.rawMask?.[0]).toBe(0);
+  });
+
+  it('preserves existing transparency on a cutout PNG and ignores fringe RGB', async () => {
+    const img = makeTestImage(16, 16, (x, y) => {
+      const subject = x >= 4 && x < 12 && y >= 4 && y < 12;
+      return subject ? [200, 40, 40, 255] : [0, 255, 0, 0];
+    });
+    const result = await removeBackgroundHeuristic(img, {
+      method: 'quick',
+      heuristicMethod: 'auto',
+    });
+    expect(result.rawMask?.[0]).toBe(0);
+    expect(result.rawMask?.[8 * 16 + 8]).toBe(255);
   });
 
   it('decontaminate option actually chokes the mask before encoding', async () => {

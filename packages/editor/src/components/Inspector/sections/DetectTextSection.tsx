@@ -14,6 +14,11 @@ import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import {
+  AI_DISABLED_HINT,
+  formatAiUserError,
+  useAiFeaturesEnabled,
+} from '../../../features/useAiFeaturesEnabled';
 import { pickSoleOutputTensor } from '../../../inferenceOutputs';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
@@ -49,6 +54,7 @@ function loadImageToImageData(src: string): Promise<ImageData> {
 
 export function DetectTextSection({ nodes }: { nodes: SceneNode[] }) {
   const { announce } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const node = nodes[0];
   const abortRef = useRef<AbortController | null>(null);
   const downloadAbortRef = useRef<AbortController | null>(null);
@@ -79,6 +85,10 @@ export function DetectTextSection({ nodes }: { nodes: SceneNode[] }) {
   }, [isImage]);
 
   const handleDownload = useCallback(async () => {
+    if (!aiEnabled) {
+      setDetect((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     setDetect((prev) => ({ ...prev, status: 'downloading', errorMessage: null }));
     setDownloadProgress(0);
     const controller = new AbortController();
@@ -100,18 +110,22 @@ export function DetectTextSection({ nodes }: { nodes: SceneNode[] }) {
         setDetect((prev) => ({ ...prev, status: 'idle' }));
         return;
       }
-      const message = err instanceof Error ? err.message : 'Download failed';
+      const message = formatAiUserError(err, 'Download failed');
       setDetect((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     } finally {
       downloadAbortRef.current = null;
     }
-  }, [announce]);
+  }, [aiEnabled, announce]);
 
   const handleCancelDownload = useCallback(() => {
     downloadAbortRef.current?.abort();
   }, []);
 
   const handleDetect = useCallback(async () => {
+    if (!aiEnabled) {
+      setDetect((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -184,10 +198,10 @@ export function DetectTextSection({ nodes }: { nodes: SceneNode[] }) {
       );
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Text detection failed';
+      const message = formatAiUserError(err, 'Text detection failed');
       setDetect((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
-  }, [imageSrc, announce]);
+  }, [aiEnabled, imageSrc, announce]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();

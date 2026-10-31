@@ -1,6 +1,12 @@
 import { decontaminateMask, featherMaskArray } from './maskOps';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult, HeuristicMethod } from './types';
 
+const TRANSPARENT_ALPHA = 128;
+
+function isTransparentAlpha(alpha: number): boolean {
+  return alpha < TRANSPARENT_ALPHA;
+}
+
 function rgbDist(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number {
   const dr = r1 - r2;
   const dg = g1 - g2;
@@ -21,6 +27,17 @@ function colorAt(
 function grayAt(data: Uint8ClampedArray, w: number, x: number, y: number): number {
   const i = (y * w + x) * 4;
   return ((data[i] ?? 0) * 77 + (data[i + 1] ?? 0) * 150 + (data[i + 2] ?? 0) * 29) >> 8;
+}
+
+function opaqueGrayAt(data: Uint8ClampedArray, w: number, x: number, y: number): number {
+  const i = (y * w + x) * 4;
+  if (isTransparentAlpha(data[i + 3] ?? 0)) return Number.NaN;
+  return ((data[i] ?? 0) * 77 + (data[i + 1] ?? 0) * 150 + (data[i + 2] ?? 0) * 29) >> 8;
+}
+
+function opaqueGrayDelta(a: number, b: number): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return a - b;
 }
 
 export function floodFillMask(
@@ -76,6 +93,11 @@ export function chromaKeyMask(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
+      // Leftover RGB in fully transparent pixels is not a green-screen hit.
+      if (isTransparentAlpha(data[i + 3] ?? 0)) {
+        mask[y * width + x] = 0;
+        continue;
+      }
       const dist = rgbDist(
         data[i] ?? 0,
         data[i + 1] ?? 0,
@@ -94,11 +116,13 @@ export function chromaKeyMask(
 
 export function kMeansMask(img: ImageData): Uint8Array {
   const { data, width, height } = img;
+  const empty = new Uint8Array(width * height);
 
   const flattened: Array<{ r: number; g: number; b: number; idx: number }> = [];
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
+      if (isTransparentAlpha(data[i + 3] ?? 0)) continue;
       flattened.push({
         r: data[i] ?? 0,
         g: data[i + 1] ?? 0,
@@ -108,7 +132,7 @@ export function kMeansMask(img: ImageData): Uint8Array {
     }
   }
 
-  if (flattened.length === 0) return new Uint8Array(0);
+  if (flattened.length === 0) return empty;
 
   const nPixels = flattened.length;
   const border = flattened.filter(({ idx }) => {
@@ -116,7 +140,14 @@ export function kMeansMask(img: ImageData): Uint8Array {
     const y = Math.floor(idx / width);
     return x === 0 || y === 0 || x === width - 1 || y === height - 1;
   });
-  const borderCount = Math.max(1, border.length);
+  // Cutout PNG: leftover RGB lives in a=0 pixels, so the remaining
+  // opaque pixels never touch the frame. Those pixels are the subject.
+  if (border.length === 0) {
+    const cutout = new Uint8Array(width * height);
+    for (const pixel of flattened) cutout[pixel.idx] = 255;
+    return cutout;
+  }
+  const borderCount = border.length;
   let c0 = border.reduce(
     (sum, pixel) => ({ r: sum.r + pixel.r, g: sum.g + pixel.g, b: sum.b + pixel.b }),
     { r: 0, g: 0, b: 0 },
@@ -171,15 +202,29 @@ export function kMeansMask(img: ImageData): Uint8Array {
     if (count1 > 0) c1 = { r: sumR1 / count1, g: sumG1 / count1, b: sumB1 / count1 };
   }
 
+  const clusterAt = new Int8Array(width * height).fill(-1);
+  for (let i = 0; i < nPixels; i++) {
+    const flat = flattened[i];
+    if (!flat) continue;
+    clusterAt[flat.idx] = (assignments[i] ?? 0) as 0 | 1;
+  }
+
   const edgeScore = new Float64Array(2);
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       const idx = y * width + x;
-      const gx = grayAt(data, width, x + 1, y) - grayAt(data, width, x - 1, y);
-      const gy = grayAt(data, width, x, y + 1) - grayAt(data, width, x, y - 1);
+      if ((clusterAt[idx] ?? -1) < 0) continue;
+      const gx = opaqueGrayDelta(
+        opaqueGrayAt(data, width, x + 1, y),
+        opaqueGrayAt(data, width, x - 1, y),
+      );
+      const gy = opaqueGrayDelta(
+        opaqueGrayAt(data, width, x, y + 1),
+        opaqueGrayAt(data, width, x, y - 1),
+      );
       const mag = Math.sqrt(gx * gx + gy * gy);
       if (mag > 30) {
-        const si = assignments[idx] ?? 0;
+        const si = clusterAt[idx] ?? 0;
         edgeScore[si] = (edgeScore[si] ?? 0) + 1;
       }
     }
@@ -311,6 +356,7 @@ export function edgeDetectMask(img: ImageData): Uint8Array {
 
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
+      if (isTransparentAlpha(data[(y * width + x) * 4 + 3] ?? 0)) continue;
       const gx =
         grayAt(data, width, x - 1, y - 1) * -1 +
         grayAt(data, width, x - 1, y) * -2 +
