@@ -4,15 +4,37 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  mockGetCaps.mockResolvedValue({
+    webgpu: false,
+    wasm: true,
+    wasmSimd: true,
+    onnxBackend: 'wasm',
+    executionProviders: [{ name: 'wasm' }],
+    maxMemoryMB: 512,
+    isTauri: false,
+  });
+});
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-const { mockRemoveBackground, mockImageCache, mockIsModelAvailable } = vi.hoisted(() => ({
-  mockRemoveBackground: vi.fn(),
-  mockImageCache: { load: vi.fn() },
-  mockIsModelAvailable: vi.fn().mockResolvedValue(true),
-}));
+const { mockRemoveBackground, mockImageCache, mockIsModelAvailable, mockGetCaps } = vi.hoisted(
+  () => ({
+    mockRemoveBackground: vi.fn(),
+    mockImageCache: { load: vi.fn() },
+    mockIsModelAvailable: vi.fn().mockResolvedValue(true),
+    mockGetCaps: vi.fn().mockResolvedValue({
+      webgpu: false,
+      wasm: true,
+      wasmSimd: true,
+      onnxBackend: 'wasm',
+      executionProviders: [{ name: 'wasm' }],
+      maxMemoryMB: 512,
+      isTauri: false,
+    }),
+  }),
+);
 
 vi.mock('@varve/engine', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@varve/engine')>();
@@ -21,14 +43,7 @@ vi.mock('@varve/engine', async (importOriginal) => {
     getImageCache: () => mockImageCache,
     removeBackground: mockRemoveBackground,
     DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
-    getEnvironmentCapabilities: vi.fn().mockResolvedValue({
-      webgpu: false,
-      wasm: true,
-      wasmSimd: true,
-      onnxBackend: 'wasm',
-      executionProviders: [{ name: 'wasm' }],
-      maxMemoryMB: 512,
-    }),
+    getEnvironmentCapabilities: mockGetCaps,
     isWasmModelSafe: vi.fn().mockResolvedValue(true),
     finalizeMaskResult: vi.fn(async (result: { maskDataUrl: string }) => ({
       ...result,
@@ -177,14 +192,47 @@ describe('BatchBgRemoveDialog', () => {
     }
   });
 
-  it('shows method selector', () => {
+  it('shows method selector', async () => {
     renderDialog([imageNode('i1')]);
     expect(screen.getByText('Quick')).toBeTruthy();
     expect(screen.getByText('AI Balanced')).toBeTruthy();
-    expect(screen.getByText('AI Quality')).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /High quality and the IS-Net upgrade can only be downloaded in the desktop app/i,
+        ),
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText('AI Quality')).toBeNull();
     const radios = screen.getAllByRole('radio');
-    expect(radios).toHaveLength(3);
+    expect(radios).toHaveLength(2);
     expect(radios[0]).toBeChecked();
+  });
+
+  it('shows High quality on desktop', async () => {
+    mockGetCaps.mockResolvedValue({
+      webgpu: false,
+      wasm: true,
+      wasmSimd: true,
+      onnxBackend: 'wasm',
+      executionProviders: [{ name: 'wasm' }],
+      maxMemoryMB: 512,
+      isTauri: true,
+    });
+    renderDialog([imageNode('i1')]);
+    await waitFor(() => {
+      expect(screen.getByText('AI Quality')).toBeTruthy();
+    });
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    mockGetCaps.mockResolvedValue({
+      webgpu: false,
+      wasm: true,
+      wasmSimd: true,
+      onnxBackend: 'wasm',
+      executionProviders: [{ name: 'wasm' }],
+      maxMemoryMB: 512,
+      isTauri: false,
+    });
   });
 
   it('start button processes files', async () => {

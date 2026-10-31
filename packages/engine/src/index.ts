@@ -127,6 +127,7 @@ export {
   AVAILABLE_MODELS,
   cancelAllWorkerJobs,
   DEFAULT_PREVIEW_MAX_DIMENSION,
+  DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE,
   decodeMaskDataUrl,
   filterMaskByComponents,
   finalizeMaskResult,
@@ -138,6 +139,9 @@ export {
   getModelInfo,
   getModelLoader,
   getModelLoaderReady,
+  HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
+  isBrowserBlockedSegmentationModel,
+  isGithubReleaseAssetUrl,
   isWasmModelSafe,
   MODEL_INFO_MAP,
   maskArrayToDataUrl,
@@ -154,6 +158,7 @@ export {
   TRIMap,
   terminateWorkerPool,
   trimapFromMask,
+  WEB_DESKTOP_ONLY_MODELS_HINT,
   workerModelIdForMethod,
 } from './backgroundRemoval';
 export * from './backup';

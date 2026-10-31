@@ -14,9 +14,12 @@ import {
   checkGifExportSupport,
   checkVideoExportSupport,
   computeVideoFrameCount,
+  getEnvironmentCapabilities,
   getModelLoaderReady,
+  WEB_DESKTOP_ONLY_MODELS_HINT,
   workerModelIdForMethod,
 } from '@varve/engine';
+import { isTauriRuntime } from '@varve/platform';
 import { prefersReducedMotion } from '@varve/prototype';
 import type {
   BackgroundRemovalMethod,
@@ -374,6 +377,7 @@ export function ExportDialog({
   const [includeAiDisclosure, setIncludeAiDisclosure] = useState(true);
   const [bgMethod, setBgMethod] = useState<BackgroundRemovalMethod>('quick');
   const [aiAvailable, setAiAvailable] = useState(true);
+  const [isDesktop, setIsDesktop] = useState(() => isTauriRuntime());
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [videoExporting, setVideoExporting] = useState(false);
   const [videoProgress, setVideoProgress] = useState({ done: 0, total: 0 });
@@ -443,6 +447,15 @@ export function ExportDialog({
   useEffect(() => {
     if (isOpen) void refreshModelStatus();
   }, [isOpen, refreshModelStatus]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void getEnvironmentCapabilities().then((caps) => setIsDesktop(caps.isTauri));
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isDesktop && bgMethod === 'ai-quality') setBgMethod('ai-balanced');
+  }, [isDesktop, bgMethod]);
 
   const jobs = useMemo(() => buildJobs(nodes, document), [nodes, document]);
 
@@ -1119,7 +1132,9 @@ export function ExportDialog({
                           ? [
                               { value: 'quick', label: 'Quick' },
                               { value: 'ai-balanced', label: 'Balanced' },
-                              { value: 'ai-quality', label: 'High quality' },
+                              ...(isDesktop
+                                ? [{ value: 'ai-quality', label: 'High quality' }]
+                                : []),
                             ]
                           : [{ value: 'quick', label: 'Quick' }]
                       }
@@ -1141,6 +1156,9 @@ export function ExportDialog({
                       }}
                     />
                     {!aiEnabled && <p className="export-dialog__note">{AI_DISABLED_HINT}</p>}
+                    {aiEnabled && !isDesktop && (
+                      <p className="export-dialog__note">{WEB_DESKTOP_ONLY_MODELS_HINT}</p>
+                    )}
                     {aiEnabled && bgMethod !== 'quick' && !aiAvailable && (
                       <button
                         type="button"

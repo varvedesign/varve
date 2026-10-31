@@ -597,18 +597,65 @@ struct LetterboxTransform {
     scale: f32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SquareInputResizeMode {
+    Stretch,
+    Letterbox,
+}
+
+/// rembg stretch-resizes into the square. Letterbox stays only for
+/// panoramas and tall crops past about 2.5:1.
+const SQUARE_INPUT_LETTERBOX_ASPECT: f32 = 2.5;
+
+fn is_u2net_light(model_id: &str) -> bool {
+    model_id == "u2netp" || model_id == "u2netp-int8"
+}
+
+fn square_input_resize_mode(source_w: u32, source_h: u32) -> SquareInputResizeMode {
+    let shorter = source_w.min(source_h);
+    if shorter == 0 {
+        return SquareInputResizeMode::Stretch;
+    }
+    if source_w.max(source_h) as f32 / shorter as f32 > SQUARE_INPUT_LETTERBOX_ASPECT {
+        SquareInputResizeMode::Letterbox
+    } else {
+        SquareInputResizeMode::Stretch
+    }
+}
+
 fn model_spec(model_id: &str) -> ModelSpec {
     if model_id == "isnet-general-use" {
         (1024, [0.5; 3], [1.0; 3], [128; 3], false)
     } else {
         (
-            if model_id == "u2netp" { 320 } else { 1024 },
+            if is_u2net_light(model_id) { 320 } else { 1024 },
             [0.485, 0.456, 0.406],
             [0.229, 0.224, 0.225],
             [124, 116, 104],
-            model_id != "u2netp",
+            !is_u2net_light(model_id),
         )
     }
+}
+
+fn pack_rgba_nchw(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    mean: [f32; 3],
+    std: [f32; 3],
+) -> Vec<f32> {
+    let n = (width * height) as usize;
+    let mut tensor_data = Vec::with_capacity(n * 3);
+    for c in 0..3 {
+        for y in 0..height {
+            for x in 0..width {
+                let i = ((y * width + x) * 4 + c) as usize;
+                let normalized = pixels[i] as f32 / 255.0;
+                tensor_data.push((normalized - mean[c as usize]) / std[c as usize]);
+            }
+        }
+    }
+    tensor_data
 }
 
 // ── Denoise (SCUNet) ─────────────────────────────────────────────────
@@ -1312,37 +1359,41 @@ pub fn remove_ai_cancellable(
 
     let (input_size, mean, std, padding, apply_sigmoid) = model_spec(model_id);
     let (source_w, source_h) = source.dimensions();
-    let scale = (input_size as f32 / source_w as f32).min(input_size as f32 / source_h as f32);
-    let content_w = ((source_w as f32 * scale).round() as u32).max(1);
-    let content_h = ((source_h as f32 * scale).round() as u32).max(1);
-    let offset_x = (input_size - content_w) / 2;
-    let offset_y = (input_size - content_h) / 2;
-    let content = source.resize_exact(content_w, content_h, image::imageops::FilterType::Triangle);
-    let mut letterboxed = ImageBuffer::from_pixel(
-        input_size,
-        input_size,
-        Rgba([padding[0], padding[1], padding[2], 255]),
-    );
-    image::imageops::overlay(
-        &mut letterboxed,
-        &content.to_rgba8(),
-        i64::from(offset_x),
-        i64::from(offset_y),
-    );
-    let rgba = letterboxed;
-    let pixels = rgba.into_raw();
-
-    let n = (input_size * input_size) as usize;
-    let mut tensor_data = Vec::with_capacity(n * 3);
-    for c in 0..3 {
-        for y in 0..input_size {
-            for x in 0..input_size {
-                let i = ((y * input_size + x) * 4 + c) as usize;
-                let normalized = pixels[i] as f32 / 255.0;
-                tensor_data.push((normalized - mean[c as usize]) / std[c as usize]);
-            }
+    let resize_mode = square_input_resize_mode(source_w, source_h);
+    let (rgba, offset_x, offset_y, scale) = match resize_mode {
+        SquareInputResizeMode::Stretch => {
+            let stretched = source.resize_exact(
+                input_size,
+                input_size,
+                image::imageops::FilterType::Triangle,
+            );
+            (stretched.to_rgba8(), 0u32, 0u32, 0.0f32)
         }
-    }
+        SquareInputResizeMode::Letterbox => {
+            let scale =
+                (input_size as f32 / source_w as f32).min(input_size as f32 / source_h as f32);
+            let content_w = ((source_w as f32 * scale).round() as u32).max(1);
+            let content_h = ((source_h as f32 * scale).round() as u32).max(1);
+            let offset_x = (input_size - content_w) / 2;
+            let offset_y = (input_size - content_h) / 2;
+            let content =
+                source.resize_exact(content_w, content_h, image::imageops::FilterType::Triangle);
+            let mut letterboxed = ImageBuffer::from_pixel(
+                input_size,
+                input_size,
+                Rgba([padding[0], padding[1], padding[2], 255]),
+            );
+            image::imageops::overlay(
+                &mut letterboxed,
+                &content.to_rgba8(),
+                i64::from(offset_x),
+                i64::from(offset_y),
+            );
+            (letterboxed, offset_x, offset_y, scale)
+        }
+    };
+    let pixels = rgba.into_raw();
+    let tensor_data = pack_rgba_nchw(&pixels, input_size, input_size, mean, std);
 
     if cancellation.is_cancelled() {
         return Err("Inference cancelled".to_owned());
@@ -1371,18 +1422,23 @@ pub fn remove_ai_cancellable(
         0.0
     };
 
-    let source_mask = reconstruct_letterbox_mask(
-        &mask,
-        mask_dim,
-        mask_dim,
-        source_w,
-        source_h,
-        LetterboxTransform {
-            offset_x: offset_x as f32 * mask_dim as f32 / input_size as f32,
-            offset_y: offset_y as f32 * mask_dim as f32 / input_size as f32,
-            scale: scale * mask_dim as f32 / input_size as f32,
-        },
-    );
+    let source_mask = match resize_mode {
+        SquareInputResizeMode::Stretch => {
+            resize_mask(&mask, mask_dim, mask_dim, source_w, source_h)
+        }
+        SquareInputResizeMode::Letterbox => reconstruct_letterbox_mask(
+            &mask,
+            mask_dim,
+            mask_dim,
+            source_w,
+            source_h,
+            LetterboxTransform {
+                offset_x: offset_x as f32 * mask_dim as f32 / input_size as f32,
+                offset_y: offset_y as f32 * mask_dim as f32 / input_size as f32,
+                scale: scale * mask_dim as f32 / input_size as f32,
+            },
+        ),
+    };
     let mut resized_mask = resize_mask(&source_mask, source_w, source_h, orig_w, orig_h);
 
     if opts.decontaminate.unwrap_or(false) {
@@ -1512,9 +1568,9 @@ mod tests {
     use super::{
         auto_gpu_model_fallbacks, auto_gpu_model_is_quarantined, automatic_gpu_fallback_allowed,
         clear_auto_gpu_model_quarantine, execution_provider_fallback, model_spec,
-        normalize_segmentation_output, pad_rgba_edges, quarantine_auto_gpu_model,
-        reconstruct_letterbox_mask, resize_mask, InferenceRuntime, InferenceSession,
-        LetterboxTransform, OrtInferenceRuntime,
+        normalize_segmentation_output, pack_rgba_nchw, pad_rgba_edges, quarantine_auto_gpu_model,
+        reconstruct_letterbox_mask, resize_mask, square_input_resize_mode, InferenceRuntime,
+        InferenceSession, LetterboxTransform, OrtInferenceRuntime, SquareInputResizeMode,
     };
     use crate::session_pool::{InferenceCancellationToken, SessionPool, SessionPoolLimits};
 
@@ -1627,6 +1683,88 @@ mod tests {
         assert_eq!(mean, [0.5; 3]);
         assert_eq!(std, [1.0; 3]);
         assert!(!sigmoid);
+    }
+
+    #[test]
+    fn square_input_resize_mode_matches_ts_contract() {
+        assert_eq!(
+            square_input_resize_mode(800, 600),
+            SquareInputResizeMode::Stretch
+        );
+        assert_eq!(
+            square_input_resize_mode(5, 2),
+            SquareInputResizeMode::Stretch
+        );
+        assert_eq!(
+            square_input_resize_mode(6, 2),
+            SquareInputResizeMode::Letterbox
+        );
+        assert_eq!(
+            square_input_resize_mode(2, 6),
+            SquareInputResizeMode::Letterbox
+        );
+    }
+
+    #[test]
+    fn u2net_int8_uses_the_320_light_spec() {
+        let (size, mean, std, _, sigmoid) = model_spec("u2netp-int8");
+        assert_eq!(size, 320);
+        assert_eq!(mean, [0.485, 0.456, 0.406]);
+        assert_eq!(std, [0.229, 0.224, 0.225]);
+        assert!(!sigmoid);
+        let (fp32_size, _, _, _, fp32_sigmoid) = model_spec("u2netp");
+        assert_eq!(fp32_size, size);
+        assert_eq!(fp32_sigmoid, sigmoid);
+    }
+
+    #[test]
+    fn pack_rgba_nchw_matches_ts_imagenet_contract() {
+        // 2x2 red/green rows, same bytes as the TS parity test.
+        let pixels = [
+            255, 0, 0, 255, 0, 255, 0, 255, 255, 0, 0, 255, 0, 255, 0, 255,
+        ];
+        let packed = pack_rgba_nchw(&pixels, 2, 2, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]);
+        let expected = [
+            (1.0 - 0.485) / 0.229,
+            (0.0 - 0.485) / 0.229,
+            (1.0 - 0.485) / 0.229,
+            (0.0 - 0.485) / 0.229,
+            (0.0 - 0.456) / 0.224,
+            (1.0 - 0.456) / 0.224,
+            (0.0 - 0.456) / 0.224,
+            (1.0 - 0.456) / 0.224,
+            (0.0 - 0.406) / 0.225,
+            (0.0 - 0.406) / 0.225,
+            (0.0 - 0.406) / 0.225,
+            (0.0 - 0.406) / 0.225,
+        ];
+        assert_eq!(packed.len(), expected.len());
+        for (got, want) in packed.iter().zip(expected.iter()) {
+            assert!((got - want).abs() < 1e-5, "{got} vs {want}");
+        }
+    }
+
+    #[test]
+    fn reconstructs_stretch_mask_with_inverse_scale() {
+        let mut mask = vec![0u8; 16];
+        for y in 0..4 {
+            for x in 0..2 {
+                mask[y * 4 + x] = 255;
+            }
+        }
+        let out = resize_mask(&mask, 4, 4, 8, 4);
+        assert_eq!(out.len(), 32);
+        assert_eq!(&out[0..8], &[255, 255, 255, 191, 64, 0, 0, 0]);
+        assert_eq!(out[0], 255);
+        assert_eq!(out[7], 0);
+        assert_eq!(out[24], 255);
+        assert_eq!(out[31], 0);
+    }
+
+    #[test]
+    fn stretch_1x1_mask_fills_non_square_source() {
+        // Pinned to the TS squareInputResize parity suite.
+        assert_eq!(resize_mask(&[128], 1, 1, 3, 2), vec![128; 6]);
     }
 
     #[test]

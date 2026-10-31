@@ -227,7 +227,7 @@ export const AVAILABLE_MODELS: ModelMetadata[] = [
     quality: 5,
     remoteUrl:
       'https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx',
-    checksum: '',
+    checksum: '58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c',
   },
   {
     id: 'modnet-portrait',

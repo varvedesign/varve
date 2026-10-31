@@ -102,6 +102,22 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **AI background removal accuracy on real photos.** Square-input
+  models (bundled Balanced / u2netp, IS-Net, BiRefNet) stretch-resize to the
+  model square instead of letterboxing. Letterbox padding stays only for
+  frames taller or wider than about 2.5:1. Accuracy improves a lot on real
+  photos, especially dark and fenced ones (IS-Net low-light IoU 0.046 to
+  0.985; u2netp edge 0.505 to 0.956).
+- **GitHub-hosted models on the web.** IS-Net and BiRefNet Lite/Full live
+  on GitHub Releases, which the browser cannot fetch (no CORS). The web UI
+  no longer offers those downloads. They can only be downloaded in the
+  desktop app, which streams them through Rust.
+- **BiRefNet Full integrity.** The catalogue now pins SHA-256
+  `58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c` from
+  the published rembg `BiRefNet-general-epoch_244.onnx` file.
+- **Native u2netp-int8 settings.** The INT8 Balanced variant now uses the
+  320 input and no extra sigmoid, matching the FP32 light model. Master
+  used size 1024 and applied sigmoid.
 - **SVG import is linear again** — Importing a large file took time proportional to the square of
   its element count: the converter copied the entire node map once per element, and the append
   copied it again. A 4 000-element file went from 14.6 s to 0.26 s, and 8 000 elements from 34 s to

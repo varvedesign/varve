@@ -16,17 +16,21 @@ import type {
 import {
   combineAreaSelections,
   DEFAULT_PREVIEW_MAX_DIMENSION,
+  DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE,
   EFFICIENT_SAM_PROVIDER_ID,
   getEnvironmentCapabilities,
   getModelInfo,
   getModelLoaderReady,
+  isBrowserBlockedSegmentationModel,
   isWasmModelSafe,
   MOBILE_SAM_DECODER_ID,
   MOBILE_SAM_ENCODER_ID,
   MOBILE_SAM_PROVIDER_ID,
   SAM2_PROVIDER_ID,
+  WEB_DESKTOP_ONLY_MODELS_HINT,
   workerModelIdForMethod,
 } from '@varve/engine';
+import { isTauriRuntime } from '@varve/platform';
 import type { SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape, resolveNodePaints } from '@varve/scene';
 import { truncateGraphemes } from '@varve/shared';
@@ -376,6 +380,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   }, [node?.id]);
   const [aiAvailable, setAiAvailable] = useState(false);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => isTauriRuntime());
   const [wasmModelSafe, setWasmModelSafe] = useState(true);
 
   const showingOriginal = Boolean(node && state.showOriginalBgNodeId === node.id);
@@ -766,6 +771,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       // kernels; `aiAvailable` separately suppresses WASM warnings when the
       // native provider can run the model.
       setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL);
+      setIsDesktop(caps.isTauri);
     });
   }, []);
 
@@ -810,6 +816,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       const stillAvailable = await loader.isModelAvailable(requiredModelId);
       setAiAvailable(stillAvailable);
       if (!stillAvailable) {
+        if (!isDesktop && isBrowserBlockedSegmentationModel(requiredModelId)) {
+          announce(DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE);
+          return;
+        }
         announce('Download the AI model first, or switch to Quick mode.');
         setDownloadModelId(requiredModelId);
         setShowDownloadDialog(true);
@@ -852,6 +862,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   };
 
   const handleDownload = (modelId = requiredModelId) => {
+    if (!isDesktop && modelId && isBrowserBlockedSegmentationModel(modelId)) {
+      announce(DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE);
+      return;
+    }
     // Show a warning before downloading AI Quality on environments without GPU
     if (method === 'ai-quality' && !hasGpuAccel && !aiAvailable) {
       announce(
@@ -1367,12 +1381,22 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                         value: 'ai-balanced',
                         label: `Auto — general photos (AI Balanced)${!aiAvailable ? ' (download required)' : ''}`,
                       },
-                      {
-                        value: 'ai-quality',
-                        label: `High quality — fine details (AI High Quality)${
-                          !aiAvailable ? ' (download required)' : ''
-                        }${!wasmModelSafe && !hasGpuAccel && !aiAvailable ? ' — may need GPU' : ''}`,
-                      },
+                      ...(isDesktop || method === 'ai-quality'
+                        ? [
+                            {
+                              value: 'ai-quality',
+                              label: isDesktop
+                                ? `High quality: fine details (AI High Quality)${
+                                    !aiAvailable ? ' (download required)' : ''
+                                  }${
+                                    !wasmModelSafe && !hasGpuAccel && !aiAvailable
+                                      ? '; may need GPU'
+                                      : ''
+                                  }`
+                                : DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE,
+                            },
+                          ]
+                        : []),
                       {
                         value: 'portrait',
                         label: `Portrait matting — people photos (MODNet)${
@@ -1386,11 +1410,16 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             />
           </FieldRow>
           {!aiEnabled && <p className="insp-hint">{AI_DISABLED_HINT}</p>}
+          {aiEnabled && !isDesktop && (
+            <p className="insp-hint" data-testid="bg-desktop-only-model">
+              {WEB_DESKTOP_ONLY_MODELS_HINT}
+            </p>
+          )}
           <span id="bg-method-desc" className="sr-only">
             Fast uses a local heuristic. Auto uses IS-Net General Use when installed and falls back
-            to bundled U²-Net Light. High quality uses BiRefNet Lite where the available provider is
-            safe. Portrait uses MODNet, a portrait-specific matting model, and never runs as a
-            fallback for other modes.
+            to bundled U²-Net Light. High quality uses BiRefNet Lite in the desktop app. Portrait
+            uses MODNet, a portrait-specific matting model, and never runs as a fallback for other
+            modes.
           </span>
 
           <section className="insp-nested-panel" aria-label={`${methodGuidance.title} guidance`}>
@@ -1448,41 +1477,47 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             </p>
           )}
 
-          {method !== 'quick' && !aiAvailable && modelState !== 'downloading' && (
-            <div className="insp-actions">
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={() => handleDownload()}
-                aria-label="Download AI model for background removal"
-              >
-                Download AI Model
-              </Button>
-              <p className="insp-hint">
-                Requires a one-time download stored on this device. Manage models in Settings,
-                Offline Models.
-              </p>
-            </div>
-          )}
+          {method !== 'quick' &&
+            !aiAvailable &&
+            modelState !== 'downloading' &&
+            (isDesktop || !isBrowserBlockedSegmentationModel(requiredModelId ?? '')) && (
+              <div className="insp-actions">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleDownload()}
+                  aria-label="Download AI model for background removal"
+                >
+                  Download AI Model
+                </Button>
+                <p className="insp-hint">
+                  Requires a one-time download stored on this device. Manage models in Settings,
+                  Offline Models.
+                </p>
+              </div>
+            )}
 
-          {method === 'ai-balanced' && aiAvailable && !enhancedBalancedAvailable && (
-            <div className="insp-actions">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => handleDownload('isnet-general-use')}
-                aria-label="Download enhanced Balanced model"
-              >
-                Upgrade Balanced
-              </Button>
-              <p className="insp-hint">
-                Optional 179 MB IS-Net model improves varied people, animals, vehicles, and objects.
-                The bundled low-memory model remains available as fallback.
-              </p>
-            </div>
-          )}
+          {method === 'ai-balanced' &&
+            aiAvailable &&
+            !enhancedBalancedAvailable &&
+            (isDesktop || !isBrowserBlockedSegmentationModel('isnet-general-use')) && (
+              <div className="insp-actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleDownload('isnet-general-use')}
+                  aria-label="Download enhanced Balanced model"
+                >
+                  Upgrade Balanced
+                </Button>
+                <p className="insp-hint">
+                  Optional 179 MB IS-Net model improves varied people, animals, vehicles, and
+                  objects. The bundled low-memory model remains available as fallback.
+                </p>
+              </div>
+            )}
           {method !== 'quick' && modelState === 'downloading' && (
             <p className="insp-hint" aria-live="polite">
               Downloading model... Please wait.
