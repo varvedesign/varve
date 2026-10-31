@@ -11,6 +11,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 vi.mock('@tauri-apps/api/event', () => ({ listen }));
 vi.mock('@varve/platform', () => ({ isTauriRuntime: isTauri }));
 
+import { notifyAiFeaturesSettingsChanged } from '../inference/aiFeaturesGate';
 import {
   downloadNativeGenerativeModel,
   NATIVE_GENERATIVE_MODEL_PROFILE,
@@ -36,10 +37,12 @@ describe('downloadNativeGenerativeModel', () => {
     isTauri.mockReturnValue(true);
     listen.mockResolvedValue(vi.fn());
     localStorage.clear();
+    notifyAiFeaturesSettingsChanged();
   });
 
   it('refuses to invoke native download when AI features are off', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
     const { InferenceError } = await import('../inference/core/InferenceError');
     await expect(downloadNativeGenerativeModel()).rejects.toSatisfy(
       (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',

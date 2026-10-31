@@ -2170,7 +2170,10 @@ export function Menubar({
         if (typeof window !== 'undefined' && '__TAURI__' in window) {
           try {
             const { invoke } = await import('@tauri-apps/api/core');
-            await invoke('plugin:fs|stat', { path: entry.locator.path });
+            const exists = await invoke<boolean>('home_file_exists', { path: entry.locator.path });
+            if (!exists) {
+              throw new Error('missing');
+            }
             const text = await invoke<string>('home_read_text_file_approved', {
               path: entry.locator.path,
             });

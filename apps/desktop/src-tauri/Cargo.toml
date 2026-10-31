@@ -9,6 +9,11 @@ license = "FSL-1.1-MIT"
 # (it has OS-specific build needs and tauri::generate_context! macro concerns).
 [workspace]
 
+[lints.rust]
+# The crate has a small, listed set of platform FFI exceptions. New unsafe
+# must be justified next to an #[allow(unsafe_code)] and reviewed.
+unsafe_code = "deny"
+
 [lib]
 name = "varve_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -49,8 +54,9 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 sha2 = "0.11"
 ttf-parser = "0.25"
 base64 = "0.23"
+dunce = "1"
 # WDIO testing plugins (debug-only, excluded from release builds)
-tauri-plugin-wdio = { version = "=1.2.0", optional = true }
+tauri-plugin-wdio = { version = "=1.5.1", optional = true }
 tauri-plugin-wdio-webdriver = { version = "=1.5.0", optional = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
@@ -75,7 +81,7 @@ libc = "0.2"
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_Storage_FileSystem", "Win32_System_SystemInformation"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Storage_FileSystem", "Win32_System_SystemInformation", "Win32_System_Console"] }
 
 [features]
 default = ["ai"]

@@ -1,0 +1,148 @@
+---
+/**
+ * /feedback — the in-app "Send feedback" landing page.
+ *
+ * The desktop and /try builds open this URL in a browser instead of a
+ * mailto: link. Email is the main path so people without a GitHub account
+ * still have a way to write. Varve never attaches diagnostics or files here.
+ */
+import Button from '../components/Button.astro';
+import ContactChannel from '../components/ContactChannel.astro';
+import Layout from '../layouts/Layout.astro';
+import { CONTACTS, VARVE_URLS } from '@varve/shared';
+import { siteUrl } from '../lib/siteUrl';
+
+const feedbackUrl = siteUrl('/feedback');
+
+const feedbackSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  '@id': `${feedbackUrl}#webpage`,
+  url: feedbackUrl,
+  name: 'Send feedback to Varve',
+  description:
+    'Email Varve what happened, share an idea, or write to feedback@varve.studio. The app sends nothing automatically. You choose what to share.',
+  inLanguage: 'en',
+  mainEntity: {
+    '@type': 'Organization',
+    name: 'Varve',
+    url: siteUrl('/'),
+    email: CONTACTS.feedback,
+  },
+};
+---
+
+<Layout
+  title="Send feedback"
+  description="Email Varve what happened, share an idea, or write to feedback@varve.studio. The app sends nothing automatically. You choose what to share."
+  structuredData={feedbackSchema}
+>
+  <div class="container-custom">
+    <div class="feedback-page">
+      <h1 class="page-hero-title">Send feedback</h1>
+      <p class="page-hero-sub">
+        The app sends nothing automatically. You choose what to share.
+      </p>
+      <p class="feedback-note">
+        You only need to say what happened. A screenshot helps. Everything else
+        is optional.
+      </p>
+
+      <ol class="feedback-choices">
+        <li class="feedback-choice site-card site-card--surface">
+          <h2>Something broke?</h2>
+          <ContactChannel
+            id="feedback"
+            headingLevel={3}
+            purpose="Email us what happened. A screenshot helps."
+          />
+          <p class="feedback-secondary">
+            Have a GitHub account?{' '}
+            <a href={VARVE_URLS.newIssueChoose}>You can also post it there.</a>
+          </p>
+        </li>
+        <li class="feedback-choice site-card site-card--surface">
+          <h2>Have an idea or a question?</h2>
+          <p>Write it in your own words.</p>
+          <Button href={VARVE_URLS.discussions} variant="secondary">
+            Post on the Varve forum (GitHub account needed)
+          </Button>
+        </li>
+      </ol>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feedback-page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 0 4rem;
+  }
+
+  .feedback-page .page-hero-sub {
+    margin-bottom: 0.75rem;
+  }
+
+  .feedback-note {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0 0 2.5rem;
+    max-width: 56ch;
+  }
+
+  .feedback-choices {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .feedback-choice {
+    padding: 1.5rem;
+  }
+
+  .feedback-choice h2 {
+    font-size: var(--type-interface-title-size);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .feedback-choice p {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+    max-width: 56ch;
+  }
+
+  .feedback-secondary {
+    margin-top: 1rem;
+    margin-bottom: 0;
+    font-size: var(--type-interface-caption-size);
+  }
+
+  .feedback-secondary a {
+    color: var(--text-link);
+  }
+
+  .feedback-secondary a:hover {
+    color: var(--text-link-hover);
+  }
+
+  .feedback-choice :global(.contact-channel) {
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top: none;
+  }
+
+  .feedback-choice :global(.contact-channel-title) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>

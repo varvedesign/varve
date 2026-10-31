@@ -2,5 +2,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    #[cfg(windows)]
+    if std::env::args().nth(1).as_deref() == Some("--validate-policy") {
+        #[allow(unsafe_code)] // AttachConsole attaches stdout to the parent console.
+        unsafe {
+            windows_sys::Win32::System::Console::AttachConsole(u32::MAX);
+        }
+    }
+    if let Some(code) = varve_desktop_lib::validate_policy_cli() {
+        std::process::exit(code);
+    }
     varve_desktop_lib::run()
 }

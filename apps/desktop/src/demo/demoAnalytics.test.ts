@@ -77,10 +77,11 @@ describe('demo GoatCounter analytics', () => {
     await setDemoAnalyticsChoice('granted');
     expect(localStorage.getItem(WEBSITE_ANALYTICS_CONSENT_KEY)).toBe('granted');
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(collectorPath(vi.mocked(fetch).mock.calls[0]![0])).toBe('try?ref=hn-post');
+    expect(collectorPath(vi.mocked(fetch).mock.calls[0]![0])).toBe('try');
     expect(collectorQuery(vi.mocked(fetch).mock.calls[0]![0])).toMatchObject({
-      p: 'try?ref=hn-post',
+      p: 'try',
       ns: 'true',
+      q: '?ref=hn-post',
     });
     expect(collectorQuery(vi.mocked(fetch).mock.calls[0]![0]).e).toBeUndefined();
     expect(collectorQuery(vi.mocked(fetch).mock.calls[1]![0])).toEqual({
@@ -96,6 +97,7 @@ describe('demo GoatCounter analytics', () => {
     window.history.replaceState({}, '', '/try/?ref=evil');
     await setDemoAnalyticsChoice('granted');
     expect(collectorPath(vi.mocked(fetch).mock.calls[0]![0])).toBe('try');
+    expect(collectorQuery(vi.mocked(fetch).mock.calls[0]![0]).q).toBeUndefined();
     expect(String(vi.mocked(fetch).mock.calls[0]![0])).not.toContain('evil');
   });
 

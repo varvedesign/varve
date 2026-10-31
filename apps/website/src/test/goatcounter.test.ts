@@ -1,6 +1,7 @@
 import type { AnalyticsEvent } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  campaignCountQuery,
   GoatCounterProvider,
   pathWithCampaign,
   safeGoatCounterDomain,
@@ -123,30 +124,51 @@ describe('minimal GoatCounter website transport', () => {
     expect(websiteCampaignRef('?ref=answer-no-account')).toBe('answer-no-account');
     expect(pathWithCampaign('try', '?ref=hn-post')).toBe('try?ref=hn-post');
     expect(pathWithCampaign('try', '?ref=evil')).toBe('try');
+    expect(campaignCountQuery('?ref=hn-test')).toBe('?ref=hn-test');
     expect(websiteCampaignRef('?ref=evil')).toBeNull();
   });
 
-  it('keeps an allowlisted campaign ref on the path and drops every other query param', async () => {
+  it('sends an allowlisted campaign ref as GoatCounter q, not in the path', async () => {
     expect(websiteCampaignRef('?ref=masto-p1&utm_source=evil&q=secret')).toBe('masto-p1');
     expect(pathWithCampaign('/download', '?ref=bsky-p1&next=/admin')).toBe('/download?ref=bsky-p1');
-    const { provider, fetchImpl } = fixture('?ref=masto-p1&utm_campaign=other&token=secret');
+    const { provider, fetchImpl } = fixture('?ref=hn-test&utm_campaign=other&token=secret');
     provider.track(event('website_page_viewed'));
     await provider.flush();
     const query = Object.fromEntries(new URL(String(fetchImpl.mock.calls[0]![0])).searchParams);
-    expect(query).toEqual({ p: '/download?ref=masto-p1', ns: 'true', r: 'https://example.org' });
+    expect(query).toEqual({
+      p: '/download',
+      ns: 'true',
+      r: 'https://example.org',
+      q: '?ref=hn-test',
+    });
     expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('utm_campaign');
     expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('token');
     expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('secret');
   });
 
+  it('keeps an allowlisted campaign ref on event paths because GoatCounter ignores q', async () => {
+    const { provider, fetchImpl } = fixture('?ref=hn-test');
+    provider.track(event('website_download_started'));
+    await provider.flush();
+    const query = Object.fromEntries(new URL(String(fetchImpl.mock.calls[0]![0])).searchParams);
+    expect(query).toEqual({
+      p: 'website_download_clicked|/download|linux|x64|appimage|0.2.1|beta?ref=hn-test',
+      ns: 'true',
+      e: 'true',
+    });
+    expect(query).not.toHaveProperty('q');
+  });
+
   it('drops an unknown campaign ref and never forwards other query params', async () => {
     expect(websiteCampaignRef('?ref=unknown-channel&fbclid=1')).toBeNull();
     expect(pathWithCampaign('/docs', '?ref=not-ours&q=private')).toBe('/docs');
+    expect(campaignCountQuery('?ref=unknown-channel&q=private')).toBeNull();
     const { provider, fetchImpl } = fixture('?ref=unknown-channel&q=private-design');
     provider.track(event('website_page_viewed'));
     await provider.flush();
     const query = Object.fromEntries(new URL(String(fetchImpl.mock.calls[0]![0])).searchParams);
     expect(query).toEqual({ p: '/download', ns: 'true', r: 'https://example.org' });
+    expect(query).not.toHaveProperty('q');
     expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('unknown-channel');
     expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('private-design');
   });

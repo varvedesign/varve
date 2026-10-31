@@ -24,9 +24,9 @@ const AI_ENTRY_POINTS = [
     description: 'Generative Edit dialog',
   },
   {
-    file: 'packages/editor/src/context.tsx',
-    function: 'openUpscaleDialog',
-    description: 'Image upscaling',
+    file: 'packages/editor/src/components/Upscale/upscaleModeOptions.ts',
+    function: 'getUpscaleModeOptions',
+    description: 'Image upscaling AI modes',
   },
   {
     file: 'packages/editor/src/components/Inspector/sections/BackgroundRemovalSection.tsx',
@@ -113,6 +113,21 @@ const AI_ENTRY_POINTS = [
     function: 'createSession',
     description: 'Real-ESRGAN ONNX session',
   },
+  {
+    file: 'packages/home/src/search/useSemanticAssetSearch.ts',
+    function: 'downloadImageModel',
+    description: 'Home visual-search SigLIP download',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/SelectionSourcesPanel.tsx',
+    function: 'selectSubject',
+    description: 'Subject proposal / MODNet',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/SelectionSourcesPanel.tsx',
+    function: 'selectSpecificObject',
+    description: 'Selection-sources Object Selection',
+  },
 ] as const;
 
 /** Take the source from `start` through the matching closing brace. */
@@ -159,6 +174,7 @@ const USER_SWITCH_PATTERNS = [
   /aiEnabled/, // From useAiFeaturesEnabled hook
   /aiFeaturesEnabled/, // Alternative naming
   /assertAiFeaturesEnabled/,
+  /applyWorkerAiGate/,
 ] as const;
 
 describe('AI Entry Point Gating Audit', () => {

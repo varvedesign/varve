@@ -37,42 +37,12 @@ const softwareSchema = {
     'Six task workspaces (Design, Print, Draw, Photo, Motion, Email), vector editing, page layout, typography, motion animation, prototyping, print production (CMYK, PDF/X), Logo tools within Design, shared Code export (SVG, React, Flutter, SwiftUI), local-first storage',
 };
 
-const homepageFaq = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: [
-    {
-      '@type': 'Question',
-      name: 'Does Varve require an account or internet?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'No. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features include model downloads, additional font downloads, and update checks. Each is explicit and user-controlled.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Is Varve free?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Yes. The Community Edition is free to download and use, with no subscription and no feature paywall. Source-available under FSL-1.1-MIT; each release converts to MIT after two years.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: 'Does Varve run on Linux?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Yes. Varve runs natively on Linux. Built in Rust and TypeScript. Packages are available as AppImage, deb, and rpm for both x86_64 and ARM64 (aarch64).',
-      },
-    },
-  ],
-};
 ---
 
 <Layout
   title="Varve · Free Design Software"
   description="Varve is a free, local-first design suite with six task workspaces: Design, Print, Draw, Photo, Motion, and Email. Logo tools live in Design; Code export is shared across workspaces."
-  structuredData={[softwareSchema, homepageFaq]}
+  structuredData={[softwareSchema]}
 >
   <Hero />
 
@@ -110,7 +80,7 @@ const homepageFaq = {
         </div>
         <div class="interface-card-row">
           <span class="interface-mark interface-mark-sand" aria-hidden="true"></span>
-          <div><strong>Native Linux</strong><span>First-class desktop support. Built in Rust and TypeScript.</span></div>
+          <div><strong>Native on Linux</strong><span>Tested on CachyOS (Arch-based), with AppImage, .deb and .rpm downloads.</span></div>
         </div>
         <div class="interface-card-row">
           <span class="interface-mark interface-mark-clay" aria-hidden="true"></span>

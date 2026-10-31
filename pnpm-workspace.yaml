@@ -84,6 +84,16 @@ overrides:
   # 4.6.5; knip and mutation-server-protocol still resolve 4.4.3. Pin the 4.x
   # line to the patched 4.6.6 release until those parents move.
   "zod": 4.6.6
+  # GHSA-3g3m-2fjr-6pw4: glob AbortSignal cancellation bypass. Fixed only on
+  # 14.0.2+. 10.x (@wdio/config, archiver-utils) and 13.x (Storybook
+  # react-docgen plugin) still expose `sync` / `globSync`. Leave glob 8
+  # (mocha) on its own line: it is outside the advisory range.
+  "glob@>=9": 14.0.3
+  # GHSA-g3hv-75wg-m249: minimatch globParts amplification. Fixed only on
+  # 11.0.1+. 9.x/10.x (glob 10 leftover, Stryker, typescript-eslint) share
+  # the dual CJS/ESM named-export API. 3.x/5.x stay put: mocha and
+  # ts-prune call `require('minimatch')` as a function.
+  "minimatch@>=9": 11.0.3
 
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
 # esbuild (used by vitest + biome) ships/verifies its platform binary via

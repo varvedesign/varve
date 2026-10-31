@@ -180,16 +180,26 @@
 
         // Nothing threw, but React never mounted either — a silently-failing
         // module graph. Report that too rather than spinning forever.
-        window.setTimeout(function () {
+        // Packaged builds stay at 20s. Vite serves /src/main.tsx one file at
+        // a time; a cold or contended transform regularly exceeds 20s and
+        // used to replace the splash with a false "Startup timed out".
+        var BOOT_WATCHDOG_MS = 20000;
+        var BOOT_WATCHDOG_VITE_MS = 120000;
+        window.setTimeout(function checkBoot() {
           var root = document.getElementById('root');
-          if (root && root.children.length === 0) {
-            showBootError(
-              'Startup timed out',
-              'The application bundle loaded but never rendered.',
-              'This usually means a script failed to evaluate in this WebView.',
-            );
+          if (!root || root.children.length !== 0) return;
+          var viteDev = !!document.querySelector('script[src*="/src/main.tsx"]');
+          if (viteDev && !window.__varveBootWatchdogExtended) {
+            window.__varveBootWatchdogExtended = true;
+            window.setTimeout(checkBoot, BOOT_WATCHDOG_VITE_MS - BOOT_WATCHDOG_MS);
+            return;
           }
-        }, 20000);
+          showBootError(
+            'Startup timed out',
+            'The application bundle loaded but never rendered.',
+            'This usually means a script failed to evaluate in this WebView.',
+          );
+        }, BOOT_WATCHDOG_MS);
       })();
     </script>
     <style id="varve-boot-fallback-style">

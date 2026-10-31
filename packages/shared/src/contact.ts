@@ -209,6 +209,7 @@ export function contactMailto(
 export const VARVE_URLS = {
   site: 'https://varve.studio',
   contact: 'https://varve.studio/contact',
+  feedback: 'https://varve.studio/feedback',
   support: 'https://varve.studio/support',
   reportIssue: 'https://varve.studio/support/report-issue',
   docs: 'https://varve.studio/docs',
@@ -224,6 +225,7 @@ export const VARVE_URLS = {
   sbom: 'https://github.com/varvedesign/varve/releases/latest',
   issues: 'https://github.com/varvedesign/varve/issues',
   newBugReport: 'https://github.com/varvedesign/varve/issues/new?template=bug_report.yml',
+  newIssueChoose: 'https://github.com/varvedesign/varve/issues/new/choose',
   discussions: 'https://github.com/varvedesign/varve/discussions',
   securityAdvisories: 'https://github.com/varvedesign/varve/security/advisories',
 } as const;
