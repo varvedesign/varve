@@ -411,7 +411,10 @@ fn infer_tile(
 }
 
 fn base_builder_settings() -> Result<ort::session::builder::SessionBuilder, String> {
-    let builder = Session::builder().map_err(|e| format!("Failed to create ONNX session: {e}"))?;
+    let env = varve_bgremove::runtime::environment()
+        .map_err(|e| format!("Failed to create ONNX session: {e}"))?;
+    let builder =
+        Session::builder(&env).map_err(|e| format!("Failed to create ONNX session: {e}"))?;
     let builder = builder
         .with_optimization_level(ort::session::builder::GraphOptimizationLevel::All)
         .map_err(|e| format!("Failed to configure session optimization: {e}"))?;
