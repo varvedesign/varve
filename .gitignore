@@ -144,6 +144,8 @@ candidate-plan/
 .agents/
 .zcode/
 /.zcodeignore
+/.v2c/
+/.video_agent/
 
 # --- Devin AI agent (workflows directory intentionally empty) ---
 .devin/
