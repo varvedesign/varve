@@ -24,6 +24,15 @@ function dot(ax: number, ay: number, bx: number, by: number): number {
   return ax * bx + ay * by;
 }
 
+interface OffsetLine {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  nx: number;
+  ny: number;
+}
+
 // ── Point helpers ───────────────────────────────────────────────────────────
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -54,8 +63,7 @@ export function offsetPath(
 
   // Step 1: Compute each edge's outward normal and offset line
   const n = closed ? points.length : points.length - 1;
-  const offsetLines: { ax: number; ay: number; bx: number; by: number; nx: number; ny: number }[] =
-    [];
+  const offsetLines: OffsetLine[] = [];
 
   for (let i = 0; i < n; i++) {
     const a = points[i]!;
@@ -85,6 +93,8 @@ export function offsetPath(
       { x: ol.bx, y: ol.by, handleIn: null, handleOut: null },
     ];
   }
+
+  if (!closed) return offsetOpenPath(offsetLines, distance, joinStyle, miterLimit);
 
   // Step 2: For each vertex, intersect adjacent offset lines to find the mitered corner
   const result: PathPoint[] = [];
@@ -149,6 +159,71 @@ export function offsetPath(
     }
   }
 
+  return result;
+}
+
+function offsetOpenPath(
+  offsetLines: OffsetLine[],
+  distance: number,
+  joinStyle: 'miter' | 'round' | 'bevel',
+  miterLimit: number,
+): PathPoint[] {
+  const first = offsetLines[0]!;
+  const last = offsetLines[offsetLines.length - 1]!;
+  const result: PathPoint[] = [{ x: first.ax, y: first.ay, handleIn: null, handleOut: null }];
+
+  for (let i = 1; i < offsetLines.length; i++) {
+    const prev = offsetLines[i - 1]!;
+    const curr = offsetLines[i]!;
+
+    if (joinStyle === 'round') {
+      const vertexX = prev.bx - prev.nx * distance;
+      const vertexY = prev.by - prev.ny * distance;
+      const startAngle = Math.atan2(prev.by - vertexY, prev.bx - vertexX);
+      const endAngle = Math.atan2(curr.ay - vertexY, curr.ax - vertexX);
+      let angleDelta = endAngle - startAngle;
+      if (angleDelta > Math.PI) angleDelta -= 2 * Math.PI;
+      if (angleDelta < -Math.PI) angleDelta += 2 * Math.PI;
+      const arcSteps = Math.max(2, Math.ceil(Math.abs(angleDelta) * Math.abs(distance) * 0.1));
+      for (let step = 1; step <= arcSteps; step++) {
+        const angle = startAngle + (step / arcSteps) * angleDelta;
+        result.push({
+          x: vertexX + Math.cos(angle) * Math.abs(distance),
+          y: vertexY + Math.sin(angle) * Math.abs(distance),
+          handleIn: null,
+          handleOut: null,
+        });
+      }
+      continue;
+    }
+
+    const intersection = lineIntersection(
+      prev.ax,
+      prev.ay,
+      prev.bx,
+      prev.by,
+      curr.ax,
+      curr.ay,
+      curr.bx,
+      curr.by,
+    );
+    const vertexX = prev.bx - prev.nx * distance;
+    const vertexY = prev.by - prev.ny * distance;
+    const miterRatio = intersection
+      ? vecLen(intersection[0] - vertexX, intersection[1] - vertexY) / Math.abs(distance)
+      : Number.POSITIVE_INFINITY;
+
+    if (joinStyle === 'miter' && intersection && miterRatio <= miterLimit) {
+      result.push({ x: intersection[0], y: intersection[1], handleIn: null, handleOut: null });
+    } else {
+      result.push({ x: prev.bx, y: prev.by, handleIn: null, handleOut: null });
+      if (prev.bx !== curr.ax || prev.by !== curr.ay) {
+        result.push({ x: curr.ax, y: curr.ay, handleIn: null, handleOut: null });
+      }
+    }
+  }
+
+  result.push({ x: last.bx, y: last.by, handleIn: null, handleOut: null });
   return result;
 }
 

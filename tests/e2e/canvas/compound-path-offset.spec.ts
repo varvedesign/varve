@@ -7,6 +7,9 @@ const NONZERO_RING_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="120" he
 const EVENODD_SAME_WINDING_RING_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
   <path d="M10 10H110V110H10Z M35 35H85V85H35Z" fill="#1f8a70" fill-rule="evenodd"/>
 </svg>`;
+const OPEN_L_PATH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <path d="M10 20H60V70" fill="none" stroke="#1f8a70" stroke-width="4"/>
+</svg>`;
 
 async function importOffsetSVG(page: import('@playwright/test').Page, svg: string, name: string) {
   await page.getByRole('menuitem', { name: 'File', exact: true }).click();
@@ -72,4 +75,14 @@ test('Object → Offset Path expands a same-winding even-odd hole as the filled 
   await importOffsetSVG(page, EVENODD_SAME_WINDING_RING_SVG, 'evenodd-same-winding.svg');
   await applyNegativeOffset(page);
   await captureCanvas(page, 'compound-path-offset-evenodd.png');
+});
+
+test('Object → Offset Path keeps the endpoints of an imported open path', async ({ page }) => {
+  test.setTimeout(120000);
+  await navigateToEditor(page);
+  const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });
+  if (await dismissHint.isVisible().catch(() => false)) await dismissHint.click();
+  await importOffsetSVG(page, OPEN_L_PATH_SVG, 'open-l-path.svg');
+  await applyNegativeOffset(page);
+  await captureCanvas(page, 'open-path-offset.png');
 });

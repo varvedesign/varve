@@ -47,6 +47,36 @@ describe('offsetPath', () => {
     }
   });
 
+  it('preserves both open-path endpoints while mitering interior corners', () => {
+    const pts: PathPoint[] = [
+      { x: 0, y: 0, handleIn: null, handleOut: null },
+      { x: 10, y: 0, handleIn: null, handleOut: null },
+      { x: 10, y: 10, handleIn: null, handleOut: null },
+    ];
+
+    const result = offsetPath(pts, false, 1);
+
+    expect(result[0]).toMatchObject({ x: 0, y: -1 });
+    expect(result.at(-1)).toMatchObject({ x: 11, y: 10 });
+    expect(result).toHaveLength(3);
+    expect(result[1]).toMatchObject({ x: 11, y: -1 });
+  });
+
+  it('clips an open miter by its corner ratio instead of its segment length', () => {
+    const pts: PathPoint[] = [
+      { x: 0, y: 0, handleIn: null, handleOut: null },
+      { x: 100, y: 0, handleIn: null, handleOut: null },
+      { x: 150, y: 86.6025403784, handleIn: null, handleOut: null },
+    ];
+
+    const result = offsetPath(pts, false, 2, 'miter', 1.1);
+
+    expect(result).toHaveLength(4);
+    expect(result[1]).toMatchObject({ x: 100, y: -2 });
+    expect(result[2]!.x).toBeCloseTo(101.732, 2);
+    expect(result[2]!.y).toBeCloseTo(-1, 2);
+  });
+
   it('offsets a closed rectangle outward', () => {
     const pts = rectPath(0, 0, 100, 50);
     const result = offsetPath(pts, true, 5, 'miter', 10);
