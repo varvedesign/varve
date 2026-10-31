@@ -33,6 +33,7 @@ import { warmMaskRenderCache } from '../../backgroundRemoval/maskRenderCache';
 import { getToolManager } from '../../canvas/toolDispatcher';
 import { type ToolId, useEditor } from '../../context';
 import { fingerprintImageData } from '../../context/imageFingerprint';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { nodeWorldTransform } from '../../scene/world';
 import { createPaintLayerForRecovery } from '../../tools/paintLayerRecovery';
 import type { SelectionPaintTool } from '../../tools/SelectionPaintTool';
@@ -129,6 +130,7 @@ export function SelectionSourcesPanel() {
     commitAreaSelection,
     announce,
   } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const saved = state.document.savedAreaSelections ?? [];
   const hasAreaSelection = Boolean(state.areaSelection);
   const [nextName, setNextName] = useState(`Selection ${saved.length + 1}`);
@@ -480,6 +482,10 @@ export function SelectionSourcesPanel() {
   };
 
   const selectSubject = async () => {
+    if (!aiEnabled) {
+      announce(AI_DISABLED_HINT);
+      return;
+    }
     if (selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) {
       announce('Select one image to find a subject');
       return;
@@ -654,6 +660,10 @@ export function SelectionSourcesPanel() {
   };
 
   const selectSpecificObject = () => {
+    if (!aiEnabled) {
+      announce(AI_DISABLED_HINT);
+      return;
+    }
     if (!hasImage) {
       announce('Select one image to choose a specific object');
       return;
@@ -665,6 +675,10 @@ export function SelectionSourcesPanel() {
   };
 
   const installProposalModel = async () => {
+    if (!aiEnabled) {
+      announce(AI_DISABLED_HINT);
+      return;
+    }
     const offer = getSubjectProposalState().install;
     if (!offer) return;
     const controller = new AbortController();
@@ -1085,53 +1099,59 @@ export function SelectionSourcesPanel() {
               Luminance
             </button>
           </Tooltip>
-          <Tooltip
-            label="Select subject (foreground estimate)"
-            disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
-          >
-            <button
-              type="button"
-              className="insp-selection-sources__button insp-selection-sources__button--primary"
-              disabled={!hasImage || subjectProposalBusy}
-              onClick={() => void selectSubject()}
-            >
-              {subjectState.stage === 'preparing'
-                ? 'Preparing image…'
-                : subjectState.stage === 'estimating'
-                  ? 'Estimating subject…'
-                  : subjectState.stage === 'downloading'
-                    ? 'Downloading model…'
-                    : subjectProposalBusy
-                      ? 'Finding subjects…'
-                      : 'Select subject'}
-            </button>
-          </Tooltip>
-          <Tooltip
-            label="Object Selection (prompted target)"
-            disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
-          >
-            <button
-              type="button"
-              className="insp-selection-sources__button insp-selection-sources__button--primary"
-              disabled={!hasImage}
-              onClick={selectSpecificObject}
-            >
-              Select specific object
-            </button>
-          </Tooltip>
-          <p className="insp-selection-sources__hint">
-            <strong>Select subject</strong> estimates the foreground. Use{' '}
-            <strong>Select specific object</strong> when one object is the target; prompt it on the
-            canvas, inspect the highlighted mask, and confirm before using it.
-          </p>
-          <FieldRow label="Estimate quality" wrapLabel>
-            <Select
-              label="Subject estimate quality"
-              value={subjectQuality}
-              options={SUBJECT_QUALITY_OPTIONS}
-              onChange={(value) => setSubjectQuality(value as SubjectProposalQuality)}
-            />
-          </FieldRow>
+          {aiEnabled ? (
+            <>
+              <Tooltip
+                label="Select subject (foreground estimate)"
+                disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
+              >
+                <button
+                  type="button"
+                  className="insp-selection-sources__button insp-selection-sources__button--primary"
+                  disabled={!hasImage || subjectProposalBusy}
+                  onClick={() => void selectSubject()}
+                >
+                  {subjectState.stage === 'preparing'
+                    ? 'Preparing image…'
+                    : subjectState.stage === 'estimating'
+                      ? 'Estimating subject…'
+                      : subjectState.stage === 'downloading'
+                        ? 'Downloading model…'
+                        : subjectProposalBusy
+                          ? 'Finding subjects…'
+                          : 'Select subject'}
+                </button>
+              </Tooltip>
+              <Tooltip
+                label="Object Selection (prompted target)"
+                disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
+              >
+                <button
+                  type="button"
+                  className="insp-selection-sources__button insp-selection-sources__button--primary"
+                  disabled={!hasImage}
+                  onClick={selectSpecificObject}
+                >
+                  Select specific object
+                </button>
+              </Tooltip>
+              <p className="insp-selection-sources__hint">
+                <strong>Select subject</strong> estimates the foreground. Use{' '}
+                <strong>Select specific object</strong> when one object is the target; prompt it on
+                the canvas, inspect the highlighted mask, and confirm before using it.
+              </p>
+              <FieldRow label="Estimate quality" wrapLabel>
+                <Select
+                  label="Subject estimate quality"
+                  value={subjectQuality}
+                  options={SUBJECT_QUALITY_OPTIONS}
+                  onChange={(value) => setSubjectQuality(value as SubjectProposalQuality)}
+                />
+              </FieldRow>
+            </>
+          ) : (
+            <p className="insp-selection-sources__hint">{AI_DISABLED_HINT}</p>
+          )}
           <label className="insp-selection-sources__name-field">
             <span>Name</span>
             <input
@@ -1150,7 +1170,7 @@ export function SelectionSourcesPanel() {
             Save selection
           </button>
         </div>
-        {subjectState.install && subjectState.stage !== 'downloading' && (
+        {aiEnabled && subjectState.install && subjectState.stage !== 'downloading' && (
           <section className="insp-selection-sources__session" aria-label="Optional subject model">
             <span className="insp-selection-sources__session-label">
               This estimate needs an optional local model

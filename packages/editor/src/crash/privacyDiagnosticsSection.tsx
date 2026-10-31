@@ -12,8 +12,6 @@ import { ContactLink } from '../components/ContactLink';
 import { useResolvedSettings } from '../components/Settings/SettingsContext';
 import { getCrashController } from './controllerRegistry';
 
-type ConsentChoice = 'askEachTime' | 'automaticAllowed' | 'denied';
-
 export function PrivacyDiagnosticsSection() {
   const { settings, updateSettings } = useResolvedSettings();
   const controller = getCrashController();
@@ -42,17 +40,6 @@ export function PrivacyDiagnosticsSection() {
       // storage unavailable
     }
   }, []);
-
-  const choice: ConsentChoice =
-    consent?.state === 'automaticAllowed'
-      ? 'automaticAllowed'
-      : consent?.state === 'denied'
-        ? 'denied'
-        : 'askEachTime';
-
-  const setChoice = (next: ConsentChoice) => {
-    controller?.setStandingConsent(next);
-  };
 
   const setIconRemoteSearch = (granted: boolean) => {
     updateSettings({ icons: { remoteSearch: granted ? 'granted' : 'denied' } });
@@ -93,16 +80,12 @@ export function PrivacyDiagnosticsSection() {
 
   const consentDescription = useMemo(() => {
     switch (consent?.state) {
-      case 'automaticAllowed':
-        return 'Automatic minimized reports are enabled. You can revoke this at any time.';
-      case 'denied':
-        return 'Crash reporting is off. You can change this at any time.';
       case 'managedDisabled':
         return 'Crash reporting is disabled by this build.';
       case 'unavailable':
         return 'Crash reporting is not supported in this environment.';
       default:
-        return 'No decision recorded yet — nothing is sent until you choose.';
+        return "Crash details stay on your computer. Varve doesn't send crash reports automatically.";
     }
   }, [consent]);
 
@@ -124,40 +107,6 @@ export function PrivacyDiagnosticsSection() {
 
       <h3 className="settings-section__title">Crash reporting</h3>
       <p className="privacy-section__description">{consentDescription}</p>
-
-      <div
-        role="radiogroup"
-        aria-label="Crash reporting choice"
-        className="privacy-section__choices"
-      >
-        <label className="settings-checkbox-row">
-          <input
-            type="radio"
-            name="privacy-consent"
-            checked={choice === 'askEachTime'}
-            onChange={() => setChoice('askEachTime')}
-          />
-          <span>Ask me before sending each crash report</span>
-        </label>
-        <label className="settings-checkbox-row">
-          <input
-            type="radio"
-            name="privacy-consent"
-            checked={choice === 'automaticAllowed'}
-            onChange={() => setChoice('automaticAllowed')}
-          />
-          <span>Automatically send minimized crash reports</span>
-        </label>
-        <label className="settings-checkbox-row">
-          <input
-            type="radio"
-            name="privacy-consent"
-            checked={choice === 'denied'}
-            onChange={() => setChoice('denied')}
-          />
-          <span>Never send crash reports</span>
-        </label>
-      </div>
 
       <h3 className="settings-section__title">Extended diagnostics</h3>
       <p className="privacy-section__description">
@@ -200,14 +149,16 @@ export function PrivacyDiagnosticsSection() {
                   : report.crash.message}
               </span>
               <span className="privacy-section__queue-actions">
-                <button
-                  type="button"
-                  className="privacy-section__btn"
-                  disabled={consent?.state === 'denied'}
-                  onClick={() => void controller?.sendQueuedForSettings(report.reportId)}
-                >
-                  Send now
-                </button>
+                {controller?.canSendReports() ? (
+                  <button
+                    type="button"
+                    className="privacy-section__btn"
+                    disabled={consent?.state === 'denied'}
+                    onClick={() => void controller.sendQueuedForSettings(report.reportId)}
+                  >
+                    Send now
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="privacy-section__btn"

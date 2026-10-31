@@ -1,0 +1,177 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Real-Time Collaboration"
+  description="Edit Varve documents together over a room you control: live cursors, cursor chat, spotlight follow, and undo that only reverses your own edits. App-hosted on your machine or self-hosted on your own server."
+>
+  <div class="container-custom">
+    <main class="collab-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Real-Time Collaboration
+      </nav>
+
+      <header class="page-hero">
+        <StatusPill status="beta" />
+        <h1>Edit together, on a room you control.</h1>
+        <p>
+          Share a Varve document from the desktop app or your own room server.
+          Changes replicate live; cursors, selections, and cursor chat show
+          who is working where; and undo reverses only your own edits — never
+          a collaborator's work. Your document stays local-first: joining a
+          session never touches the file on your disk.
+        </p>
+      </header>
+
+      <section class="collab-model site-card site-card--surface" aria-labelledby="collab-model-title">
+        <h2 id="collab-model-title">Ordered semantic operations, not a merge lottery.</h2>
+        <p>
+          Every committed edit travels as a validated, property-level change
+          list — the same semantic capture Varve's history records. The room
+          host orders operations; every participant applies the same sequence,
+          so documents converge without last-write-wins whole-document
+          overwrites. A change that fails validation resynchronizes visibly
+          instead of silently dropping.
+        </p>
+      </section>
+
+      <section class="collab-pillars" aria-label="Collaboration capabilities">
+        <div class="collab-pillar site-card">
+          <h3>Undo that respects the room</h3>
+          <p>
+            In a shared session, undo reverses only what <em>you</em> did.
+            If a teammate changed something after you, your undo skips it and
+            says why instead of clobbering their work. Deleting restores from
+            your own history; undoing a creation keeps the object if someone
+            else has already built on it.
+          </p>
+        </div>
+        <div class="collab-pillar site-card">
+          <h3>Presence that stays out of the way</h3>
+          <p>
+            Live cursors, remote selection outlines, and participant avatars
+            are ephemeral by construction — they never enter your document,
+            your history, or your saved files. Cursor chat opens with
+            <kbd>/</kbd>, expires in seconds, and is never persisted anywhere.
+          </p>
+        </div>
+        <div class="collab-pillar site-card">
+          <h3>Spotlight, with consent</h3>
+          <p>
+            Spotlight your view to walk teammates through the canvas.
+            Following is opt-in per person and any local camera interaction
+            cancels it — nobody's viewport moves without their own say-so.
+          </p>
+        </div>
+      </section>
+
+      <section class="collab-hosting site-card site-card--surface" aria-labelledby="collab-hosting-title">
+        <h2 id="collab-hosting-title">Two hosting paths, one open implementation.</h2>
+        <dl class="collab-hosting__paths">
+          <div>
+            <dt>Host on this device</dt>
+            <dd>
+              The desktop app runs a room server in-process on your machine.
+              Sessions are reachable from other apps and browser tabs on the
+              same computer — enough for pairing, review, and working across
+              a browser and the desktop.
+            </dd>
+          </div>
+          <div>
+            <dt>Self-host a room server</dt>
+            <dd>
+              Run the standalone room server (a single binary with durable
+              storage) wherever you like and point Varve at it. You own the
+              data, the retention, and the network; TLS terminates at your
+              reverse proxy. No Varve-operated service sits in the middle.
+            </dd>
+          </div>
+        </dl>
+        <p class="collab-hosting__note">
+          Honest boundaries: cross-machine sessions need a server you can
+          reach (LAN or internet with your own TLS), the host cannot read
+          your documents without a room you created, and collaboration is
+          not end-to-end encrypted — the room server stores documents in
+          plaintext by design.
+        </p>
+      </section>
+
+      <section class="collab-ctas" aria-label="Learn more">
+        <a class="site-card" href={sitePath('/features/local-first')}>
+          <h3>Why local-first matters</h3>
+          <p>Your file is the authority; a session is replication, not a takeover.</p>
+        </a>
+      </section>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .collab-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6, 32px);
+    padding-block-end: var(--space-8, 48px);
+  }
+
+  .collab-model p,
+  .collab-pillar p,
+  .collab-hosting p {
+    max-width: 68ch;
+  }
+
+  .collab-pillars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-4, 16px);
+  }
+
+  .collab-pillar h3 {
+    margin-block: 0 var(--space-2, 8px);
+  }
+
+  .collab-hosting__paths {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--space-4, 16px);
+    margin: 0 0 var(--space-3, 12px);
+  }
+
+  .collab-hosting__paths dt {
+    font-weight: 600;
+    margin-block-end: var(--space-1, 4px);
+  }
+
+  .collab-hosting__paths dd {
+    margin: 0;
+  }
+
+  .collab-hosting__note {
+    color: var(--color-text-muted);
+  }
+
+  .collab-ctas a {
+    display: block;
+    padding: var(--space-4, 16px);
+  }
+
+  .collab-ctas h3 {
+    margin-block: 0 var(--space-1, 4px);
+  }
+
+  .collab-ctas p {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  kbd {
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-control-compact);
+    padding: 0 0.35em;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85em;
+  }
+</style>

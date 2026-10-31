@@ -88,6 +88,8 @@ export function validateFullPlan(plan, identity, profile) {
       commitSha: plan?.commitSha,
       baseSha: plan?.baseSha,
       fileHash: plan?.fileHash,
+      libraryOnly: plan?.libraryOnly,
+      libraryPackages: plan?.libraryPackages,
       categories: plan?.categories,
       selectedLanes: plan?.selectedLanes,
       candidateMode: plan?.candidateMode,

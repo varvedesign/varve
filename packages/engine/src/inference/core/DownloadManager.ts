@@ -1,4 +1,5 @@
 import { assertAiFeaturesEnabled } from '../aiFeaturesGate';
+import { resolvedIntegrityHash } from '../integrityHash';
 import { InferenceError } from './InferenceError';
 import type { ModelArtifactHandle, ModelStorage } from './ModelStorage';
 import { getModelStorage, migrateFromLocalStorage } from './ModelStorage';
@@ -238,7 +239,7 @@ export class DownloadManager {
           description: '',
           sizeBytes: component.sizeBytes ?? 0,
           remoteUrl: component.remoteUrl ?? manifestEntry?.remoteUrl ?? '',
-          checksum: component.checksum ?? '',
+          checksum: resolvedIntegrityHash(component) ?? '',
           bundled: false,
           inputSpec: null,
           quality: 1,
@@ -263,7 +264,7 @@ export class DownloadManager {
         });
 
         const stagedId = componentEntry.id;
-        const expectedChecksum = component.checksum?.toLowerCase();
+        const expectedChecksum = resolvedIntegrityHash(component);
         if (!expectedChecksum) {
           throw new InferenceError('model_download_failed', undefined, {
             message: `Model component ${component.id} has no checksum.`,

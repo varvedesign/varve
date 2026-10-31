@@ -119,7 +119,7 @@ async function destination(path) {
       const originalInvoke = core.invoke.bind(core);
       const state = { next: null, consumed: 0, forwarded: [] };
       const invoke = async (command, args) => {
-        if (command === 'plugin:dialog|save') {
+        if (command === 'pick_save_path' || command === 'plugin:dialog|save') {
           if (!state.next) throw new Error('Unexpected save dialog; no one-shot destination');
           const result = state.next;
           state.next = null;

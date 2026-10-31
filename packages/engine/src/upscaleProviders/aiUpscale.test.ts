@@ -24,6 +24,7 @@ const { getBestOnnxProviders } = vi.hoisted(() => ({
 }));
 vi.mock('../backgroundRemoval/environmentCapabilities', () => ({ getBestOnnxProviders }));
 
+import { notifyAiFeaturesSettingsChanged } from '../inference/aiFeaturesGate';
 import { InferenceError } from '../inference/core/InferenceError';
 import {
   copyUpscaledTileCore,
@@ -35,6 +36,7 @@ import {
 describe('Real-ESRGAN worker helpers', () => {
   it('refuses to create an ONNX session when AI features are off', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
     createSession.mockClear();
     await expect(
       upscaleWithRealEsrgan(new ImageData(1, 1), '/models/realesr.onnx', () => false),
@@ -43,6 +45,7 @@ describe('Real-ESRGAN worker helpers', () => {
     );
     expect(createSession).not.toHaveBeenCalled();
     localStorage.clear();
+    notifyAiFeaturesSettingsChanged();
   });
 
   it('uses the shared single-threaded ORT runtime configuration', async () => {
