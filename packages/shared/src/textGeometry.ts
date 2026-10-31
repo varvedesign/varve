@@ -330,16 +330,21 @@ function layoutParagraph(
     return [{ text: '', width: 0, height: emptyHeight }];
   }
 
-  // A contour profile narrows specific lines. Words that fit the widest
-  // authored line move whole; only tokens wider than every line char-break.
-  // Using the current (often crown) line as the hard cap mid-word-broke
-  // ellipse balloons.
-  const hardLimit = Math.max(maxWidth ?? 0, ...(lineWidths ?? []));
-  const limitForLine = (lineIndex: number): number | null => {
+  // Contour profiles narrow the crown. The hard cap is the widest authored
+  // chord, not the box and not the current (often crown) line: a word that
+  // fits the equator must move whole, and a crown that cannot hold it is
+  // skipped instead of char-breaking "some" / "thing".
+  const widestChord = lineWidths?.length
+    ? Math.max(...lineWidths.filter((width) => Number.isFinite(width)))
+    : (maxWidth ?? 0);
+  const hardLimit = widestChord > 0 ? widestChord : (maxWidth ?? 0);
+  let profileIndex = lineOffset;
+  const peekLimit = (index: number): number | null => {
     if (!lineWidths || lineWidths.length === 0) return maxWidth;
-    if (maxWidth === null) return lineWidthAt(lineWidths, hardLimit, lineIndex + lineOffset);
-    return lineWidthAt(lineWidths, maxWidth, lineIndex + lineOffset);
+    if (maxWidth === null) return lineWidthAt(lineWidths, hardLimit, index);
+    return lineWidthAt(lineWidths, maxWidth, index);
   };
+  const limitForLine = (): number | null => peekLimit(profileIndex);
 
   const lines: MeasuredLine[] = [];
   let lineTokens: LineToken[] = [];
@@ -347,9 +352,14 @@ function layoutParagraph(
 
   const flush = (): void => {
     // Trailing whitespace advances the caret but paints no ink, so it must not
-    // widen the box that encloses the line.
+    // widen the box that encloses the line. An empty flush is a no-op so a
+    // crown skip does not insert a dummy first line.
     while (lineTokens.length > 0 && lineTokens[lineTokens.length - 1]?.whitespace) {
       lineWidth -= lineTokens.pop()?.width ?? 0;
+    }
+    if (lineTokens.length === 0) {
+      lineWidth = 0;
+      return;
     }
     const height = lineTokens.reduce((tallest, token) => Math.max(tallest, tokenHeight(token)), 0);
     lines.push({
@@ -359,10 +369,23 @@ function layoutParagraph(
     });
     lineTokens = [];
     lineWidth = 0;
+    profileIndex += 1;
+  };
+
+  const skipToFittingChord = (tokenWidth: number, currentLimit: number | null): number | null => {
+    if (currentLimit === null) return currentLimit;
+    let limit = currentLimit;
+    while (tokenWidth > limit && tokenWidth <= hardLimit) {
+      const next = peekLimit(profileIndex + 1);
+      if (next === null || next <= limit) break;
+      profileIndex += 1;
+      limit = next;
+    }
+    return limit;
   };
 
   for (const token of tokens) {
-    const limit = limitForLine(lines.length);
+    let limit = limitForLine();
     if (limit === null) {
       lineTokens.push(token);
       lineWidth += token.width;
@@ -381,18 +404,30 @@ function layoutParagraph(
       lineWidth += token.width;
       continue;
     }
-    // The token does not fit this line. If it could fit a wider line later
-    // (the middle of a balloon), move it whole rather than breaking a word;
-    // only char-break when it exceeds every line in the box.
-    if (token.width <= hardLimit) {
+    if (lineWidth > 0) {
       flush();
+      limit = limitForLine() ?? limit;
+      if (limit !== null && token.width <= limit) {
+        lineTokens.push(token);
+        lineWidth = token.width;
+        continue;
+      }
+    }
+    limit = skipToFittingChord(token.width, limit);
+    if (limit !== null && token.width <= limit) {
       lineTokens.push(token);
       lineWidth = token.width;
       continue;
     }
-    // Too wide even for the widest line: break it by character, continuing the
-    // current line.
-    const fragments = breakToken(token, hardLimit, lineWidth);
+    if (token.width <= hardLimit) {
+      // Widest chord can hold it but this remaining crown cannot. Keep the
+      // word whole rather than inventing a hyphenation against the crown.
+      lineTokens.push(token);
+      lineWidth = token.width;
+      continue;
+    }
+    const breakWidth = limit !== null && limit > 0 ? limit : hardLimit;
+    const fragments = breakToken(token, breakWidth, lineWidth);
     for (let i = 0; i < fragments.length; i++) {
       const fragment = fragments[i];
       if (!fragment) continue;

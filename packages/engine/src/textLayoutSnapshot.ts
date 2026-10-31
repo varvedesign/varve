@@ -584,25 +584,47 @@ function wrapLines(
   const lines: RawLine[] = [];
   let current: LayoutUnit[] = [];
   let currentWidth = 0;
+  const widestChord = lineWidths?.length
+    ? Math.max(...lineWidths.filter((width): width is number => Number.isFinite(width)), 0)
+    : maxWidth;
+  let profileIndex = lineOffset;
+  const peekLimit = (index: number): number => {
+    if (!lineWidths || lineWidths.length === 0) return maxWidth;
+    const entry = lineWidths[Math.min(index, lineWidths.length - 1)];
+    if (!Number.isFinite(entry)) return maxWidth;
+    return Math.max(0, Math.min(maxWidth, entry as number));
+  };
   const flush = (): void => {
     if (current.length > 0) {
       lines.push({ units: current, width: currentWidth });
       current = [];
       currentWidth = 0;
+      profileIndex += 1;
     }
   };
-  const limitForLine = (lineIndex: number): number => {
-    if (!lineWidths || lineWidths.length === 0) return maxWidth;
-    const entry = lineWidths[Math.min(lineIndex + lineOffset, lineWidths.length - 1)];
-    if (!Number.isFinite(entry)) return maxWidth;
-    return Math.max(0, Math.min(maxWidth, entry as number));
-  };
   for (const unit of units) {
-    const limit = limitForLine(lines.length);
+    let limit = peekLimit(profileIndex);
     if (limit > 0 && unit.width > 0 && current.length > 0 && currentWidth + unit.width > limit) {
       if (!unit.unit.isWhitespace) {
         // A word does not fit: wrap before it.
         flush();
+        limit = peekLimit(profileIndex);
+      }
+    }
+    // An empty crown must not keep a whole word that a later chord can hold;
+    // overflowing the first line is what clipped "some" / "thing" on canvas.
+    if (
+      current.length === 0 &&
+      !unit.unit.isWhitespace &&
+      limit > 0 &&
+      unit.width > limit &&
+      unit.width <= widestChord
+    ) {
+      while (unit.width > limit && unit.width <= widestChord) {
+        const next = peekLimit(profileIndex + 1);
+        if (next <= limit) break;
+        profileIndex += 1;
+        limit = next;
       }
     }
     current.push(unit);

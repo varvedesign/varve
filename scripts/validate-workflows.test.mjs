@@ -1231,8 +1231,9 @@ assert.deepEqual(
         output: fs.readFileSync(outputPath, 'utf8'),
       };
     }
+    const replayCases = new Set(['multilingual-text', 'linear-gradient-translated']);
     for (const caseName of inputs.app_case.options) {
-      const target = caseName === 'multilingual-text' ? 'app-replay' : 'app-ui';
+      const target = replayCases.has(caseName) ? 'app-replay' : 'app-ui';
       const result = selection(target, caseName);
       assert.equal(result.status, 0, `actual selector must resolve ${caseName}`);
       assert.equal(result.plan.caseName, caseName);
@@ -1262,7 +1263,7 @@ assert.deepEqual(
       );
       selections.push(result);
     }
-    assert.equal(selections.length, 23);
+    assert.equal(selections.length, 24);
     assert.equal(
       selections.find((entry) => entry.plan.caseName === 'nested-groups-isolated-opacity').plan
         .originalSnapshots.length,

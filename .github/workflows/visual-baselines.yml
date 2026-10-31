@@ -28,6 +28,7 @@ on:
         type: choice
         options:
           - multilingual-text
+          - linear-gradient-translated
           - canvas-empty-guidance-light
           - file-import-svg
           - file-import-svg-visibility
@@ -252,8 +253,11 @@ jobs:
           const target = process.env.VARVE_BASELINE_TARGET;
           const caseName = process.env.VARVE_BASELINE_APP_CASE;
           const projects = target === 'app-replay' ? ['chromium-visual-1x', 'chromium-visual-2x', 'chromium-visual-3x'] : ['chromium'];
-          const replay = { spec: 'tests/e2e/visual/replay.spec.ts', title: 'replay visual: multilingual-text', snapshots: projects.map((project, index) => `tests/e2e/visual/replay.spec.ts-snapshots/multilingual-text-${index + 1}x-${project}-linux.png`) };
-          const owner = target === 'app-replay' && caseName === 'multilingual-text' ? replay : target === 'app-ui' ? owners[caseName] : null;
+          const replayCases = {
+            "multilingual-text": { spec: 'tests/e2e/visual/replay.spec.ts', title: 'replay visual: multilingual-text', snapshots: projects.map((project, index) => `tests/e2e/visual/replay.spec.ts-snapshots/multilingual-text-${index + 1}x-${project}-linux.png`) },
+            "linear-gradient-translated": { spec: 'tests/e2e/visual/replay.spec.ts', title: 'replay visual: linear-gradient-translated', snapshots: projects.map((project, index) => `tests/e2e/visual/replay.spec.ts-snapshots/linear-gradient-translated-${index + 1}x-${project}-linux.png`) },
+          };
+          const owner = target === 'app-replay' ? replayCases[caseName] : target === 'app-ui' ? owners[caseName] : null;
           if (!owner) throw new Error('Unknown application target/case; no broad or cross-namespace update is allowed');
           const grep = owner.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$';
           const originalSnapshots = owner.snapshots.map((path) => ({ path, sha256: createHash('sha256').update(readFileSync(path)).digest('hex') }));

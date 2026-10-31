@@ -7,7 +7,7 @@ import { getEmailCompilation } from './Inspector/panels/emailCompilation';
  * the designer is actually looking at.
  */
 export function emailPreflightResult(document: Document): CombinedPreflightResult {
-  const compilation = getEmailCompilation(document, { allowUnprofiled: true });
+  const compilation = getEmailCompilation(document);
   const warnings = compilation?.output.warnings ?? [];
   const issues: CombinedPreflightIssue[] = [
     ...(compilation?.ir.diagnostics ?? []).map((diagnostic) => ({

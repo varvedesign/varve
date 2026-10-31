@@ -98,6 +98,22 @@ describe('balloon contour wrapping (engine)', () => {
     expect(snapshot.identity.lineWidthsKey).toBe('40,120');
   });
 
+  it('does not leave an equator-fitting word overflowing the crown', () => {
+    installMonospaceMeasurer();
+    const text = 'aaaaaaaa bbbb';
+    const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {
+      maxWidth: 120,
+      lineWidths: [40, 120],
+      lineHeight: LINE_HEIGHT,
+    });
+    const lines = snapshot.lines.map((line) =>
+      text.slice(line.sourceStart, line.sourceEnd).trimEnd(),
+    );
+    expect(lines[0]).toBe('aaaaaaaa');
+    expect(lines.some((line) => line === 'aaaa' || line === 'aaaaaaaa'.slice(0, 4))).toBe(false);
+    expect(sharedLineTexts(text, 120, 80)[0]?.trim()).toBe('aaaaaaaa');
+  });
+
   it('stays rectangular when no profile is supplied', () => {
     const text = 'aaaa bbbb cccc dddd';
     const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {

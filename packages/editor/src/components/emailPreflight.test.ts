@@ -42,7 +42,7 @@ function overlappingEmailDocument() {
 describe('emailPreflightResult', () => {
   it('counts compiler diagnostics, not print bleed', () => {
     const doc = overlappingEmailDocument();
-    const compilation = getEmailCompilation(doc, { allowUnprofiled: true });
+    const compilation = getEmailCompilation(doc);
     const result = emailPreflightResult(doc);
     const diagnosticErrors =
       compilation?.ir.diagnostics.filter((item) => item.severity === 'error').length ?? 0;
@@ -54,5 +54,14 @@ describe('emailPreflightResult', () => {
     expect(result.issues.some((issue) => /url is empty/i.test(issue.message))).toBe(true);
     expect(result.issues.every((issue) => issue.source === 'email')).toBe(true);
     expect(result.issues.some((issue) => /bleed/i.test(issue.message))).toBe(false);
+  });
+
+  it('does not compile an unprofiled document for the status-bar count', () => {
+    const doc = createDocument('no-email-profile', true);
+    expect(getEmailCompilation(doc)).toBeNull();
+    const result = emailPreflightResult(doc);
+    expect(result.errorCount).toBe(0);
+    expect(result.warningCount).toBe(0);
+    expect(result.issues).toEqual([]);
   });
 });
