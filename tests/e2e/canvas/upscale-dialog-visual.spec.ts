@@ -12,6 +12,9 @@ async function importTestImage(page: import('@playwright/test').Page) {
     .locator('#file-import-input')
     .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+  // Import dirties the untitled tab. Wait for the unsaved marker so the
+  // title chrome ("• Untitled 1") is the same in every golden.
+  await expect(page.locator('.editor-tabs__dirty-dot')).toBeVisible({ timeout: 10000 });
 }
 
 async function openDialog(page: import('@playwright/test').Page) {

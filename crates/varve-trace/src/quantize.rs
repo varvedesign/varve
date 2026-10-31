@@ -15,6 +15,7 @@ pub struct QuantizedColor {
     pub count: usize,
 }
 
+#[derive(Clone)]
 struct OklabSample {
     r: u8,
     g: u8,
@@ -132,7 +133,7 @@ pub fn quantize_palette(
         return Vec::new();
     }
 
-    let mut buckets: Vec<Vec<OklabSample>> = vec![samples];
+    let mut buckets: Vec<Vec<OklabSample>> = vec![samples.clone()];
 
     while buckets.len() < max_colors {
         let mut split_index = None;
@@ -237,6 +238,96 @@ pub fn quantize_palette(
         })
         .collect();
 
+    palette.sort_by_key(|c| std::cmp::Reverse(c.count));
+    preserve_distinct_hues(&samples, palette, max_colors)
+}
+
+const DISTINCT_HUE_DIST_SQ: f64 = 0.018;
+const MIN_CHROMA: f64 = 0.04;
+
+fn preserve_distinct_hues(
+    samples: &[OklabSample],
+    mut palette: Vec<QuantizedColor>,
+    max_colors: usize,
+) -> Vec<QuantizedColor> {
+    if palette.is_empty() || samples.is_empty() {
+        return palette;
+    }
+
+    fn nearest_dist(palette: &[QuantizedColor], r: u8, g: u8, b: u8) -> f64 {
+        let mut best = f64::INFINITY;
+        for color in palette {
+            let d = oklab_distance_sq(r, g, b, color.r, color.g, color.b);
+            if d < best {
+                best = d;
+            }
+        }
+        best
+    }
+
+    let mut unique: std::collections::BTreeMap<u32, (u8, u8, u8, usize, f64)> =
+        std::collections::BTreeMap::new();
+    for sample in samples {
+        let key = ((sample.r as u32) << 16) | ((sample.g as u32) << 8) | sample.b as u32;
+        unique
+            .entry(key)
+            .and_modify(|entry| entry.3 += 1)
+            .or_insert((sample.r, sample.g, sample.b, 1, sample.a.hypot(sample.b_)));
+    }
+
+    let mut outliers: Vec<(u8, u8, u8, usize)> = unique
+        .values()
+        .filter(|(_, _, _, _, chroma)| *chroma >= MIN_CHROMA)
+        .filter(|(r, g, b, _, _)| nearest_dist(&palette, *r, *g, *b) >= DISTINCT_HUE_DIST_SQ)
+        .map(|(r, g, b, count, _)| (*r, *g, *b, *count))
+        .collect();
+    outliers.sort_by(|a, b| {
+        b.3.cmp(&a.3)
+            .then(a.0.cmp(&b.0))
+            .then(a.1.cmp(&b.1))
+            .then(a.2.cmp(&b.2))
+    });
+
+    for (r, g, b, count) in outliers {
+        if nearest_dist(&palette, r, g, b) < DISTINCT_HUE_DIST_SQ {
+            continue;
+        }
+        let entry = QuantizedColor {
+            r,
+            g,
+            b,
+            a: 255,
+            count,
+        };
+        if palette.len() < max_colors {
+            palette.push(entry);
+            continue;
+        }
+        let mut steal = None;
+        let mut steal_dist = f64::INFINITY;
+        for i in 0..palette.len() {
+            for j in 0..palette.len() {
+                if i == j {
+                    continue;
+                }
+                let d = oklab_distance_sq(
+                    palette[i].r,
+                    palette[i].g,
+                    palette[i].b,
+                    palette[j].r,
+                    palette[j].g,
+                    palette[j].b,
+                );
+                if d < steal_dist {
+                    steal_dist = d;
+                    steal = Some(i);
+                }
+            }
+        }
+        if let Some(i) = steal {
+            palette[i] = entry;
+        }
+    }
     palette.sort_by_key(|c| std::cmp::Reverse(c.count));
     palette
 }
@@ -380,6 +471,33 @@ mod tests {
                 oklab[0] >= 0.0 && oklab[0] <= 1.0,
                 "Oklab L out of range: {}",
                 oklab[0]
+            );
+        }
+    }
+
+    fn red_field_with_blue_triangle() -> Vec<u8> {
+        let mut pixels = Vec::new();
+        for y in 0..16 {
+            for x in 0..16 {
+                if x <= y && y < 3 {
+                    pixels.extend_from_slice(&rgba_pixel(20, 40, 220, 255));
+                } else {
+                    pixels.extend_from_slice(&rgba_pixel(210, 36, 36, 255));
+                }
+            }
+        }
+        pixels
+    }
+
+    #[test]
+    fn keeps_small_blue_triangle_at_common_palette_sizes() {
+        let pixels = red_field_with_blue_triangle();
+        for max_colors in [3_u8, 4, 6, 8] {
+            let palette = quantize_palette(&pixels, 16, 16, max_colors, 1, false);
+            let has_blue = palette.iter().any(|c| c.b > 150 && c.r < 80);
+            assert!(
+                has_blue,
+                "max_colors={max_colors} dropped the small blue triangle: {palette:?}"
             );
         }
     }

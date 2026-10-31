@@ -128,6 +128,18 @@ describe('chromaKeyMask', () => {
     }
   });
 
+  it('keeps partial alpha on a non-key soft edge', () => {
+    const img = makeTestImage(4, 1, (x) => {
+      if (x === 0) return [255, 0, 0, 64];
+      if (x === 1) return [255, 0, 0, 255];
+      return [0, 255, 0, 255];
+    });
+    const mask = chromaKeyMask(img, { r: 0, g: 255, b: 0 }, 30);
+    expect(mask[0]).toBe(64);
+    expect(mask[1]).toBe(255);
+    expect(mask[2]).toBe(0);
+  });
+
   it('ignores leftover RGB that does not match the key colour', () => {
     // Old chroma keyed only on RGB, so leftover magenta in a=0 pixels
     // became a false subject when the key was green.
@@ -181,6 +193,30 @@ describe('kMeansMask', () => {
     expect(mask[0]).toBe(0);
     expect(mask[8 * 16 + 8]).toBe(255);
     expect([...mask].filter((v) => v >= 128)).toHaveLength(64);
+  });
+
+  it('keeps every subject pixel when the cutout touches the frame edge', () => {
+    const img = makeTestImage(20, 10, (x, _y) => {
+      const subject = x < 10;
+      return subject ? [200, 40, 40, 255] : [0, 255, 0, 0];
+    });
+    const mask = kMeansMask(img);
+    expect([...mask].filter((v) => v === 255)).toHaveLength(100);
+    expect(mask[0]).toBe(255);
+    expect(mask[9]).toBe(255);
+    expect(mask[10]).toBe(0);
+  });
+
+  it('preserves partial alpha on anti-aliased cutout edges', () => {
+    const img = makeTestImage(8, 8, (x, y) => {
+      if (x >= 2 && x < 6 && y >= 2 && y < 6) return [200, 40, 40, 255];
+      if (x >= 1 && x < 7 && y >= 1 && y < 7) return [200, 40, 40, 64];
+      return [12, 34, 56, 0];
+    });
+    const mask = kMeansMask(img);
+    expect(mask[0]).toBe(0);
+    expect(mask[1 * 8 + 1]).toBe(64);
+    expect(mask[4 * 8 + 4]).toBe(255);
   });
 
   it('returns an all-background mask for a fully transparent PNG', () => {
@@ -289,6 +325,21 @@ describe('removeBackgroundHeuristic', () => {
     expect(result.height).toBe(8);
     expect(result.rawMask?.[4 * 80 + 40]).toBe(255);
     expect(result.rawMask?.[0]).toBe(0);
+  });
+
+  it('auto uses source alpha when a cutout subject touches the frame', async () => {
+    const img = makeTestImage(20, 10, (x, _y) => {
+      const subject = x < 10;
+      return subject ? [30, 90, 200, 255] : [0, 255, 0, 0];
+    });
+    const result = await removeBackgroundHeuristic(img, {
+      method: 'quick',
+      heuristicMethod: 'auto',
+    });
+    expect(result.rawMask?.[0]).toBe(255);
+    expect(result.rawMask?.[9]).toBe(255);
+    expect(result.rawMask?.[10]).toBe(0);
+    expect(result.rawMask?.filter((v) => v === 255)).toHaveLength(100);
   });
 
   it('preserves existing transparency on a cutout PNG and ignores fringe RGB', async () => {

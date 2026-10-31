@@ -1,6 +1,6 @@
-import { invoke } from '@tauri-apps/api/core';
 import {
   afterFirstVisiblePaint,
+  beginOrganizationPolicyLoad,
   CrashCenter,
   currentDocumentSchemaVersion,
   installCrashTestHooks,
@@ -55,10 +55,9 @@ export function App() {
 
   useEffect(() => installPageLifecycleAdmission(), []);
   useEffect(() => {
-    if (!isTauriRuntime()) return;
-    void invoke<{ restricted: boolean }>('policy_status')
-      .then((status) => setPolicyReadFailure(status.restricted))
-      .catch(() => undefined);
+    void beginOrganizationPolicyLoad().then((status) => {
+      setPolicyReadFailure(Boolean(status.error || status.restricted));
+    });
   }, []);
 
   // In a plain browser the synchronous boot platform is the in-memory

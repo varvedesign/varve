@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { traceRasterToPaths } from './rasterTrace';
+import { quantizePalette, traceRasterToPaths } from './rasterTrace';
 
 function rgba(width: number, height: number, pixels: number[]): ImageData {
   return new ImageData(new Uint8ClampedArray(pixels), width, height);
@@ -316,5 +316,27 @@ describe('traceRasterToPaths output structure', () => {
     );
     expect(white.length).toBeGreaterThanOrEqual(1);
     expect(white[0]?.area).toBeGreaterThan(100);
+  });
+});
+
+describe('quantizePalette hue preservation', () => {
+  function redFieldWithBlueTriangle(): ImageData {
+    const w = 16;
+    const h = 16;
+    const pixels: number[] = [];
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        const blue = x <= y && y < 3;
+        if (blue) pixels.push(20, 40, 220, 255);
+        else pixels.push(210, 36, 36, 255);
+      }
+    }
+    return rgba(w, h, pixels);
+  }
+
+  it.each([3, 4, 6, 8])('keeps a small blue triangle at maxColors %s', (maxColors) => {
+    const palette = quantizePalette(redFieldWithBlueTriangle(), maxColors, false, 1);
+    const hasBlue = palette.some((color) => color.b > 150 && color.r < 80);
+    expect(hasBlue).toBe(true);
   });
 });

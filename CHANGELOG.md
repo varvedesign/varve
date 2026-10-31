@@ -15,9 +15,11 @@ update, not for someone reading the commit log.
 ### Fixed
 
 - **Admin AI-off policy now blocks webview inference.** A machine-wide `ai.enabled: off` policy used to paint the Settings switch Off while leftover `settings.ai.enabled: true` still let the browser ONNX path download and run models. The engine gate now honours the policy overlay, the same way native IPC already did.
-- **Quick background removal no longer treats leftover RGB in transparent pixels as a subject.** Chroma-key and k-means ignored source alpha, so a cutout PNG with green or other fringe in a=0 pixels could keep that fringe or invent a second colour cluster. Transparent pixels are background. When the remaining opaque pixels never touch the frame, k-means keeps them as the subject instead of dropping the cutout.
+- **An unreadable organisation policy fails closed.** If the policy file exists but cannot be read or parsed, AI and network features stay off and the desktop shows a notice. Desktop webviews apply the policy at startup, before any model path can run, including auxiliary windows that do not wait for SettingsProvider.
+- **Quick background removal uses the source alpha on cutouts.** Chroma-key and k-means ignored source alpha, so leftover RGB in fully transparent pixels became a false subject or a second colour cluster. When the image has meaningful transparency, the source alpha is the mask, including partial alpha on anti-aliased edges. Fully transparent pixels (a=0) are background. An edge-touching cutout no longer loses half the subject to a k-means border seed.
+- **Color vectorize keeps distinct small hues.** Palette reduction used to absorb a small blue region into the surrounding red at 3, 4, 6, and 8 colours. Median-cut now keeps perceptually distant hues in Oklab.
 - **Inspector AI actions refuse the user switch, not only the panel hide.** Line art, OCR, denoise, frame interpolation, text detection, font detect, photo colorize, and DETR crop now check the master switch in the handler and show the standard Settings hint. Failures use the shared InferenceError user copy instead of raw engine text.
-- **Enhance dialog user-facing copy no longer uses em dashes.** Preview alts, comparison labels, and pixel-art / AI-scale hints use colons or periods.
+- **Enhance dialog user-facing copy no longer uses em dashes.** Preview alts, comparison labels, and pixel-art / AI-scale hints use colons or periods. The AI preview hint is a full sentence.
 
 ### Changed
 

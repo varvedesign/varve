@@ -1,10 +1,27 @@
 import { decontaminateMask, featherMaskArray } from './maskOps';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult, HeuristicMethod } from './types';
 
-const TRANSPARENT_ALPHA = 128;
+function isFullyTransparent(alpha: number): boolean {
+  return alpha === 0;
+}
 
-function isTransparentAlpha(alpha: number): boolean {
-  return alpha < TRANSPARENT_ALPHA;
+/** True when any pixel is not fully opaque, including anti-aliased edges. */
+export function hasMeaningfulTransparency(img: ImageData): boolean {
+  const { data } = img;
+  for (let i = 3; i < data.length; i += 4) {
+    if ((data[i] ?? 255) < 255) return true;
+  }
+  return false;
+}
+
+/** Use the source alpha as the subject mask so leftover RGB is ignored and soft edges stay. */
+export function alphaMask(img: ImageData): Uint8Array {
+  const { data, width, height } = img;
+  const mask = new Uint8Array(width * height);
+  for (let i = 0; i < mask.length; i++) {
+    mask[i] = data[i * 4 + 3] ?? 0;
+  }
+  return mask;
 }
 
 function rgbDist(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number {
@@ -31,7 +48,7 @@ function grayAt(data: Uint8ClampedArray, w: number, x: number, y: number): numbe
 
 function opaqueGrayAt(data: Uint8ClampedArray, w: number, x: number, y: number): number {
   const i = (y * w + x) * 4;
-  if (isTransparentAlpha(data[i + 3] ?? 0)) return Number.NaN;
+  if (isFullyTransparent(data[i + 3] ?? 0)) return Number.NaN;
   return ((data[i] ?? 0) * 77 + (data[i + 1] ?? 0) * 150 + (data[i + 2] ?? 0) * 29) >> 8;
 }
 
@@ -93,8 +110,10 @@ export function chromaKeyMask(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
-      // Leftover RGB in fully transparent pixels is not a green-screen hit.
-      if (isTransparentAlpha(data[i + 3] ?? 0)) {
+      const alpha = data[i + 3] ?? 0;
+      // Leftover RGB in a=0 pixels is not a green-screen hit. Partial
+      // alpha is a soft edge and must stay in the mask.
+      if (isFullyTransparent(alpha)) {
         mask[y * width + x] = 0;
         continue;
       }
@@ -108,6 +127,8 @@ export function chromaKeyMask(
       );
       if (dist <= tolerance) {
         mask[y * width + x] = 0;
+      } else {
+        mask[y * width + x] = alpha;
       }
     }
   }
@@ -115,6 +136,8 @@ export function chromaKeyMask(
 }
 
 export function kMeansMask(img: ImageData): Uint8Array {
+  if (hasMeaningfulTransparency(img)) return alphaMask(img);
+
   const { data, width, height } = img;
   const empty = new Uint8Array(width * height);
 
@@ -122,7 +145,6 @@ export function kMeansMask(img: ImageData): Uint8Array {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
-      if (isTransparentAlpha(data[i + 3] ?? 0)) continue;
       flattened.push({
         r: data[i] ?? 0,
         g: data[i + 1] ?? 0,
@@ -140,14 +162,7 @@ export function kMeansMask(img: ImageData): Uint8Array {
     const y = Math.floor(idx / width);
     return x === 0 || y === 0 || x === width - 1 || y === height - 1;
   });
-  // Cutout PNG: leftover RGB lives in a=0 pixels, so the remaining
-  // opaque pixels never touch the frame. Those pixels are the subject.
-  if (border.length === 0) {
-    const cutout = new Uint8Array(width * height);
-    for (const pixel of flattened) cutout[pixel.idx] = 255;
-    return cutout;
-  }
-  const borderCount = border.length;
+  const borderCount = Math.max(1, border.length);
   let c0 = border.reduce(
     (sum, pixel) => ({ r: sum.r + pixel.r, g: sum.g + pixel.g, b: sum.b + pixel.b }),
     { r: 0, g: 0, b: 0 },
@@ -356,7 +371,7 @@ export function edgeDetectMask(img: ImageData): Uint8Array {
 
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
-      if (isTransparentAlpha(data[(y * width + x) * 4 + 3] ?? 0)) continue;
+      if (isFullyTransparent(data[(y * width + x) * 4 + 3] ?? 0)) continue;
       const gx =
         grayAt(data, width, x - 1, y - 1) * -1 +
         grayAt(data, width, x - 1, y) * -2 +
@@ -502,7 +517,9 @@ export async function removeBackgroundHeuristic(
   const heuristic = opts.heuristicMethod ?? 'auto';
   let mask: Uint8Array;
 
-  if (heuristic === 'auto') {
+  if (hasMeaningfulTransparency(img) && heuristic === 'auto' && !opts.clickPoint) {
+    mask = alphaMask(img);
+  } else if (heuristic === 'auto') {
     const detected = autoDetectMethod(img, opts.clickPoint);
     switch (detected.method) {
       case 'floodFill': {

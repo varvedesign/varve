@@ -6,6 +6,10 @@ const stylesheet = readFileSync(
   resolve(process.cwd(), 'packages/editor/src/auxiliary/AuxiliaryShell.css'),
   'utf8',
 );
+const shellSource = readFileSync(
+  resolve(process.cwd(), 'packages/editor/src/auxiliary/AuxiliaryShell.tsx'),
+  'utf8',
+);
 
 describe('auxiliary-window theme discipline', () => {
   it('uses semantic tokens instead of literal interface colours', () => {
@@ -16,5 +20,9 @@ describe('auxiliary-window theme discipline', () => {
     expect(stylesheet).not.toMatch(
       /var\(--color-(?:surface(?:-elevated)?|text|border|accent)(?:\s*[,)]|\))/,
     );
+  });
+
+  it('applies organisation policy at module load, not only after SettingsProvider', () => {
+    expect(shellSource).toContain('void beginOrganizationPolicyLoad()');
   });
 });

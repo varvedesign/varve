@@ -30,6 +30,7 @@ import {
 } from '../../settings/layoutPresentation';
 import {
   applyOrganizationAiPolicy,
+  beginOrganizationPolicyLoad,
   loadOrganizationPolicy,
 } from '../../settings/organizationPolicy';
 import {
@@ -134,14 +135,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [settings.ai.enabled]);
 
   useEffect(() => {
-    let cancelled = false;
-    void loadOrganizationPolicy().then((policy) => {
-      if (cancelled) return;
-      applyOrganizationAiPolicy(policy);
-    });
-    return () => {
-      cancelled = true;
-    };
+    // Startup hold-off / auxiliary windows use beginOrganizationPolicyLoad.
+    // This mount path also applies the fetched policy so Settings UI tests and
+    // a late provider still push the overlay into the engine gate.
+    void beginOrganizationPolicyLoad();
+    void loadOrganizationPolicy().then(applyOrganizationAiPolicy);
   }, []);
 
   const updateSettings = useCallback(

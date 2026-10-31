@@ -7,7 +7,7 @@ describe('PolicyBanner', () => {
   it('shows the fixed non-dismissable restricted policy notice', () => {
     render(<PolicyBanner />);
     expect(screen.getByRole('alert').textContent).toContain(
-      "Your organisation's Varve policy has errors. Network features are off until IT fixes it. Your work is not affected.",
+      "Your organisation's Varve policy has errors. AI and network features are off until IT fixes it. Your work is not affected.",
     );
     expect(screen.queryByRole('button')).toBeNull();
   });

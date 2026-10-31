@@ -562,7 +562,7 @@ export function quantizePalette(
     ];
   }
 
-  return buckets
+  const palette = buckets
     .map((bucket) => {
       let sumR = 0;
       let sumG = 0;
@@ -581,6 +581,81 @@ export function quantizePalette(
       };
     })
     .sort((a, b) => b.count - a.count);
+
+  return preserveDistinctHues(samples, palette, maxColors);
+}
+
+/** Oklab distance² above which a colour is a distinct hue, not a shade of a palette entry. */
+const DISTINCT_HUE_DIST_SQ = 0.018;
+const MIN_CHROMA = 0.04;
+
+function preserveDistinctHues(
+  samples: OklabSample[],
+  palette: QuantizedColor[],
+  maxColors: number,
+): QuantizedColor[] {
+  if (palette.length === 0 || samples.length === 0) return palette;
+  const next = [...palette];
+
+  const nearestDist = (r: number, g: number, b: number): number => {
+    let best = Number.POSITIVE_INFINITY;
+    for (const color of next) {
+      const d = oklabDistanceSq(r, g, b, color);
+      if (d < best) best = d;
+    }
+    return best;
+  };
+
+  const unique = new Map<
+    number,
+    { r: number; g: number; b: number; count: number; chroma: number }
+  >();
+  for (const sample of samples) {
+    const key = (sample.r << 16) | (sample.g << 8) | sample.b;
+    const existing = unique.get(key);
+    if (existing) existing.count += 1;
+    else {
+      unique.set(key, {
+        r: sample.r,
+        g: sample.g,
+        b: sample.b,
+        count: 1,
+        chroma: Math.hypot(sample.a, sample.b_),
+      });
+    }
+  }
+
+  const outliers = [...unique.values()]
+    .filter(
+      (color) =>
+        color.chroma >= MIN_CHROMA &&
+        nearestDist(color.r, color.g, color.b) >= DISTINCT_HUE_DIST_SQ,
+    )
+    .sort((a, b) => b.count - a.count || a.r - b.r || a.g - b.g || a.b - b.b);
+
+  for (const outlier of outliers) {
+    if (nearestDist(outlier.r, outlier.g, outlier.b) < DISTINCT_HUE_DIST_SQ) continue;
+    const entry = { r: outlier.r, g: outlier.g, b: outlier.b, count: outlier.count };
+    if (next.length < maxColors) {
+      next.push(entry);
+      continue;
+    }
+    let steal = -1;
+    let stealDist = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < next.length; i++) {
+      for (let j = 0; j < next.length; j++) {
+        if (i === j) continue;
+        const d = oklabDistanceSq(next[i]!.r, next[i]!.g, next[i]!.b, next[j]!);
+        if (d < stealDist) {
+          stealDist = d;
+          steal = i;
+        }
+      }
+    }
+    if (steal < 0) break;
+    next[steal] = entry;
+  }
+  return next.sort((a, b) => b.count - a.count);
 }
 
 function oklabDistanceSq(
