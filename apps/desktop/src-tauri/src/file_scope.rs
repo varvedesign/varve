@@ -1056,6 +1056,34 @@ pub async fn pick_save_path(
     Ok(Some(path_to_ipc(&granted)?))
 }
 
+/// Absolute system path that tests must never have granted.
+///
+/// `/etc/hosts` is not `Path::is_absolute()` on Windows (rooted, no drive
+/// prefix), so recent runner images reject it as relative instead of
+/// "outside the allowed file scope". Use the host hosts file instead.
+#[cfg(test)]
+pub(crate) fn unpicked_system_path() -> String {
+    #[cfg(windows)]
+    {
+        let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+        let path = PathBuf::from(root)
+            .join("System32")
+            .join("drivers")
+            .join("etc")
+            .join("hosts");
+        assert!(
+            path.is_absolute(),
+            "Windows system path must be absolute, got {}",
+            path.display()
+        );
+        path.to_string_lossy().into_owned()
+    }
+    #[cfg(not(windows))]
+    {
+        "/etc/hosts".to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1095,13 +1123,30 @@ mod tests {
         assert!(err.contains("absolute"));
     }
 
+    #[cfg(windows)]
     #[test]
-    fn rejects_unpicked_absolute_paths() {
+    fn rejects_unix_style_rooted_paths_on_windows() {
         let scope = FileScope::new();
         let err = scope
             .resolve("/etc/hosts")
-            .expect_err("/etc/hosts must be rejected without a grant");
-        assert!(err.contains("outside the allowed file scope"));
+            .expect_err("a unix-style rooted path must stay rejected on Windows");
+        assert!(
+            err.contains("absolute") || err.contains("outside the allowed file scope"),
+            "unix-style /etc/hosts must fail closed on Windows, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn rejects_unpicked_absolute_paths() {
+        let scope = FileScope::new();
+        let path = unpicked_system_path();
+        let err = scope
+            .resolve(&path)
+            .expect_err("unpicked system path must be rejected without a grant");
+        assert!(
+            err.contains("outside the allowed file scope"),
+            "unpicked system path {path} must be outside scope, got {err:?}"
+        );
     }
 
     #[test]
@@ -1295,7 +1340,7 @@ mod tests {
             scope.resolve(target.to_str().expect("utf8")).is_ok(),
             "not-yet-existing export files under a picked folder must be allowed"
         );
-        assert!(scope.resolve("/etc/hosts").is_err());
+        assert!(scope.resolve(&unpicked_system_path()).is_err());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1487,7 +1532,7 @@ mod tests {
             scope.set_persist_path(persist);
             scope.load_persisted().expect("load");
             assert!(
-                scope.resolve("/etc/hosts").is_err(),
+                scope.resolve(&unpicked_system_path()).is_err(),
                 "a tampered grant of / must be ignored"
             );
             assert!(
@@ -1646,6 +1691,7 @@ mod tests {
             missing.to_string_lossy().into_owned(),
             String::new(),
             "/etc/hosts".to_string(),
+            unpicked_system_path(),
             "relative.varve".to_string(),
         ]);
         assert!(scope.resolve(file.to_str().expect("utf8")).is_ok());
@@ -1654,7 +1700,7 @@ mod tests {
             "a path that is not an existing regular document must not be hydrated"
         );
         assert!(
-            scope.resolve("/etc/hosts").is_err(),
+            scope.resolve(&unpicked_system_path()).is_err(),
             "hydrate must not invent grants for non-document or unpicked paths"
         );
         let _ = std::fs::remove_dir_all(&dir);
