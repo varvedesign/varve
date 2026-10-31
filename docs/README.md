@@ -660,6 +660,7 @@ read-only queue path on this machine).
 | `plans/comic-lettering-system.md` | Comic lettering architecture decision, feature admission matrix, slice ledger, and known defects |
 | `plans/document-workflows-plan-2026-10-15.md` | Connected document-workflow plan: audit baseline, slice ledger with status, and per-slice validation requirements |
 | `plans/agent-infrastructure-campaign-2026-10-28.md` | Sequenced campaign for advisory path claims, CI remote cache, god-file batches, Home IPC groups, tauri-specta, and Hutch queue adoption |
+| `plans/branch-consolidation-implementation-2026-10-30.md` | 2026-10-30 execution record: seam-C close-out landed, mainline-reconciliation blocker, and branch verdict manifest |
 | Other `plans/*.md` | Per-session implementation plans and deferred-work records |
 | `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `plans/archived/session-04-packaging.md` |
 
