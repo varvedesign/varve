@@ -738,6 +738,23 @@ export function createTauriPlatform(): Platform {
       return { kind: 'written' };
     },
 
+    async sameNativeFile(pathA, pathB) {
+      // Path equality is exact identity, but it is deliberately not the whole
+      // test: the Rust command resolves symlinks and hard links through the
+      // OS so an alias cannot hide another open document's file.
+      return (await core().invoke('home_same_approved_file', {
+        pathA,
+        pathB,
+      })) as boolean;
+    },
+    async sameWebFileHandle(handleIdA, handleIdB) {
+      // The desktop runtime never stores browser handles; an unanswerable
+      // comparison must reject so the caller fails closed rather than
+      // assuming the destinations differ.
+      if (handleIdA === handleIdB) return true;
+      throw new Error('This runtime cannot compare browser file handles.');
+    },
+
     async readDocumentText(path) {
       try {
         const text = (await core().invoke('home_read_text_file_approved', {

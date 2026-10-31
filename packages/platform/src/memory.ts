@@ -980,6 +980,14 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
         error: { category: 'unsupported', message: 'In-memory platform cannot write files.' },
       };
     },
+    async sameNativeFile(pathA, pathB) {
+      // The in-memory platform has no filesystem to resolve aliases against;
+      // exact path equality is the only identity it can establish.
+      return pathA === pathB;
+    },
+    async sameWebFileHandle(handleIdA, handleIdB) {
+      return handleIdA === handleIdB;
+    },
     async readDocumentText() {
       return { ok: false, reason: 'unsupported' };
     },

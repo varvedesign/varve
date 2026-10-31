@@ -334,6 +334,7 @@ export interface SaveIssue {
     | 'disk-full'
     | 'read-only'
     | 'destination-missing'
+    | 'destination-in-use'
     | 'file-changed-externally'
     | 'serialization-failed'
     | 'filesystem-unavailable'
@@ -701,14 +702,20 @@ export interface EditorState {
   };
 }
 
-/** Save-destination binding applied when a browser file handle is opened
- *  rather than chosen in this session (File → Open Recent, or a file
- *  launched from the OS/Files-app association). The handle id refers to the
- *  platform's handle store; the hash is the content the handle pointed at
- *  when it was read, so the first save can detect an external change. */
+/** Save-destination binding applied when a document is opened rather than
+ *  saved in this session (File → Open Recent, an OS file association, or the
+ *  Home library's entry for a native file).
+ *
+ *  A browser file handle binding carries the persisted handle id; a native
+ *  path binding carries only the content hash of the bytes that were read.
+ *  Either way the hash is the pre-overwrite baseline: Save refuses to replace
+ *  bytes that no longer match it. */
 export interface OpenFileBinding {
-  saveHandleId: string;
+  /** Persisted File System Access handle id, when the document was opened by
+   *  handle rather than by native path. */
+  saveHandleId?: string;
   saveHandleName?: string;
+  /** Content hash of the bytes this session opened. */
   diskContentHash?: string;
 }
 

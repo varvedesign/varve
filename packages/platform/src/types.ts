@@ -310,6 +310,7 @@ export type SaveErrorCategory =
   | 'disk-full'
   | 'read-only'
   | 'destination-missing'
+  | 'destination-in-use'
   | 'file-changed-externally'
   | 'serialization-failed'
   | 'filesystem-unavailable'

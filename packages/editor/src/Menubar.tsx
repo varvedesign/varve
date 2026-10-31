@@ -2162,7 +2162,19 @@ export function Menubar({
           return;
         }
         const fileEntry = await platform.getFile(entry.id).catch(() => undefined);
-        openFile(entry.id, entry.label, fileEntry?.filePath, json, true);
+        // The Home row's cached bytes are what this session opens, so their
+        // hash is the correct pre-overwrite baseline for the native path: if
+        // the file on disk moved on since the mirror was written, the first
+        // Save refuses instead of replacing those changes.
+        const filePath = fileEntry?.filePath;
+        openFile(
+          entry.id,
+          entry.label,
+          filePath,
+          json,
+          true,
+          filePath ? { diskContentHash: contentHash(json) } : undefined,
+        );
         return;
       }
 
@@ -2177,7 +2189,11 @@ export function Menubar({
             // Its own tab, like Figma/Photoshop — and openFile switches to the
             // existing tab when this file is already open rather than
             // duplicating it. No app-store id yet; save() mints one.
-            openFile(undefined, entry.label, entry.locator.path, text);
+            openFile(undefined, entry.label, entry.locator.path, text, undefined, {
+              // Baseline for the external-change check: this is exactly what
+              // was just read from the path.
+              diskContentHash: contentHash(text),
+            });
             return;
           } catch {
             setMissingFileDialog({

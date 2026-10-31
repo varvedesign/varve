@@ -138,6 +138,10 @@ export interface ShellProps {
    *  is recognisable to openFile's dedupe rather than being duplicated. */
   documentFileId?: string;
   documentFilePath?: string;
+  /** Content hash of the exact bytes `documentJson` was read from. The
+   *  bootstrap session needs it as the pre-overwrite baseline; without it the
+   *  first Save could replace edits another app made to the file. */
+  documentDiskContentHash?: string;
   /** Whether the bootstrap document is bound to app-managed library storage. */
   documentLibraryStorage?: boolean;
   /** File-open requests from the host app (home screen). */
@@ -312,7 +316,7 @@ function ShellInner({
       openFile.filePath,
       openFile.json,
       openFile.libraryStorage,
-      openFile.saveHandleId
+      openFile.saveHandleId || openFile.diskContentHash
         ? {
             saveHandleId: openFile.saveHandleId,
             saveHandleName: openFile.saveHandleName,
@@ -1245,6 +1249,7 @@ export function Shell({
   documentName,
   documentFileId,
   documentFilePath,
+  documentDiskContentHash,
   documentLibraryStorage,
   openFile,
   platform,
@@ -1259,6 +1264,7 @@ export function Shell({
       initialFileId={documentFileId}
       initialFilePath={documentFilePath}
       initialLibraryStorage={documentLibraryStorage}
+      initialDiskContentHash={documentDiskContentHash}
       platform={platform}
     >
       <SettingsProvider>

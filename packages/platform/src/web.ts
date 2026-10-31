@@ -57,7 +57,7 @@ import type {
   Workspace,
 } from './types';
 import { DRAFTS_ID, MAX_RECENT_FILES } from './types';
-import { chooseWebSaveTarget, writeWebSaveTarget } from './web-save';
+import { chooseWebSaveTarget, sameWebSaveHandle, writeWebSaveTarget } from './web-save';
 
 const DB_NAME = 'varve-home';
 const DB_VERSION = 6;
@@ -1194,6 +1194,16 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
 
     async writeSaveTarget(target, contents) {
       return writeWebSaveTarget(target, contents);
+    },
+
+    async sameNativeFile(pathA, pathB) {
+      // Browser sessions never hold a native path target; an unanswerable
+      // comparison must reject so the caller fails closed.
+      if (pathA === pathB) return true;
+      throw new Error('This runtime cannot compare native filesystem paths.');
+    },
+    async sameWebFileHandle(handleIdA, handleIdB) {
+      return sameWebSaveHandle(handleIdA, handleIdB);
     },
 
     async readDocumentText() {

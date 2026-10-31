@@ -248,6 +248,10 @@ export function App() {
               json,
               filePath: entry.filePath,
               libraryStorage: !entry.filePath,
+              // Baseline for the pre-overwrite check: these are the exact
+              // bytes opened from the native path. Without it the first Save
+              // could replace edits another app made to the file.
+              ...(entry.filePath ? { diskContentHash: contentHash(json) } : {}),
               seq: (prev?.seq ?? 0) + 1,
             }));
             markEditorStateInitialized();
@@ -284,6 +288,10 @@ export function App() {
         json,
         filePath: entry.filePath,
         libraryStorage: !entry.filePath,
+        // Baseline for the pre-overwrite check: these are the exact bytes
+        // opened from the native path. Without it the first Save could
+        // replace edits another app made to the file.
+        ...(entry.filePath ? { diskContentHash: contentHash(json) } : {}),
         seq: (prev?.seq ?? 0) + 1,
       }));
       markEditorStateInitialized();
@@ -555,6 +563,7 @@ export function App() {
               documentName={openRequest?.name ?? undefined}
               documentFileId={openRequest?.id ?? undefined}
               documentFilePath={openRequest?.filePath ?? undefined}
+              documentDiskContentHash={openRequest?.diskContentHash}
               documentLibraryStorage={openRequest?.libraryStorage}
               platform={platform}
               active={view === 'editor'}

@@ -2671,6 +2671,7 @@ export function EditorProvider({
   initialFileId,
   initialFilePath,
   initialLibraryStorage,
+  initialDiskContentHash,
   platform,
   externalState,
   onMutation,
@@ -2696,6 +2697,15 @@ export function EditorProvider({
   initialFileId?: string;
   initialFilePath?: string;
   initialLibraryStorage?: boolean;
+  /**
+   * Content hash of the exact bytes `initialDocumentJson` was read from.
+   *
+   * The bootstrap session must carry the external-change baseline from the
+   * first render. Without it a document opened from a native file (or the
+   * Home library's cached copy of one) would skip the pre-overwrite check on
+   * its first Save and silently replace edits another app made to the file.
+   */
+  initialDiskContentHash?: string;
   platform?: Platform;
   /**
    * Remote-session sync (auxiliary windows, ADR-0204).
@@ -2783,6 +2793,7 @@ export function EditorProvider({
           ...(initialFileId ? { fileId: initialFileId } : {}),
           ...(initialFilePath ? { filePath: initialFilePath } : {}),
           ...(initialLibraryStorage ? { libraryStorage: true } : {}),
+          ...(initialDiskContentHash ? { diskContentHash: initialDiskContentHash } : {}),
         },
       ],
       activeId: INITIAL_SESSION_ID,

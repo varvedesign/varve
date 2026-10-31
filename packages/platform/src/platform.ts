@@ -313,6 +313,20 @@ export interface Platform {
   chooseDocumentSaveTarget(suggestedName: string): Promise<DocumentSaveTargetChoice>;
   /** Write `contents` to an already-resolved save target. */
   writeSaveTarget(target: SaveTarget, contents: string): Promise<WriteSaveResult>;
+  /**
+   * Compare two user-chosen native paths by the file they identify, not by
+   * text. Symlinks, hard links, case-insensitive volumes, and macOS/Windows
+   * path aliases can spell one file two ways; an exact-string comparison
+   * would miss them. Must reject when the OS cannot establish identity —
+   * callers treat a rejection as "identical" (fail closed), never as "safe".
+   */
+  sameNativeFile(pathA: string, pathB: string): Promise<boolean>;
+  /**
+   * Compare two persisted browser File System Access handles by underlying
+   * entry. Two handles can reference one file, so the saved handle id is not
+   * an identity. Must reject when either handle cannot be resolved.
+   */
+  sameWebFileHandle(handleIdA: string, handleIdB: string): Promise<boolean>;
   /** Read the current bytes of an external file target, for external-change
    *  detection before overwriting. The result distinguishes a missing path
    *  from a path that exists but cannot be read (permission, IO), so a save

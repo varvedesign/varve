@@ -118,6 +118,24 @@ async function loadSaveHandle(handleId: string): Promise<FileSystemFileHandle | 
   return ephemeralHandles.get(handleId);
 }
 
+/**
+ * Compare two persisted handles through the browser's underlying file entry.
+ *
+ * Handle ids are opaque storage keys, not identities: opening the same file
+ * twice (Open Recent, the OS file association, or a duplicate window) stores
+ * two handles that name one file. `isSameEntry` is the only browser API that
+ * answers "same file". A handle that cannot be resolved is a failed identity
+ * check, not a difference — the caller must refuse the write.
+ */
+export async function sameWebSaveHandle(handleIdA: string, handleIdB: string): Promise<boolean> {
+  if (handleIdA === handleIdB) return true;
+  const [left, right] = await Promise.all([loadSaveHandle(handleIdA), loadSaveHandle(handleIdB)]);
+  if (!left || !right || typeof left.isSameEntry !== 'function') {
+    throw new Error('Could not resolve browser file handles for an identity comparison.');
+  }
+  return left.isSameEntry(right);
+}
+
 /** Trigger a browser snapshot download. Never reported as a persistent path. */
 function triggerDownload(filename: string, contents: string): void {
   const blob = new Blob([contents], { type: 'application/json' });
