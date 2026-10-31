@@ -56,6 +56,54 @@ function childTransform(doc: Document, id: string): number[] {
 }
 
 describe('reflowLayoutChildren', () => {
+  it('preserves document and node identity when a flex layout is already materialized', () => {
+    const frame = makeFrame();
+    const child = makeChild('a', 0, 0, 100, 50);
+    frame.children = ['a'];
+    const doc = makeDoc(frame, [child]);
+
+    expect(reflowLayoutChildren(doc, frame.id)).toBe(doc);
+    expect(reflowLayoutChildren(doc, frame.id).nodes.a).toBe(child);
+  });
+
+  it('preserves document and node identity on a repeated grid reflow', () => {
+    const frame = makeFrame({
+      layoutStyle: {
+        mode: 'grid',
+        direction: 'row',
+        wrap: false,
+        gap: 0,
+        padding: [0, 0, 0, 0],
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
+        gridTemplateColumns: '1fr 1fr',
+      },
+    });
+    const child = makeChild('a', 20, 20, 100, 50);
+    frame.children = ['a'];
+    const doc = makeDoc(frame, [child]);
+
+    const first = reflowLayoutChildren(doc, frame.id);
+    expect(first).not.toBe(doc);
+    expect(reflowLayoutChildren(first, frame.id)).toBe(first);
+    expect(reflowLayoutChildren(first, frame.id).nodes.a).toBe(first.nodes.a);
+  });
+
+  it('preserves the last materialized child geometry when flex bounds are invalid', () => {
+    const frame = makeFrame({ w: Number.NaN });
+    const child = makeChild('a', 17, 19, 100, 50);
+    frame.children = ['a'];
+    const doc = makeDoc(frame, [child]);
+
+    const reflowed = reflowLayoutChildren(doc, 'f1');
+
+    expect(reflowed).toBe(doc);
+    expect(reflowed.nodes.a).toBe(child);
+    expect(childTransform(reflowed, 'a')).toEqual([1, 0, 0, 1, 17, 19]);
+  });
+
   it('repositions flex children when the frame is resized', () => {
     const frame = makeFrame({ w: 200, h: 300 });
     const a = makeChild('a', 10, 10, 50, 50);

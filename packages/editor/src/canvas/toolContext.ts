@@ -58,6 +58,7 @@ import {
   snapTargetSearchRect,
 } from '../tools/snapping';
 import { applyWarpToSelection } from '../warp/warpActions';
+import { resolveAutoGridLines } from './autoGridGeometry';
 import { resolveLayoutGuideGeometry } from './layoutGridGeometry';
 import {
   beginInteractionSpan,
@@ -617,6 +618,7 @@ export function buildToolContext(
         id: string;
       }> = [];
       const layoutGuideSegments: import('../tools/snapping').SnapSegmentTarget[] = [];
+      const autoGridSegments: import('../tools/snapping').SnapSegmentTarget[] = [];
       if (draggedId) {
         const parentId = parentIdx.get(draggedId);
         if (parentId) {
@@ -660,6 +662,18 @@ export function buildToolContext(
                     id: `layout-grid:${parentId}:horizontal:${y}`,
                   });
                 }
+              }
+            }
+            if (s.snapEnabled && parentNode.layoutStyle?.mode === 'grid') {
+              for (const line of resolveAutoGridLines(doc, parentNode)) {
+                const start = applyAffine(parentWorld, [line.start.x, line.start.y]);
+                const end = applyAffine(parentWorld, [line.end.x, line.end.y]);
+                autoGridSegments.push({
+                  start: { x: start[0], y: start[1] },
+                  end: { x: end[0], y: end[1] },
+                  id: `auto-grid:${parentId}:${line.id}`,
+                  type: 'layout-grid',
+                });
               }
             }
           }
@@ -791,7 +805,10 @@ export function buildToolContext(
           session: deps.snapSessionRef.current,
           guideTargets,
           layoutGridTargets: snapPreferences.snapToGuides ? layoutGridTargets : [],
-          layoutGuideSegments: snapPreferences.snapToGuides ? layoutGuideSegments : [],
+          layoutGuideSegments: [
+            ...(snapPreferences.snapToGuides ? layoutGuideSegments : []),
+            ...autoGridSegments,
+          ],
           pixelGridSnap: s.snapEnabled && s.pixelGridSnapEnabled,
           isometric: isometricTarget,
           snapFeatures: geometryFeatures,

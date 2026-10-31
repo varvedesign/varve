@@ -17,6 +17,8 @@ import {
   makeShapeNode,
   nextNodeId,
 } from './document';
+import { detachInstance } from './document-nodes';
+import { DocumentCodec } from './documentCodec';
 import type { FrameNode, GroupNode } from './types';
 
 function shape(doc: ReturnType<typeof createDocument>, name: string) {
@@ -112,6 +114,78 @@ describe('Component functions (Task 1.1)', () => {
     expect(instanceChild).toBeDefined();
     expect(instanceChild?.id).not.toBe(bgId); // Cloned, different id
     expect(instanceChild?.layerColor).toBe('orange');
+  });
+
+  it('preserves responsive grid rules through component instantiation, persistence, and detach', () => {
+    let doc = createDocument();
+    const { id: rootId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const masterFrame = makeFrameNode(rootId, {
+      name: 'Grid component',
+      w: 300,
+      h: 120,
+      layoutStyle: {
+        mode: 'grid',
+        layoutSemanticsVersion: 2,
+        direction: 'row',
+        gap: 8,
+        rowGap: 12,
+        columnGap: 8,
+        wrap: false,
+        padding: [0, 0, 0, 0],
+        grow: 0,
+        shrink: 1,
+        gridTemplateColumns: '1fr 2fr',
+        gridColumnTracks: [
+          { id: 'track-primary', size: '1fr' },
+          { id: 'track-secondary', size: '2fr' },
+        ],
+        gridTemplateRows: 'auto',
+      },
+    });
+    doc = addNode(doc, masterFrame);
+    const { id: childId, doc: d3, node: child } = shape(doc, 'anchored child');
+    doc = d3;
+    doc = addChild(doc, rootId, {
+      ...child,
+      gridPlacement: {
+        gridColumnStart: 2,
+        gridColumnEnd: 3,
+        gridColumnStartTrackId: 'track-secondary',
+        gridRowStart: 1,
+      },
+    });
+
+    const { component, doc: componentDoc } = createComponent(doc, 'Grid', rootId, []);
+    const { node: instance, doc: instanceDoc } = instantiate(componentDoc, component);
+    const instanceChildId = instance.children[0];
+    if (!instanceChildId) throw new Error('Expected cloned grid child');
+
+    expect(instance.layoutStyle).toEqual(masterFrame.layoutStyle);
+    expect(instanceDoc.nodes[instanceChildId]?.gridPlacement).toEqual(
+      doc.nodes[childId]?.gridPlacement,
+    );
+
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(instanceDoc));
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) return;
+    const reopenedInstance = reopened.document.nodes[instance.id];
+    expect(reopenedInstance?.kind).toBe('frame');
+    if (reopenedInstance?.kind !== 'frame') return;
+    expect(reopenedInstance.layoutStyle).toEqual(masterFrame.layoutStyle);
+    expect(reopened.document.nodes[instanceChildId]?.gridPlacement).toEqual(
+      doc.nodes[childId]?.gridPlacement,
+    );
+
+    const detached = detachInstance(reopened.document, instance.id);
+    const detachedInstance = detached.nodes[instance.id];
+    expect(detachedInstance?.kind).toBe('frame');
+    if (detachedInstance?.kind !== 'frame') return;
+    expect(detachedInstance.componentId).toBeUndefined();
+    expect(detachedInstance.layoutStyle).toEqual(masterFrame.layoutStyle);
+    expect(detached.nodes[instanceChildId]?.gridPlacement).toEqual(
+      doc.nodes[childId]?.gridPlacement,
+    );
   });
 
   it('fillSlot adds a fill node and records it in slots', () => {

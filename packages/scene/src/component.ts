@@ -155,6 +155,7 @@ export function instantiate(
   }
 
   const instanceNode: FrameNode = {
+    ...masterRoot,
     id: instanceId,
     kind: 'frame',
     name: `${componentDef.name} Instance`,
