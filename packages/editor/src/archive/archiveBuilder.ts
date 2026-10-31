@@ -69,7 +69,11 @@ export async function buildFullArchive(
 
   // 1. Encode document
   onProgress?.('encoding-document', 0.1);
-  const docJson = DocumentCodec.encode(doc);
+  const encoded = DocumentCodec.encodeWithWarnings(doc);
+  const docJson = encoded.json;
+  const codecWarnings = encoded.warnings
+    .filter((warning) => warning.severity === 'warning' || warning.severity === 'error')
+    .map((warning) => warning.message);
   const docBytes = strToU8(docJson);
   files['document.varve'] = docBytes;
   checksums['document.varve'] = await computeChecksum(docBytes);
@@ -145,7 +149,12 @@ export async function buildFullArchive(
   }
 
   const fileName = `${safeArchiveName(doc.name)}.varve-archive.zip`;
-  return { fileName, bytes: finalBytes, manifest };
+  return {
+    fileName,
+    bytes: finalBytes,
+    manifest,
+    ...(codecWarnings.length > 0 ? { warnings: codecWarnings } : {}),
+  };
 }
 
 /**

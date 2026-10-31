@@ -86,6 +86,7 @@ function context(overrides: Partial<ToolContext> = {}): ToolContext {
     announce: vi.fn(),
     announceSelection: vi.fn(),
     announceOperation: vi.fn(),
+    showToast: vi.fn(),
     setDraft: vi.fn(),
     setDropTargetFrame: vi.fn(),
     rootNodes: vi.fn(() => []),
@@ -149,5 +150,17 @@ describe('ShapeBuilderTool', () => {
     tool.onPointerDown(pointer(75, 2, 'mouse'), ctx);
     tool.onPointerCancel(pointer(75, 2, 'mouse'), ctx);
     expect(latestDraft(ctx).selectedFaceIds).toEqual(before);
+  });
+
+  it('toasts when a Shape Builder commit is refused', () => {
+    const ctx = context();
+    const tool = new ShapeBuilderTool();
+    tool.onActivate(ctx);
+    tool.applyAction('merge', ctx);
+    expect(ctx.announce).toHaveBeenCalledWith(expect.stringMatching(/select/i));
+    expect(ctx.showToast).toHaveBeenCalledWith({
+      message: expect.stringMatching(/select/i),
+      type: 'warning',
+    });
   });
 });

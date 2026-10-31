@@ -968,7 +968,7 @@ function mergeEquivalentFaces(
   }
   const result: ShapeBuilderFace[] = [];
   for (const [filledKey, group] of groups) {
-    const union = booleanNormalizedRegions(group.map(regionForFace), 'union');
+    const union = booleanNormalizedRegions(group.map(regionForFace), 'union', { retry: false });
     const edgeIds = [...new Set(group.flatMap((face) => face.edgeIds))].sort();
     const sourceIds = [...new Set(group.flatMap((face) => face.sourceIds))].sort();
     const filledBy = filledKey ? (filledKey.split('|') as NodeId[]) : [];
@@ -1155,6 +1155,11 @@ export interface ShapeBuilderFaceSelectionOptions {
    * but Create may fill them with a new editable shape.
    */
   includeEmpty?: boolean;
+  /**
+   * Clipper snap/perturb retries. Hover and overlay previews leave this
+   * unset (off). Commit paths pass true and refuse a degraded result.
+   */
+  retry?: boolean;
 }
 
 function faceMatchesSelectionOptions(
@@ -1215,7 +1220,7 @@ export function previewShapeBuilderSelection(
     .map(regionForFace);
   if (regions.length === 0)
     return { components: [], outerContours: [], holes: [], fillRule: 'evenodd' };
-  return booleanNormalizedRegions(regions, 'union');
+  return booleanNormalizedRegions(regions, 'union', { retry: options.retry === true });
 }
 
 function outputRegionsForAction(
@@ -1265,8 +1270,9 @@ export function previewShapeBuilderAction(
   const affectedSourceIds = [...new Set(selectedFaces.flatMap((face) => face.filledBy))];
   const remainders = affectedSourceIds.map((sourceId) => {
     const remainder = booleanNormalizedRegions(
-      [sourceFilledRegion(model, sourceId), selectedRegion],
+      [sourceFilledRegion(model, sourceId, false), selectedRegion],
       'subtract',
+      { retry: false },
     );
     return {
       sourceId,
@@ -1279,11 +1285,24 @@ export function previewShapeBuilderAction(
   return { selected, output, remainders };
 }
 
-function sourceFilledRegion(model: ShapeBuilderModel, sourceId: NodeId): Region2D {
+function sourceFilledResult(
+  model: ShapeBuilderModel,
+  sourceId: NodeId,
+  retry = false,
+): BooleanResult {
   const faces = model.faces.filter((face) => face.filledBy.includes(sourceId));
-  if (faces.length === 0) return { contours: [], holes: [], fillRule: 'evenodd' };
-  return booleanResultRegion(booleanNormalizedRegions(faces.map(regionForFace), 'union'));
+  if (faces.length === 0) {
+    return { components: [], outerContours: [], holes: [], fillRule: 'evenodd' };
+  }
+  return booleanNormalizedRegions(faces.map(regionForFace), 'union', { retry });
 }
+
+function sourceFilledRegion(model: ShapeBuilderModel, sourceId: NodeId, retry = false): Region2D {
+  return booleanResultRegion(sourceFilledResult(model, sourceId, retry));
+}
+
+const DEGRADED_SHAPE_BUILDER_REASON =
+  'Shape Builder could not complete the geometry; the original shapes were kept.';
 
 function mapRingToParent(ring: Point2D[], inverse: Affine): PathPoint[] {
   return ring.map((point) => {
@@ -1434,8 +1453,15 @@ export function applyShapeBuilderAction(
   const selectedResult = previewShapeBuilderSelection(
     model,
     selectedFaces.map((face) => face.id),
-    { includeEmpty },
+    { includeEmpty, retry: true },
   );
+  if (selectedResult.degraded) {
+    return {
+      ok: false,
+      reason: DEGRADED_SHAPE_BUILDER_REASON,
+      revision: model.revision,
+    };
+  }
   if (action !== 'erase' && selectedResult.components.length === 0) {
     return {
       ok: false,
@@ -1499,8 +1525,25 @@ export function applyShapeBuilderAction(
           revision: model.revision,
         };
       }
-      const sourceRegion = sourceFilledRegion(model, sourceId);
-      const remainder = booleanNormalizedRegions([sourceRegion, selectedRegion], 'subtract');
+      const sourceResult = sourceFilledResult(model, sourceId, true);
+      if (sourceResult.degraded) {
+        return {
+          ok: false,
+          reason: DEGRADED_SHAPE_BUILDER_REASON,
+          revision: model.revision,
+        };
+      }
+      const sourceRegion = booleanResultRegion(sourceResult);
+      const remainder = booleanNormalizedRegions([sourceRegion, selectedRegion], 'subtract', {
+        retry: true,
+      });
+      if (remainder.degraded) {
+        return {
+          ok: false,
+          reason: DEGRADED_SHAPE_BUILDER_REASON,
+          revision: model.revision,
+        };
+      }
       const remainderRegion = booleanResultRegion(remainder);
       if (remainderRegion.contours.length === 0) {
         sourceMutations.push({ sourceId, replacement: null });

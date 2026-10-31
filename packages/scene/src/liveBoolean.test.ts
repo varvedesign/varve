@@ -187,11 +187,31 @@ describe('live Boolean groups', () => {
     const expanded = expandLiveBooleanDoc(doc, created.nodeId);
     expect(expanded).not.toBeNull();
     if (!expanded) return;
+    expect(expanded.ok).toBe(true);
+    if (!expanded.ok) return;
     expect(expanded.doc.nodes[created.nodeId]).toBeUndefined();
     expect(expanded.doc.nodes.base).toBeUndefined();
     expect(expanded.doc.nodes.cut).toBeUndefined();
     const result = expanded.doc.nodes[expanded.nodeId] as ShapeNode;
     expect(result.shape.kind).toBe('path');
     if (result.shape.kind === 'path') expect(result.shape.holes).toHaveLength(1);
+  });
+
+  it('refuses to expand an empty Boolean so operands stay editable', () => {
+    let doc = createDocument();
+    doc = addNode(doc, makeShapeNode('base', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }));
+    doc = addNode(doc, makeShapeNode('cut', { kind: 'rect', x: 25, y: 25, w: 50, h: 50 }));
+    const created = createLiveBooleanDoc(doc, ['base', 'cut'], 'subtract');
+    expect(created).not.toBeNull();
+    if (!created) return;
+    doc = reorderLiveBooleanOperands(created.doc, created.nodeId, ['cut', 'base']);
+    const expanded = expandLiveBooleanDoc(doc, created.nodeId);
+    expect(expanded).toEqual({
+      ok: false,
+      reason: 'Boolean result is empty; the original shapes were kept.',
+    });
+    expect(doc.nodes.base).toBeDefined();
+    expect(doc.nodes.cut).toBeDefined();
+    expect(doc.nodes[created.nodeId]?.kind).toBe('group');
   });
 });

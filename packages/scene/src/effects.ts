@@ -432,8 +432,22 @@ export function ensureEffectId(effect: Effect): Effect {
   return { ...effect, id: effectId() };
 }
 
+function withoutLetteringRestoreKeys(effect: Effect): Effect {
+  if (!('sfxRestoreFill' in effect) && !('sfxRestoreFills' in effect)) return effect;
+  const {
+    sfxRestoreFill: _restoreFill,
+    sfxRestoreFills: _restoreFills,
+    ...rest
+  } = effect as Effect & {
+    sfxRestoreFill?: unknown;
+    sfxRestoreFills?: unknown;
+  };
+  return rest as Effect;
+}
+
 /** Normalize the parameters of an effect, guarding against malformed values. */
 export function normalizeEffectParams(effect: Effect): Effect {
+  effect = withoutLetteringRestoreKeys(effect);
   const e = effect as Effect & Record<string, unknown>;
   switch (e.type) {
     case 'dropShadow':
