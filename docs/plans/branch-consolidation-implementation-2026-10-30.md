@@ -88,10 +88,14 @@ payloads are carried in the landed C-02 stack.
 - Audits green: file-size, agent-surface, constitution, IPC, committed imports,
   emoji, docs, visual baselines, health. Agent-map failed once on the drift
   above and rechecks green after `b2f7dafac`.
-- `audit-architecture.mjs --ci` is red: cycle limit 36 > 17. The C-01 ledger row
-  records the pre-existing red state (11 engine cycle identities on master
-  before the move, 19 after) and the delta is reported rather than hidden; no
-  allowlist or baseline was changed. Follow-up architecture review is required.
+- `audit-architecture.mjs --ci` remains red only because of the stale
+  2026-08-25 baseline (engine 3, scene 11, editor 1) and pre-existing cycles on
+  master (11 engine / 28 total before this batch). The batch's own delta was
+  resolved in a follow-up cycle-fix commit: per-replay state moved to
+  `packages/engine/src/replay/runtime.ts`, moved drawing helpers to
+  `imageSample.ts`, and `createEffectBuffer`/`paintFill` were extracted.
+  Engine cycles return to the pre-batch 11 (total 28); no allowlist or baseline
+  was changed. The pre-existing red remains a repository-wide follow-up.
 - Not run (bounded validation per impact policy): full Vitest, Playwright/E2E,
   cargo, builds, and pnpm-wrapped gates. The read-only pnpm store makes the
   pnpm wrappers unusable here; direct tool substitutes are recorded above and

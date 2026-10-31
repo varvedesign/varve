@@ -1,5 +1,5 @@
-import { effectDiagnosticSinkForCurrentReplay } from '../replay';
 import type { RenderItem } from '../types';
+import { replayRuntime } from './runtime';
 import type { EffectDiagnosticCode } from './types';
 /**
  * Report an effect that was skipped or degraded. These paths previously kept
@@ -11,7 +11,7 @@ export function reportEffectDiagnostic(
   code: EffectDiagnosticCode,
   reason: string,
 ): void {
-  effectDiagnosticSinkForCurrentReplay?.({
+  replayRuntime.diagnosticSink?.({
     code,
     effectType: effect.type,
     ...(effect.id ? { effectId: effect.id } : {}),
@@ -39,7 +39,7 @@ const CONTENT_EFFECT_TYPES: ReadonlySet<string> = new Set([
  * applied one (the Inspector already hides authoring for these types).
  */
 export function reportUnsupportedEffectMasks(item: RenderItem): void {
-  if (!effectDiagnosticSinkForCurrentReplay || !item.effects) return;
+  if (!replayRuntime.diagnosticSink || !item.effects) return;
   for (const effect of item.effects) {
     if (!effect.visible || !effect.mask || effect.mask.visible === false) continue;
     if (CONTENT_EFFECT_TYPES.has(effect.type)) continue;

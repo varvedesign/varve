@@ -5,14 +5,14 @@ import { applyChromaticAberration, applyGlitch } from '../effectPipeline';
 import { getImageCache } from '../imageCache';
 import { applyDepthBlur } from '../lensBlur';
 import { resolveReplayImage } from '../mockup/warpReplay';
-import { validateRasterSurfaceDimensions } from '../rasterSurface';
-import { imageLookupForCurrentReplay } from '../replay';
 import type { ReplayTarget } from '../replayTypes';
 import { applySpatialBlur, type SpatialBlurEffect, spatialBlurSupport } from '../spatialBlur';
 import type { RenderItem } from '../types';
+import { createEffectBuffer } from './effectBuffer';
 import { reportEffectDiagnostic } from './effectDiagnostics';
 import { paintFillsAndStrokes } from './fill';
 import { primitiveBounds } from './primitiveBounds';
+import { replayRuntime } from './runtime';
 import type { ContentEffect, DepthBlurEffect, EffectMaskResolver } from './types';
 
 const decodedDepthMapCache = new DepthMapCache(3, 32 * 1024 * 1024);
@@ -25,38 +25,6 @@ function depthMapCacheKey(resource: NonNullable<DepthBlurEffect['depthMap']>): s
     resource.sourceRevision ?? '',
     resource.generatedAt ?? '',
   ].join(':');
-}
-
-/** Create an offscreen 2D buffer, falling back to HTMLCanvasElement when needed. */
-export function createEffectBuffer(
-  w: number,
-  h: number,
-): {
-  canvas: HTMLCanvasElement | OffscreenCanvas;
-  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-} | null {
-  try {
-    validateRasterSurfaceDimensions(w, h);
-  } catch {
-    return null;
-  }
-  if (typeof OffscreenCanvas !== 'undefined') {
-    try {
-      const oc = new OffscreenCanvas(w, h);
-      const ctx = oc.getContext('2d');
-      if (ctx) return { canvas: oc, ctx };
-    } catch {
-      // Fall through to the HTML canvas path.
-    }
-  }
-  if (typeof document !== 'undefined') {
-    const c = document.createElement('canvas');
-    c.width = w;
-    c.height = h;
-    const ctx = c.getContext('2d');
-    if (ctx) return { canvas: c, ctx };
-  }
-  return null;
 }
 
 /** Maximum padding needed to keep content effects from being cropped. */
@@ -175,7 +143,7 @@ function applyRasterEffectMask(
     );
     return;
   }
-  const image = resolveReplayImage(source.src, imageLookupForCurrentReplay, getImageCache());
+  const image = resolveReplayImage(source.src, replayRuntime.imageLookup, getImageCache());
   if (!image) {
     reportEffectDiagnostic(effect, 'effect-mask-unresolved', 'the raster mask image is not loaded');
     return;

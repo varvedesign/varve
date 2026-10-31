@@ -1,7 +1,7 @@
-import { imageLookupForCurrentReplay, replayIr } from '../replay';
 import type { ReplayTarget } from '../replayTypes';
 import type { RenderItem } from '../types';
 import { rgba } from './color';
+import { replayRuntime } from './runtime';
 /**
  * Paint a compiled native table (ADR-0016 D3): cell fills, per-cell text
  * (pre-wrapped lines), inner dividers, and the outer border, clipped to the
@@ -86,7 +86,7 @@ export function paintTable(
       target.beginPath();
       target.rect(pad, pad, Math.max(0, cell.w - pad * 2), Math.max(0, cell.h - pad * 2));
       target.clip();
-      replayIr(target, [content], imageLookupForCurrentReplay ?? undefined);
+      replayRuntime.nestedReplay?.(target, [content], replayRuntime.imageLookup ?? undefined);
     } finally {
       target.restore();
     }
