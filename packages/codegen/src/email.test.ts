@@ -599,6 +599,63 @@ describe('email output', () => {
     expect(html).toContain('>Shop now</a>');
   });
 
+  it('picks ink on a light button when the label colour matches the fill', () => {
+    const ir = fixture({
+      nodes: [
+        {
+          id: 'button',
+          sourceNodeId: 'button-frame',
+          kind: 'button',
+          name: 'CTA',
+          children: [
+            {
+              id: 'button-label',
+              sourceNodeId: 'button-label',
+              kind: 'text',
+              name: 'Label',
+              children: [],
+              styles: { color: '#ffffff' },
+              content: { type: 'text', text: 'Shop now' },
+              compatibility: 'native',
+            },
+          ],
+          styles: { 'background-color': '#ffffff', color: '#ffffff' },
+          compatibility: 'converted',
+        },
+      ],
+    });
+    const html = emitEmailHtml(ir).html;
+    expect(html).toContain('background-color: #ffffff');
+    expect(html).toContain('color: #111111');
+    expect(html).not.toContain('background-color: #ffffff; color: #ffffff');
+  });
+
+  it('emits the remaining canvas once when activeDesignCanvasId is stale', () => {
+    const created = createNewDocument({ documentName: 'Stale canvas' });
+    if (!created.ok) throw new Error(created.error);
+    let doc = created.result.document;
+    const canvasRoot = doc.designCanvases?.[0]?.contentRoot;
+    if (!canvasRoot) throw new Error('Expected a design canvas');
+
+    const heading = makeTextNode('heading-stale', 'AUDIT-STALE-CANVAS-TOKEN');
+    doc = addChild(doc, canvasRoot, heading);
+    doc = {
+      ...doc,
+      activeDesignCanvasId: 'missing-canvas',
+      emailProfile: DEFAULT_EMAIL_PROFILE,
+      emailSemantics: DEFAULT_EMAIL_SEMANTIC_MAP,
+    };
+
+    const compiled = compileEmail(doc, sceneToIR(doc), {
+      profile: 'modern',
+      provider: 'generic',
+    });
+    const html = emitEmailHtml(compiled.ir).html;
+    const text = emitEmailPlainText({ ...compiled.ir, plainText: '' });
+    expect(html.split('AUDIT-STALE-CANVAS-TOKEN').length - 1).toBe(1);
+    expect(text.split('AUDIT-STALE-CANVAS-TOKEN').length - 1).toBe(1);
+  });
+
   it('emits left alignment explicitly for linked and unlinked live text', () => {
     const node = compilerNode({
       appearance: {

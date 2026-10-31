@@ -479,18 +479,20 @@ export function documentSceneRootIds(doc: Document): string[] {
   // content roots themselves, which would emit the whole email twice.
   const excludedRoots = new Set<string>();
   const inactiveSurfaceNodes = new Set<string>();
-  if (doc.activePageId && doc.pages?.length) {
+  if (doc.pages?.length) {
+    const activePage = doc.pages.find((page) => page.id === doc.activePageId) ?? doc.pages[0];
     for (const page of doc.pages) {
       excludedRoots.add(page.contentRoot);
-      if (page.id !== doc.activePageId)
+      if (page.id !== activePage?.id)
         collectSceneSubtree(page.contentRoot, doc, inactiveSurfaceNodes);
     }
   }
   const canvases = doc.designCanvases ?? [];
-  const activeCanvasId = doc.activeDesignCanvasId ?? canvases[0]?.id;
+  const activeCanvas =
+    canvases.find((canvas) => canvas.id === doc.activeDesignCanvasId) ?? canvases[0];
   for (const canvas of canvases) {
     excludedRoots.add(canvas.contentRoot);
-    if (canvas.id !== activeCanvasId)
+    if (canvas.id !== activeCanvas?.id)
       collectSceneSubtree(canvas.contentRoot, doc, inactiveSurfaceNodes);
   }
   return [
