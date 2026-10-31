@@ -639,6 +639,36 @@ describe('gradient fill rendering', () => {
     expect(rec.calls).toContain('createLinearGradient(10,37.5,170,117.5)');
   });
 
+  it('does not map gradient handles through a translated item CTM twice', () => {
+    const rec = recorder();
+    rec.target.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 100, f: 50 }) as DOMMatrix;
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 100, 50],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      fills: [
+        {
+          type: 'gradient',
+          gradientType: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+          rotation: 0,
+          transform: [160, 80, -30, 45, 25, 15],
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+    };
+
+    replayIr(rec.target, [item]);
+
+    expect(rec.calls).toContain('createLinearGradient(10,37.5,170,117.5)');
+    expect(rec.calls).not.toContain('createLinearGradient(110,87.5,270,167.5)');
+  });
+
   it('materializes radial geometry in local coordinates', () => {
     const rec = recorder();
     const item: RenderItem = {

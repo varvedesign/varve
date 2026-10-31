@@ -57,9 +57,8 @@ test.describe('Inspector tool context', () => {
   test('tools with Tool Options offer a button that opens them', async ({ page }) => {
     await activateTool(page, 't');
     const dialog = page.getByRole('dialog', { name: 'Text tool options' });
-    // Text options open automatically; close them, then reopen from the Inspector.
-    await expect(dialog).toBeVisible();
-    await page.getByRole('button', { name: 'Tool options', exact: true }).click();
+    // Text options stay closed until asked: the New text panel used to
+    // auto-open over the canvas and eat the first create gesture.
     await expect(dialog).toHaveCount(0);
 
     const header = page.locator('[data-inspector-context-header="true"]');

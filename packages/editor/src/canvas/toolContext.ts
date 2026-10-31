@@ -386,6 +386,7 @@ export function buildToolContext(
     announce: (msg) => e.announce(msg),
     announceSelection: (selected) => e.announceSelection(selected),
     announceOperation: (op, result) => e.announceOperation(op, result),
+    showToast: (opts) => e.showToast(opts),
     setDraft: deps.setDraft,
     previewNodePositions: deps.previewNodePositions,
     clearNodePositionPreview: deps.clearNodePositionPreview,

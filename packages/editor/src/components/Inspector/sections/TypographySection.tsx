@@ -53,7 +53,7 @@ import {
 import { GlyphTypographySection } from '../../Typography/GlyphTypographySection';
 import {
   applyTextEffectPreset,
-  CLEAR_TEXT_EFFECT_PATCH,
+  clearTextEffectPreset,
   TEXT_EFFECT_PRESETS,
   textEffectPresetById,
 } from '../../Typography/textEffectPresets';
@@ -368,7 +368,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     editor.groupCompoundOperation('Clear sound effect lettering', () => {
       for (const textNode of textNodes) {
         editor.updateNode(textNode.id, (node) =>
-          node.kind === 'text' ? { ...node, ...CLEAR_TEXT_EFFECT_PATCH } : node,
+          node.kind === 'text' ? clearTextEffectPreset(node) : node,
         );
       }
     });

@@ -61,6 +61,21 @@ const DEFAULT_TEXT_CREATION_SETTINGS = {
 };
 
 /**
+ * Tools whose options panel opens on selection. Text is omitted: the New text
+ * panel sits over the canvas and the first drag-create gesture hits the panel
+ * instead of the canvas.
+ */
+export function shouldAutoOpenToolOptions(tool: ToolId): boolean {
+  return (
+    BRUSH_TOOLS.has(tool) ||
+    MARQUEE_TOOLS.has(tool) ||
+    MAGIC_WAND_TOOLS.has(tool) ||
+    RETOUCH_TOOLS.has(tool) ||
+    tool === 'liquify'
+  );
+}
+
+/**
  * One segmented-control grammar for every mutually exclusive tool-option row.
  * Roving tabindex with arrow keys (APG radiogroup): the marquee's Operation
  * control already worked this way, the magic wand's did not, so the two
@@ -399,14 +414,7 @@ export function ToolOptionsPopover() {
 
   useEffect(() => {
     openSourceRef.current = 'tool-change';
-    setOpen(
-      BRUSH_TOOLS.has(state.tool) ||
-        MARQUEE_TOOLS.has(state.tool) ||
-        MAGIC_WAND_TOOLS.has(state.tool) ||
-        RETOUCH_TOOLS.has(state.tool) ||
-        state.tool === 'liquify' ||
-        state.tool === 'text',
-    );
+    setOpen(shouldAutoOpenToolOptions(state.tool));
   }, [state.tool]);
 
   useEffect(() => {

@@ -506,10 +506,15 @@ function compileStyles(
     if (typo.direction && typo.direction !== 'ltr') styles.direction = typo.direction;
   }
 
-  // Color (text color from foreground fill)
-  const fg = appearance.foreground.find((f) => f.type === 'solid' && f.opacity > 0);
-  if (fg && fg.type === 'solid') {
-    styles.color = fg.value;
+  // Color (text color from foreground fill).
+  // `ir-builders` copies the scene fill stack into both background and
+  // foreground. For frames that is the cell fill, not label colour; using it
+  // as `color` paints button labels in the button background.
+  if (node.content.type === 'text') {
+    const fg = appearance.foreground.find((f) => f.type === 'solid' && f.opacity > 0);
+    if (fg && fg.type === 'solid') {
+      styles.color = fg.value;
+    }
   }
 
   // Opacity

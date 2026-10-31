@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { deepCloneSubtree } from './clone';
+import { DocumentCodec } from './documentCodec';
 import {
   addCalloutTail,
   addNode,
+  calloutOuterContourForRender,
   createCallout,
   createDocument,
   detachCalloutRecipe,
@@ -20,7 +22,11 @@ import {
   updateCalloutTailEndpoint,
   wrapTextInCallout,
 } from './index';
-import type { GroupNode } from './types';
+import type { Fill, GroupNode, ShapeNode } from './types';
+
+function solidPaint(color: { space: 'rgb'; r: number; g: number; b: number; a: number }): Fill {
+  return { type: 'solid', color, opacity: 1, blendMode: 'normal', visible: true };
+}
 
 describe('comic callouts', () => {
   it('creates ordinary body, tail, and editable text children', () => {
@@ -46,6 +52,52 @@ describe('comic callouts', () => {
     expect(tail.points[0]!.y).toBe(97);
     expect(tail.points[2]!.y).toBe(97);
     expect(result.document.nodes[result.textId]?.kind).toBe('text');
+  });
+
+  it('still unions a pointed tail after save and load when stroke ids are per node', () => {
+    const created = createCallout(createDocument('contour-ids', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hello',
+    });
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    expect(calloutOuterContourForRender(created.document, group)).not.toBeNull();
+
+    const decoded = DocumentCodec.decode(DocumentCodec.encode(created.document));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const reopened = decoded.document.nodes[created.groupId] as GroupNode;
+    expect(calloutOuterContourForRender(decoded.document, reopened)).not.toBeNull();
+  });
+
+  it('still unions a pointed tail when body and tail stroke ids differ', () => {
+    const created = createCallout(createDocument('contour-ignore-ids', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hello',
+    });
+    const tailId = created.tailNodeIds[0]!;
+    const tail = created.document.nodes[tailId];
+    if (tail?.kind !== 'path') throw new Error('missing tail');
+    const mismatched = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [tailId]: {
+          ...tail,
+          strokes: tail.strokes.map((stroke, index) => ({
+            ...stroke,
+            id: `stroke-${tailId}-${index}`,
+          })),
+        },
+      },
+    };
+    const group = mismatched.nodes[created.groupId] as GroupNode;
+    expect(calloutOuterContourForRender(mismatched, group)).not.toBeNull();
   });
 
   it('wraps existing text without duplicating its source node', () => {
@@ -500,9 +552,13 @@ describe('shaped balloons (burst and cloud)', () => {
     if (outline?.kind !== 'shape' || outline.shape.kind !== 'star') throw new Error('no star');
     expect(outline.shape.points).toBe(14);
     expect(outline.shape.outerRadius).toBeGreaterThan(outline.shape.innerRadius);
+    expect(outline.shape.kind).toBe('star');
     expect(body?.kind).toBe('shape');
     if (body?.kind !== 'shape') throw new Error('no body');
     expect(body.strokes).toEqual([]);
+    expect(body.fill.a).toBe(0);
+    expect(outline.fill.a).toBeGreaterThan(0);
+    expect(outline.strokes.length).toBeGreaterThan(0);
     // Tails paint before the outline so their base is hidden by the balloon.
     expect(group.children?.[0]).toBe(result.tailNodeIds[0]);
     expect(group.children?.[1]).toBe(outlineId);
@@ -522,11 +578,12 @@ describe('shaped balloons (burst and cloud)', () => {
     const group = doc.nodes[created.groupId] as GroupNode;
     const outline = doc.nodes[group.callout!.outlineNodeId!];
     const body = doc.nodes[created.bodyId];
-    if (outline?.kind !== 'shape' || outline.shape.kind !== 'star') throw new Error('no star');
+    if (outline?.kind !== 'shape' || outline.shape.kind !== 'path')
+      throw new Error('no cloud path');
     if (body?.kind !== 'shape' || body.shape.kind !== 'rect') throw new Error('no body');
-    expect(outline.shape.points).toBe(12);
-    // The star's inner core follows the fitted text container.
-    expect(outline.shape.innerRadius).toBeCloseTo(Math.max(body.shape.w, body.shape.h) / 2, 1);
+    expect(outline.shape.closed).toBe(true);
+    expect(outline.shape.points.length).toBe(8);
+    expect(outline.shape.points.every((entry) => entry.handleIn && entry.handleOut)).toBe(true);
     const tail = doc.nodes[created.tailNodeIds[0]!];
     if (tail?.kind !== 'path') throw new Error('no tail');
     const tip = tail.points[1]!;
@@ -552,10 +609,14 @@ describe('shaped balloons (burst and cloud)', () => {
     const cloudGroup = cloud.nodes[created.groupId] as GroupNode;
     expect(cloudGroup.callout?.outlineNodeId).toBe(burstOutlineId);
     const cloudOutline = cloud.nodes[burstOutlineId!];
-    if (cloudOutline?.kind !== 'shape' || cloudOutline.shape.kind !== 'star') {
-      throw new Error('no star');
+    if (cloudOutline?.kind !== 'shape' || cloudOutline.shape.kind !== 'path') {
+      throw new Error('no cloud path');
     }
-    expect(cloudOutline.shape.points).toBe(12);
+    expect(cloudOutline.shape.closed).toBe(true);
+    expect(cloudOutline.shape.points.length).toBe(8);
+    expect(cloudOutline.shape.points.every((entry) => entry.handleIn && entry.handleOut)).toBe(
+      true,
+    );
 
     const speech = updateCalloutKind(cloud, created.groupId, 'speech');
     const speechGroup = speech.nodes[created.groupId] as GroupNode;
@@ -569,6 +630,188 @@ describe('shaped balloons (burst and cloud)', () => {
       ...(speechGroup.callout?.tailNodeIds ?? []),
       created.textId,
     ]);
+  });
+
+  it('keeps a custom balloon fill when switching between rect and shaped kinds', () => {
+    const pink = { space: 'rgb' as const, r: 255, g: 64, b: 160, a: 255 };
+    const created = createCallout(createDocument('recolor-kind', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const recoloured = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.bodyId]: {
+          ...(created.document.nodes[created.bodyId] as ShapeNode),
+          fill: pink,
+        },
+      },
+    };
+    const burst = updateCalloutKind(recoloured, created.groupId, 'burst');
+    const burstGroup = burst.nodes[created.groupId] as GroupNode;
+    const burstBody = burst.nodes[created.bodyId] as ShapeNode;
+    const burstOutline = burst.nodes[burstGroup.callout?.outlineNodeId ?? ''];
+    expect(burstBody.fill.a).toBe(0);
+    expect(burstOutline?.kind).toBe('shape');
+    if (burstOutline?.kind !== 'shape') return;
+    expect(burstOutline.fill).toMatchObject(pink);
+
+    const cloud = updateCalloutKind(burst, created.groupId, 'cloud');
+    const cloudGroup = cloud.nodes[created.groupId] as GroupNode;
+    const cloudOutline = cloud.nodes[cloudGroup.callout?.outlineNodeId ?? ''];
+    expect(cloudGroup.callout?.outlineNodeId).toBe(burstGroup.callout?.outlineNodeId);
+    expect(cloudOutline?.kind).toBe('shape');
+    if (cloudOutline?.kind !== 'shape') return;
+    expect(cloudOutline.fill).toMatchObject(pink);
+    expect((cloud.nodes[created.bodyId] as ShapeNode).fill.a).toBe(0);
+
+    const speech = updateCalloutKind(cloud, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId] as ShapeNode;
+    expect(speechBody.fill).toMatchObject(pink);
+    expect((speech.nodes[created.groupId] as GroupNode).callout?.outlineNodeId).toBeUndefined();
+  });
+
+  it('keeps Inspector fills when switching kind both ways', () => {
+    const pink = { space: 'rgb' as const, r: 255, g: 64, b: 160, a: 255 };
+    const created = createCallout(createDocument('fills-kind', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const recoloured = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.bodyId]: {
+          ...(created.document.nodes[created.bodyId] as ShapeNode),
+          fill: pink,
+          fills: [solidPaint(pink)],
+        },
+      },
+    };
+    const burst = updateCalloutKind(recoloured, created.groupId, 'burst');
+    const burstGroup = burst.nodes[created.groupId] as GroupNode;
+    const burstBody = burst.nodes[created.bodyId] as ShapeNode;
+    const burstOutline = burst.nodes[burstGroup.callout?.outlineNodeId ?? ''];
+    expect(burstBody.fills).toEqual([]);
+    expect(burstBody.fill.a).toBe(0);
+    expect(burstGroup.callout?.fillLayout).toBe('outline');
+    expect(burstOutline?.kind).toBe('shape');
+    if (burstOutline?.kind !== 'shape') return;
+    expect(burstOutline.fills?.[0]).toMatchObject({ type: 'solid', color: pink });
+    expect(burstOutline.fill).toMatchObject(pink);
+
+    const speech = updateCalloutKind(burst, created.groupId, 'speech');
+    const speechGroup = speech.nodes[created.groupId] as GroupNode;
+    const speechBody = speech.nodes[created.bodyId] as ShapeNode;
+    expect(speechBody.fills?.[0]).toMatchObject({ type: 'solid', color: pink });
+    expect(speechBody.fill).toMatchObject(pink);
+    expect(speechGroup.callout?.fillLayout).toBeUndefined();
+    expect(speechGroup.callout?.outlineNodeId).toBeUndefined();
+  });
+
+  it('keeps a legacy shaped custom body colour after decode and kind switch', () => {
+    const red = { space: 'rgb' as const, r: 200, g: 0, b: 0, a: 255 };
+    const created = createCallout(createDocument('legacy-body-colour', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    const body = created.document.nodes[created.bodyId] as ShapeNode;
+    const { fillLayout: _fillLayout, ...legacyRecipe } = group.callout!;
+    const legacy = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.groupId]: { ...group, callout: legacyRecipe },
+        [created.bodyId]: { ...body, fill: red, fills: [] },
+      },
+    };
+    const decoded = DocumentCodec.decode(DocumentCodec.encode(legacy));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const speech = updateCalloutKind(decoded.document, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId];
+    expect(speechBody?.kind).toBe('shape');
+    if (speechBody?.kind !== 'shape') return;
+    expect(speechBody.fill).toMatchObject(red);
+  });
+
+  it('falls back to default paint when a shaped callout has no outline', () => {
+    const created = createCallout(createDocument('missing-outline', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    const outlineId = group.callout?.outlineNodeId;
+    expect(outlineId).toBeDefined();
+    const { outlineNodeId: _outlineNodeId, ...recipe } = group.callout!;
+    const nodes = { ...created.document.nodes };
+    if (outlineId) delete nodes[outlineId];
+    const stripped = {
+      ...created.document,
+      nodes: {
+        ...nodes,
+        [created.groupId]: { ...group, callout: recipe },
+      },
+    };
+    const speech = updateCalloutKind(stripped, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId];
+    expect(speechBody?.kind).toBe('shape');
+    if (speechBody?.kind !== 'shape') return;
+    expect(speechBody.fill).toMatchObject({ r: 255, g: 255, b: 255, a: 255 });
+    expect(speechBody.fills?.[0]).toMatchObject({
+      type: 'solid',
+      color: { r: 255, g: 255, b: 255, a: 255 },
+    });
+  });
+
+  it('moves paintRefs with the silhouette when switching kind both ways', () => {
+    const created = createCallout(createDocument('paintrefs-kind', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const referenced = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.bodyId]: {
+          ...(created.document.nodes[created.bodyId] as ShapeNode),
+          paintRefs: ['paint-balloon'],
+        },
+      },
+    };
+    const burst = updateCalloutKind(referenced, created.groupId, 'burst');
+    const burstGroup = burst.nodes[created.groupId] as GroupNode;
+    const burstBody = burst.nodes[created.bodyId] as ShapeNode;
+    const burstOutline = burst.nodes[burstGroup.callout?.outlineNodeId ?? ''];
+    expect(burstBody.paintRefs).toBeUndefined();
+    expect(burstBody.fills).toEqual([]);
+    expect(burstOutline?.kind).toBe('shape');
+    if (burstOutline?.kind !== 'shape') return;
+    expect(burstOutline.paintRefs).toEqual(['paint-balloon']);
+
+    const speech = updateCalloutKind(burst, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId] as ShapeNode;
+    expect(speechBody.paintRefs).toEqual(['paint-balloon']);
+    expect((speech.nodes[created.groupId] as GroupNode).callout?.outlineNodeId).toBeUndefined();
   });
 
   it('clone remaps the outline reference into the duplicate', () => {
@@ -591,5 +834,140 @@ describe('shaped balloons (burst and cloud)', () => {
     const cloned = result.nodes[result.rootId] as GroupNode;
     expect(cloned.callout?.outlineNodeId).toBe(result.idMap.get(outlineId!));
     expect(result.nodes[cloned.callout!.outlineNodeId!]).toBeDefined();
+  });
+
+  it('keeps a shallow-angle tail from collapsing to a sliver', () => {
+    const created = createCallout(createDocument('sliver', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      tailEndpoint: { x: 170, y: 92 },
+    });
+    const tail = created.document.nodes[created.tailNodeIds[0]!];
+    if (tail?.kind !== 'path') throw new Error('no tail');
+    const ys = tail.points.map((point) => point.y);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThanOrEqual(10);
+  });
+
+  it('anchors a wrapped cloud tail below the outline, not the body box', () => {
+    const text = makeTextNode('cloud-wrap', 'Hello', {
+      transform: [1, 0, 0, 1, 0, 0],
+      w: 80,
+      h: 36,
+    });
+    const wrapped = wrapTextInCallout(addNode(createDocument('wrap-cloud', true), text), text.id, {
+      kind: 'cloud',
+    });
+    expect(wrapped).not.toBeNull();
+    const group = wrapped!.document.nodes[wrapped!.groupId] as GroupNode;
+    const outline = wrapped!.document.nodes[group.callout!.outlineNodeId!];
+    const tail = wrapped!.document.nodes[group.callout!.tailNodeIds[0]!];
+    if (outline?.kind !== 'shape' || outline.shape.kind !== 'path')
+      throw new Error('no cloud path');
+    if (tail?.kind !== 'path') throw new Error('no tail');
+    const outlineBottom = Math.max(
+      ...outline.shape.points.map((entry) => entry.y),
+      ...outline.shape.points.flatMap((entry) => [
+        entry.y + (entry.handleOut?.[1] ?? 0),
+        entry.y + (entry.handleIn?.[1] ?? 0),
+      ]),
+    );
+    expect(tail.points[1]!.y).toBeGreaterThan(outlineBottom);
+  });
+
+  it('honours tailLength for area text in the same document units as point text', () => {
+    const area = makeTextNode('area-tail', 'Hello there friends', {
+      transform: [1, 0, 0, 1, 20, 30],
+      w: 160,
+      h: 72,
+      textResizing: 'fixed',
+    });
+    const wrapped = wrapTextInCallout(addNode(createDocument('area-tail', true), area), area.id, {
+      kind: 'speech',
+      tailLength: 80,
+    });
+    expect(wrapped).not.toBeNull();
+    const group = wrapped!.document.nodes[wrapped!.groupId] as GroupNode;
+    const body = wrapped!.document.nodes[wrapped!.bodyId];
+    const tail = wrapped!.document.nodes[group.callout!.tailNodeIds[0]!];
+    if (body?.kind !== 'shape' || body.shape.kind !== 'rect') throw new Error('no body');
+    if (tail?.kind !== 'path') throw new Error('no tail');
+    const created = createCallout(createDocument('point-tail', true), {
+      x: 20,
+      y: 30,
+      w: body.shape.w,
+      h: body.shape.h,
+      tailLength: 80,
+      text: 'Hi',
+    });
+    const pointTail = created.document.nodes[created.tailNodeIds[0]!];
+    if (pointTail?.kind !== 'path') throw new Error('no point tail');
+    expect(tail.points[1]!.x).toBeCloseTo(pointTail.points[1]!.x, 5);
+    expect(tail.points[1]!.y).toBeCloseTo(pointTail.points[1]!.y, 5);
+    expect(tail.points[1]!.y).toBeGreaterThan(body.shape.h + 70);
+  });
+
+  it('defaults an omitted tail to max(32, 35 percent of height) and clamps short authored lengths', () => {
+    const tall = createCallout(createDocument('tail-default-tall', true), {
+      x: 0,
+      y: 0,
+      w: 120,
+      h: 200,
+      text: 'Hi',
+    });
+    const tallTail = tall.document.nodes[tall.tailNodeIds[0]!];
+    if (tallTail?.kind !== 'path') throw new Error('no tail');
+    expect(tallTail.points[1]!.y).toBeCloseTo(270, 5);
+
+    const short = createCallout(createDocument('tail-authored-short', true), {
+      x: 0,
+      y: 0,
+      w: 120,
+      h: 80,
+      tailLength: 10,
+      text: 'Hi',
+    });
+    const shortTail = short.document.nodes[short.tailNodeIds[0]!];
+    if (shortTail?.kind !== 'path') throw new Error('no tail');
+    expect(shortTail.points[1]!.y).toBeCloseTo(104, 5);
+  });
+
+  it('clamps shallow, zero-length, and interior tail tips without flipping x', () => {
+    const created = createCallout(createDocument('tail-edges', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      tailEndpoint: { x: 20, y: 87 },
+    });
+    const level = created.document.nodes[created.tailNodeIds[0]!];
+    if (level?.kind !== 'path') throw new Error('no tail');
+    expect(level.points[1]!.x).toBe(20);
+    expect(level.points[1]!.y).toBeGreaterThanOrEqual(97);
+
+    const interior = createCallout(createDocument('tail-inside', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      tailEndpoint: { x: 40, y: 80 },
+    });
+    const inward = interior.document.nodes[interior.tailNodeIds[0]!];
+    if (inward?.kind !== 'path') throw new Error('no tail');
+    expect(inward.points[1]!.x).toBe(40);
+    expect(inward.points[1]!.y).toBeGreaterThanOrEqual(97);
+
+    const up = createCallout(createDocument('tail-up', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      tailEndpoint: { x: 90, y: -24 },
+    });
+    const upward = up.document.nodes[up.tailNodeIds[0]!];
+    if (upward?.kind !== 'path') throw new Error('no tail');
+    expect(upward.points[1]!.x).toBe(90);
+    expect(upward.points[1]!.y).toBeLessThanOrEqual(-10);
   });
 });

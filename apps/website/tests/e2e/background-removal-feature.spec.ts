@@ -3,6 +3,11 @@ import { expect, test } from '@playwright/test';
 test('background-removal feature page is accurate and usable on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+  // CI builds with ANALYTICS_DOMAIN, so the fixed consent banner would cover
+  // part of the full-page capture. Decline it up front, as feedback and press do.
+  await page.addInitScript(() => {
+    window.localStorage.setItem('varve:website-analytics-consent', 'denied');
+  });
   await page.goto('/features/background-removal');
 
   await expect(page.getByRole('heading', { name: /cut out subjects/i })).toBeVisible();

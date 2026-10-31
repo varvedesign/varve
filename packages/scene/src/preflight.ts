@@ -18,7 +18,7 @@ import { runTypographyPreflight, type TypographyIssue } from './typographyPrefli
 export type CombinedPreflightSeverity = 'error' | 'warning' | 'info';
 
 export interface CombinedPreflightIssue {
-  source: 'print' | 'typography';
+  source: 'print' | 'typography' | 'email';
   severity: CombinedPreflightSeverity;
   category: string;
   message: string;

@@ -152,6 +152,7 @@ import {
   addVariableToDocument,
   advanceSMTransition,
   appendFrameToChain as appendFrameToChainDoc,
+  applyBooleanOpDoc,
   applyConstraints,
   applyFormatToSelection as applyFormatToSelectionOp,
   applyLayerState as applyLayerStateDoc,
@@ -198,7 +199,6 @@ import {
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
   designCanvasContentRoot,
   detachInstance as detachInstanceDoc,
-  booleanOp as doBooleanOp,
   duplicateGuide as duplicateGuideDoc,
   duplicateSelectionSet as duplicateSelectionSetDoc,
   duplicateSMState,
@@ -256,7 +256,6 @@ import {
   pageBoundsInWorld,
   pasteboardBounds,
   pasteGuides as pasteGuidesDoc,
-  placeBooleanResult,
   promoteToRichText as promoteToRichTextOp,
   pushMasterChanges as pushMasterChangesDoc,
   rebuildSpreads as rebuildSpreadsDoc,
@@ -514,6 +513,7 @@ import { useInteractionState } from './context/useInteractionState';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import {
+  clearEncodeWarningState,
   createPersistenceRevision,
   resolveFontManifest,
   usePersistence,
@@ -3113,6 +3113,7 @@ export function EditorProvider({
    */
   const newDocument = useCallback(() => {
     const created = createNewDocument({});
+    clearEncodeWarningState();
     openInNewSession(created.ok ? created.result.document : createDocument('Untitled', true));
   }, [openInNewSession]);
 
@@ -3356,6 +3357,7 @@ export function EditorProvider({
     openInNewSession,
     recoveryRef,
     computeFitAllCamera,
+    (message) => toastHandler?.({ message, type: 'warning' }),
   );
 
   // Remote-session sync (auxiliary windows, ADR-0204): mutation + selection
@@ -7493,20 +7495,30 @@ export function EditorProvider({
         const id = sel[0];
         if (!id) return;
         runOwnedTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
-          setState((s) => {
-            const node = s.document.nodes[id];
-            if (node?.kind !== 'group') return s;
-            if (isLiveBooleanNode(node)) {
-              const expanded = expandLiveBooleanDoc(s.document, id);
-              return expanded
-                ? markDocumentDirty({
-                    ...s,
-                    document: expanded.doc,
-                    selection: [expanded.nodeId],
-                  })
-                : s;
+          const current = stateRef.current.document;
+          const node = current.nodes[id];
+          if (node?.kind !== 'group') return;
+          if (isLiveBooleanNode(node)) {
+            const expanded = expandLiveBooleanDoc(current, id);
+            if (!expanded) return;
+            if (!expanded.ok) {
+              toastHandler?.({ message: expanded.reason, type: 'warning' });
+              announcerRef.current?.announce(expanded.reason);
+              return;
             }
-            const childIds = [...node.children];
+            setState((s) =>
+              markDocumentDirty({
+                ...s,
+                document: expanded.doc,
+                selection: [expanded.nodeId],
+              }),
+            );
+            return;
+          }
+          setState((s) => {
+            const group = s.document.nodes[id];
+            if (group?.kind !== 'group') return s;
+            const childIds = [...group.children];
             const newDoc = ungroupNodeDoc(s.document, id);
             return markDocumentDirty({ ...s, document: newDoc, selection: childIds });
           });
@@ -9502,6 +9514,7 @@ export function EditorProvider({
             announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
             return;
           }
+          clearEncodeWarningState();
           doc = decoded.document;
           const result = validateDocument(doc);
           if (!result.valid) {
@@ -9861,27 +9874,32 @@ export function EditorProvider({
             return;
           }
 
-          setState((s) => {
-            // World-space operands: raster-derived shapes were lifted to
-            // their image node's world transform at extraction; vector
-            // shapes are lifted here. The result is re-anchored at the
-            // first real operand's home in that parent's local space.
-            const anchorNode = doc.nodes[allIds[0]!];
-            const anchor = anchorNode
-              ? booleanAnchorForNode(s.document, anchorNode.id)
-              : { parentId: null as string | null, index: 0 };
-            const worldVectorNodes = shapeNodesInWorldSpace(s.document, vectorShapeNodes);
-            const result = doBooleanOp(kind, [...rasterShapeNodes, ...worldVectorNodes]);
-            let d = s.document;
-            for (const id of allIds) d = removeNode(d, id);
-            const placed = placeBooleanResult(d, result, anchor);
-            announcerRef.current?.announce('Boolean operation complete');
-            return markDocumentDirty({
+          const current = stateRef.current.document;
+          const anchorNode = current.nodes[allIds[0]!];
+          const anchor = anchorNode
+            ? booleanAnchorForNode(current, anchorNode.id)
+            : { parentId: null as string | null, index: 0 };
+          const worldVectorNodes = shapeNodesInWorldSpace(current, vectorShapeNodes);
+          const applied = applyBooleanOpDoc(
+            current,
+            kind,
+            [...rasterShapeNodes, ...worldVectorNodes],
+            allIds,
+            anchor,
+          );
+          if (!applied.ok) {
+            toastHandler?.({ message: applied.reason, type: 'warning' });
+            announcerRef.current?.announce(applied.reason);
+            return;
+          }
+          announcerRef.current?.announce('Boolean operation complete');
+          setState((s) =>
+            markDocumentDirty({
               ...s,
-              document: placed.doc,
-              selection: [placed.nodeId],
-            });
-          });
+              document: applied.doc,
+              selection: [applied.nodeId],
+            }),
+          );
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Unknown error';
           announcerRef.current?.announce(`Boolean operation failed: ${message}`);

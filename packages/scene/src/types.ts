@@ -1676,6 +1676,13 @@ export interface ShapeNode extends NodeBase {
   conceptArtReference?: ConceptArtReferenceMetadata;
 }
 
+/** Lettering preset metadata stored on a text node, not on effect objects. */
+export interface TextEffectState {
+  preset: string;
+  restoreFill?: ManagedColor;
+  restoreFills?: Fill[];
+}
+
 export interface TextNode extends NodeBase {
   kind: 'text';
   text: string;
@@ -1769,6 +1776,11 @@ export interface TextNode extends NodeBase {
   strokes: Stroke[];
   /** F6: stacked effects on text. */
   effects: Effect[];
+  /**
+   * Lettering preset currently applied to this text node. Restore colours are
+   * used by Clear only while the visible fill still matches the preset fill.
+   */
+  textEffect?: TextEffectState;
   /** Phase 5: Reference to a path/vector node whose shape the text follows. */
   pathId?: NodeId;
   /** Phase 5: 0-1 offset along the path to start text (default 0). */
@@ -1886,6 +1898,12 @@ export interface CalloutRecipe {
    * exist are read as one pointed tail per `tailNodeIds` entry.
    */
   tails?: CalloutTail[];
+  /**
+   * Shaped balloons paint fill on the outline, not the rect body. Set on
+   * newly created shaped callouts and after decode migration so encode does
+   * not rewrite current files.
+   */
+  fillLayout?: 'outline';
 }
 
 /**

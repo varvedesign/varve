@@ -3,7 +3,9 @@ use varve_desktop_lib::policy::{read_policy_at, PolicyState};
 
 #[test]
 fn corrupt_policy_blocks_network_calls() {
-    let path: PathBuf = std::env::temp_dir().join(format!("varve-corrupt-policy-{}.json", std::process::id()));
+    let path: PathBuf = fs::canonicalize(std::env::temp_dir())
+        .unwrap_or_else(|_| std::env::temp_dir())
+        .join(format!("varve-corrupt-policy-{}.json", std::process::id()));
     fs::write(&path, b"{ this is not valid JSON").expect("write corrupt policy");
     let state: PolicyState = read_policy_at(&path);
     let _ = fs::remove_file(&path);

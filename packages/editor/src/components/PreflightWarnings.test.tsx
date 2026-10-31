@@ -3,15 +3,30 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import {
+  addChild,
+  addNode,
   createDocument,
   DEFAULT_BLEED,
+  DEFAULT_EMAIL_PROFILE,
+  DEFAULT_EMAIL_SEMANTIC_MAP,
   type Document,
   defaultCmykColorConfig,
+  makeFrameNode,
+  makeTextNode,
   type ShapeNode,
 } from '@varve/scene';
+import { useEffect } from 'react';
 import { describe, expect, it } from 'vitest';
-import { EditorProvider } from '../context';
+import { EditorProvider, useEditor } from '../context';
 import { PreflightWarnings } from './PreflightWarnings';
+
+function SwitchToEmail() {
+  const { requestWorkspaceSwitch } = useEditor();
+  useEffect(() => {
+    void requestWorkspaceSwitch('email');
+  }, [requestWorkspaceSwitch]);
+  return null;
+}
 
 // The component uses useEditor() which throws if not within EditorProvider.
 describe('PreflightWarnings', () => {
@@ -115,5 +130,48 @@ describe('PreflightWarnings', () => {
     expect(
       screen.queryByRole('dialog', { name: /preflight issues/i, hidden: true }),
     ).not.toBeInTheDocument();
+  });
+
+  it('counts email preflight findings in email workspace, not print bleed', async () => {
+    let doc = createDocument('email-status', true);
+    const root = makeFrameNode('email-root', { name: 'Email', w: 600, h: 200 });
+    const headline = makeTextNode('headline', 'Headline', {
+      transform: [1, 0, 0, 1, 0, 0],
+      w: 400,
+      h: 120,
+    });
+    const caption = makeTextNode('caption', 'Caption', {
+      transform: [1, 0, 0, 1, 200, 40],
+      w: 300,
+      h: 120,
+    });
+    doc = addNode(doc, root);
+    doc = addChild(doc, root.id, headline);
+    doc = addChild(doc, root.id, caption);
+    doc = {
+      ...doc,
+      emailProfile: DEFAULT_EMAIL_PROFILE,
+      emailSemantics: {
+        ...DEFAULT_EMAIL_SEMANTIC_MAP,
+        nodeLinks: {
+          headline: { kind: 'web' as const, url: '' },
+        },
+      },
+    };
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+        <SwitchToEmail />
+        <PreflightWarnings />
+      </EditorProvider>,
+    );
+
+    const badge = await screen.findByRole('button', {
+      name: /preflight: \d+ errors, \d+ warnings/i,
+    });
+    expect(badge).toHaveAccessibleName(/errors/i);
+    expect(badge).not.toHaveAccessibleName(/bleed/i);
+    fireEvent.click(badge);
+    expect(screen.getByText(/url is empty/i)).toBeInTheDocument();
   });
 });

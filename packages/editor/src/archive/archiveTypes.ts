@@ -92,6 +92,8 @@ export interface ArchiveBuildResult {
   fileName: string;
   bytes: Uint8Array;
   manifest: ArchiveManifest;
+  /** Codec warnings collected while encoding the document, if any. */
+  warnings?: string[];
 }
 
 /** Archive restore options */

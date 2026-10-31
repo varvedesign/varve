@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmbeddedAsset } from './assets';
+import { createCallout } from './callout';
 import type { Document } from './document';
 import {
   addNode,
@@ -7,16 +8,17 @@ import {
   createDocument,
   makeFrameNode,
   makeGroupNode,
+  makePathNode,
   makeShapeNode,
   makeTableNode,
   makeTextNode,
   validateDocument,
 } from './document';
-import { DocumentCodec } from './documentCodec';
+import { DocumentCodec, type DocumentCodecWarning } from './documentCodec';
 import { gradientFill, imageFill } from './fills';
 import { addRasterMaskAsset } from './masks';
 import { setCellSceneContent } from './tableOps';
-import { makePaint, type Page, type RasterMaskAsset } from './types';
+import { defaultStroke, makePaint, type Page, type RasterMaskAsset } from './types';
 import { createVariableStore } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
@@ -434,6 +436,253 @@ describe('DocumentCodec', () => {
     if (!decoded.ok) return;
     expect(decoded.document.nodes.clip?.mask).toBeUndefined();
     expect(decoded.document.nodes.content).toBeDefined();
+  });
+
+  it('keeps a closed legacy path clip source through encode and decode', () => {
+    const clipSource = makePathNode('clip-src', {
+      closed: true,
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 80, y: 0, handleIn: null, handleOut: null },
+        { x: 80, y: 60, handleIn: null, handleOut: null },
+        { x: 0, y: 60, handleIn: null, handleOut: null },
+      ],
+    });
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 80, h: 60 });
+    const group = makeGroupNode('panel', { children: ['clip-src', 'content'] });
+    group.mask = { type: 'clip', sourceNodeId: 'clip-src', visible: true };
+    const doc = {
+      ...createDocument('Legacy path clip', true),
+      nodes: { panel: group, 'clip-src': clipSource, content },
+      rootChildren: ['panel'],
+    };
+
+    const warnings: DocumentCodecWarning[] = [];
+    const encoded = DocumentCodec.encode(doc, warnings);
+    const decoded = DocumentCodec.decode(encoded);
+
+    expect(
+      warnings.filter((warning) => warning.code === 'document.invalid-structural-mask'),
+    ).toEqual([]);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.document.nodes.panel?.mask).toMatchObject({
+      type: 'clip',
+      sourceNodeId: 'clip-src',
+    });
+    expect(decoded.document.nodes['clip-src']?.kind).toBe('path');
+  });
+
+  it('reports a warning when encode strips an unusable structural mask', () => {
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+    const group = makeGroupNode('clip', { children: ['content'] });
+    group.mask = { type: 'clip', sourceNodeId: 'missing', visible: true };
+    const doc = {
+      ...createDocument('Broken mask encode', true),
+      nodes: { clip: group, content },
+      rootChildren: ['clip'],
+    };
+
+    const warnings: DocumentCodecWarning[] = [];
+    const encoded = DocumentCodec.encode(doc, warnings);
+    const parsed = JSON.parse(encoded) as { nodes: Record<string, { mask?: unknown }> };
+
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'document.invalid-structural-mask',
+        path: 'clip.mask',
+      }),
+    );
+    expect(parsed.nodes.clip?.mask).toBeUndefined();
+    expect(parsed.nodes.content).toBeDefined();
+  });
+
+  it('moves a default white fill off a shaped balloon body on decode', () => {
+    const created = createCallout(createDocument('Legacy burst', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 200,
+      h: 100,
+      text: 'BOOM',
+    });
+    const group = created.document.nodes[created.groupId];
+    const outlineId = group?.kind === 'group' ? group.callout?.outlineNodeId : undefined;
+    const body = created.document.nodes[created.bodyId];
+    expect(body?.kind).toBe('shape');
+    if (body?.kind !== 'shape' || group?.kind !== 'group' || !outlineId) return;
+    const { fillLayout: _fillLayout, ...legacyRecipe } = group.callout!;
+    const customStroke = { ...defaultStroke(), weight: 7 };
+    const legacy = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.groupId]: { ...group, callout: legacyRecipe },
+        [created.bodyId]: {
+          ...body,
+          fill: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+          fills: [
+            {
+              type: 'solid' as const,
+              color: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+              opacity: 1,
+              blendMode: 'normal' as const,
+              visible: true,
+            },
+          ],
+          strokes: [customStroke],
+        },
+      },
+    };
+    const encoded = DocumentCodec.encode(legacy);
+    const parsed = JSON.parse(encoded) as {
+      nodes: Record<
+        string,
+        { fill?: { a?: number }; strokes?: unknown[]; callout?: { fillLayout?: string } }
+      >;
+    };
+    expect(parsed.nodes[created.bodyId]?.fill?.a).toBe(255);
+    expect(parsed.nodes[created.bodyId]?.strokes).toHaveLength(1);
+    expect(parsed.nodes[created.groupId]?.callout?.fillLayout).toBeUndefined();
+
+    const decoded = DocumentCodec.decode(encoded);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(
+      decoded.warnings.some((warning) => warning.code === 'document.callout-fill-migrated'),
+    ).toBe(true);
+    const nextBody = decoded.document.nodes[created.bodyId];
+    const nextOutline = decoded.document.nodes[outlineId];
+    const nextGroup = decoded.document.nodes[created.groupId];
+    expect(nextBody?.kind).toBe('shape');
+    expect(nextOutline?.kind).toBe('shape');
+    if (nextBody?.kind !== 'shape' || nextOutline?.kind !== 'shape' || nextGroup?.kind !== 'group')
+      return;
+    expect(nextBody.fill.a).toBe(0);
+    expect(nextBody.fills).toEqual([]);
+    expect(nextBody.strokes?.[0]).toMatchObject({ weight: 7 });
+    expect(nextOutline.fill.a).toBeGreaterThan(0);
+    expect(nextGroup.callout?.fillLayout).toBe('outline');
+  });
+
+  it('round-trips lettering preset restore data on the text node, not the effect', () => {
+    const ink = { space: 'rgb' as const, r: 16, g: 21, b: 31, a: 255 };
+    const text = {
+      ...makeTextNode('sfx', 'POW', {
+        fill: ink,
+        effects: [
+          {
+            type: 'dropShadow',
+            id: 'sfx-impact-shadow',
+            x: 5,
+            y: 7,
+            blur: 0,
+            spread: 0,
+            color: { space: 'rgb', r: 48, g: 16, b: 48, a: 255 },
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+            sfxRestoreFill: ink,
+          } as never,
+        ],
+      }),
+      fills: [
+        {
+          type: 'solid' as const,
+          color: ink,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
+      ],
+      textEffect: {
+        preset: 'sfx-impact',
+        restoreFill: ink,
+        restoreFills: [
+          {
+            type: 'solid' as const,
+            color: ink,
+            opacity: 1,
+            blendMode: 'normal' as const,
+            visible: true,
+          },
+        ],
+      },
+    };
+    const doc = addNode(createDocument('SFX restore', true), text);
+    const encoded = DocumentCodec.encode(doc);
+    expect(encoded).toContain('"textEffect"');
+    expect(encoded).not.toContain('sfxRestoreFill');
+    expect(encoded).not.toContain('sfxRestoreFills');
+    const decoded = DocumentCodec.decode(encoded);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const next = decoded.document.nodes.sfx;
+    expect(next?.kind).toBe('text');
+    if (next?.kind !== 'text') return;
+    expect(next.textEffect).toMatchObject({
+      preset: 'sfx-impact',
+      restoreFill: { r: 16, g: 21, b: 31, a: 255 },
+    });
+    expect(next.effects?.[0]).not.toHaveProperty('sfxRestoreFill');
+    expect(next.effects?.[0]).not.toHaveProperty('sfxRestoreFills');
+  });
+
+  it('drops non-solid and invalid restoreFills on decode', () => {
+    const ink = { space: 'rgb' as const, r: 16, g: 21, b: 31, a: 255 };
+    const text = {
+      ...makeTextNode('sfx', 'POW', { fill: ink }),
+      textEffect: {
+        preset: 'sfx-impact',
+        restoreFill: ink,
+        restoreFills: [
+          {
+            type: 'solid' as const,
+            color: ink,
+            opacity: 1,
+            blendMode: 'normal' as const,
+            visible: true,
+          },
+        ],
+      },
+    };
+    const encoded = DocumentCodec.encode(addNode(createDocument('SFX restore fills', true), text));
+    const parsed = JSON.parse(encoded) as {
+      nodes: { sfx: { textEffect: { restoreFills: unknown[] } } };
+    };
+    parsed.nodes.sfx.textEffect.restoreFills = [
+      {
+        type: 'solid',
+        color: ink,
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+      {
+        type: 'image',
+        image: { src: 'https://example.invalid/x.png', assetId: 'missing' },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+      { type: 'solid' },
+      42,
+    ];
+    const decoded = DocumentCodec.decode(JSON.stringify(parsed));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const next = decoded.document.nodes.sfx;
+    expect(next?.kind).toBe('text');
+    if (next?.kind !== 'text') return;
+    expect(next.textEffect?.restoreFills).toEqual([
+      {
+        type: 'solid',
+        color: ink,
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ]);
   });
 
   it('collects the full dependency closure for imported subtrees', () => {

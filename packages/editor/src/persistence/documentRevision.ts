@@ -4,7 +4,8 @@ import {
   createFontCatalogFromRegistry,
   type FontCatalog,
 } from '@varve/engine/font';
-import { type Document, DocumentCodec } from '@varve/scene';
+import type { Document } from '@varve/scene';
+import { encodeDocumentJson } from './encodeWarnings';
 
 /**
  * Encode a document using only the values supplied by the caller.
@@ -22,7 +23,7 @@ export function serializeDocumentSnapshot(document: Document, catalog: FontCatal
     } as Parameters<typeof attachFontManifestToDocument>[0],
     catalog,
   );
-  return DocumentCodec.encode({ ...document, fontManifest: manifest });
+  return encodeDocumentJson({ ...document, fontManifest: manifest }).json;
 }
 
 let cachedRegistry: ReturnType<typeof getFontRegistry> | null = null;

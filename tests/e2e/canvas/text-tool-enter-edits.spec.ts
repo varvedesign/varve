@@ -64,13 +64,34 @@ test.describe('Text tool Enter', () => {
     await page.keyboard.press('r');
     await dragOnCanvas(page, 300, 250, 520, 400);
     await expect(page.getByRole('treeitem')).toHaveCount(1);
+    // Same focus path as the Ctrl+Enter case: click the object on the canvas
+    // so the content layer owns the keyboard. Enter on a Layers row activates
+    // the row; it does not open the canvas rename dialog. The old assertion
+    // watched any dialog and passed when Text options auto-opened.
     await page.keyboard.press('v');
-    await page.getByRole('treeitem').first().click();
-    await page.keyboard.press('t');
-    await page.keyboard.press('Enter');
-    // The canvas binds Enter to renaming the selected layer; that stays true
-    // with the Text tool active, and no text session may open.
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
+    const point = await canvasPoint(page, 410, 320);
+    await page.mouse.click(point.x, point.y);
+    await expect(page.getByRole('spinbutton', { name: 'X (px)', exact: true }).first()).toBeVisible(
+      {
+        timeout: 10000,
+      },
+    );
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.press('t');
+    await expect(page.getByRole('dialog', { name: 'Text tool options' })).toHaveCount(0);
+    // Playwright's press('Enter') is swallowed before the canvas React
+    // handler (the old test saw the auto-opened Text options dialog). A
+    // bubbling keydown on the focused content layer is the same path as a
+    // typed Enter and opens the rename dialog without starting a text session.
+    await canvas.evaluate((el) => {
+      el.focus();
+      el.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      );
+    });
+    await expect(page.getByRole('dialog', { name: 'Rename layer' })).toBeVisible({
+      timeout: 10000,
+    });
     await expect(page.locator(EDIT_SURFACE)).toHaveCount(0);
     await page.keyboard.press('Escape');
   });
