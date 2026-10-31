@@ -15,7 +15,8 @@ import {
 } from '@varve/scene';
 import { tryInvertAffine } from '@varve/shared';
 import type { ImportOptions } from '../types';
-import { droppedElementFeature, resolveSvgImageHref } from './resourcePolicy';
+import { convertImage } from './images';
+import { droppedElementFeature, type SvgConversionOptions } from './resourcePolicy';
 import {
   adjustNodePosition,
   composeTransforms,
@@ -272,49 +273,6 @@ function convertText(
     fontWeight,
     textAlign: textAlign as 'left' | 'center' | 'right',
   });
-  return { node, warnings: [] };
-}
-
-function convertImage(
-  el: ParsedElement,
-  transforms: string[],
-  opts: ImportOptions,
-  unsupported: string[],
-): { node: SceneNode; warnings: string[] } | null {
-  const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
-  const y = parseFloat(el.attrs.y ?? '0') * opts.scale;
-  const w = parseFloat(el.attrs.width ?? '100') * opts.scale;
-  const h = parseFloat(el.attrs.height ?? '100') * opts.scale;
-  const decision = resolveSvgImageHref(el.attrs.href ?? el.attrs['xlink:href'] ?? '');
-  if (!decision.allowed) {
-    // Dropping the node beats leaving an invisible placeholder the user
-    // cannot explain. The report names what went missing and why.
-    unsupported.push(decision.feature);
-    return null;
-  }
-  const href = decision.href;
-  const transform = composeTransforms(transforms);
-
-  const node: SceneNode = {
-    ...makeShapeNode(
-      '',
-      { kind: 'rect', x: 0, y: 0, w, h },
-      {
-        name: svgLayerName(el, 'Image'),
-        transform: composeWithOffset(transform, x, y),
-        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
-      },
-    ),
-    fills: [
-      {
-        type: 'image',
-        image: { src: href, fit: 'fill', x: 0, y: 0, scale: 1 },
-        opacity: 1,
-        blendMode: 'normal',
-        visible: true,
-      },
-    ],
-  };
   return { node, warnings: [] };
 }
 
@@ -597,7 +555,7 @@ function buildMaskSourceNode(
   doc: Document,
   defs: Map<string, ParsedElement>,
   transforms: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   warnings: string[],
   unsupported: string[],
 ): { doc: Document; sourceId: string | null } {
@@ -652,7 +610,7 @@ function applySvgClipOrMask(
   containerId: string,
   defEl: ParsedElement,
   maskType: 'clip' | 'alpha' | 'luminance',
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   defs: Map<string, ParsedElement>,
   transforms: string[],
   warnings: string[],
@@ -696,7 +654,7 @@ function applyGroupClipOrMask(
   el: ParsedElement,
   defs: Map<string, ParsedElement>,
   transforms: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   warnings: string[],
   unsupported: string[],
 ): Document {
@@ -752,7 +710,7 @@ function wrapNodeInMaskedGroup(
   el: ParsedElement,
   defs: Map<string, ParsedElement>,
   transforms: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   warnings: string[],
   unsupported: string[],
 ): { doc: Document; groupId: string } | null {
@@ -790,7 +748,7 @@ export function convertElement(
   doc: Document,
   defs: Map<string, ParsedElement>,
   inheritedTransform: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   warnings: string[],
   unsupported: string[],
   visitedIds = new Set<string>(),
@@ -842,7 +800,7 @@ function convertElementContents(
   doc: Document,
   defs: Map<string, ParsedElement>,
   inheritedTransform: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   warnings: string[],
   unsupported: string[],
   visitedIds: Set<string>,

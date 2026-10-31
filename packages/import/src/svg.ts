@@ -11,6 +11,7 @@ import { createDocument } from '@varve/scene';
 import { Gunzip } from 'fflate';
 import { registerParser } from './registry';
 import { convertElement } from './svg/elements';
+import { createSvgRasterPixelBudget, type SvgConversionOptions } from './svg/resourcePolicy';
 import {
   collectDefs,
   composeTransforms,
@@ -23,11 +24,14 @@ import { collectUnsupportedSvgMetadata } from './svg/unsupportedMetadata';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
 export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportResult {
-  const opts: ImportOptions = {
+  const opts: SvgConversionOptions = {
     embedImages: options?.embedImages ?? true,
     scale: options?.scale ?? 1,
     center: options?.center ?? false,
     keepPosition: options?.keepPosition ?? false,
+    // One budget per parse: every <image> (including <use>/mask copies) shares
+    // the same cumulative decoded-pixel allowance.
+    rasterBudget: createSvgRasterPixelBudget(),
   };
 
   const clean = svg.trim();

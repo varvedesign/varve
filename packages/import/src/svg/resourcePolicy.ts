@@ -24,11 +24,117 @@
  * no such backstop, which is why this has to be enforced in the parser.
  */
 
+import type { ImportOptions } from '../types';
+import { inspectRasterBytes, MAX_RASTER_PIXELS } from '../rasterInspection';
+
 /** Only raster payloads that travel inside the file itself are honoured. */
 const INLINE_IMAGE_PATTERN = /^data:image\//i;
 
 /** Schemes that can execute or read local state if anything ever resolves them. */
 const DANGEROUS_SCHEME_PATTERN = /^(?:javascript|vbscript|data:text\/html|file):/i;
+
+/**
+ * Aggregate decoded-pixel allowance for the distinct rasters embedded in one
+ * SVG. A per-image header budget is not enough: an SVG can carry hundreds of
+ * individually legal data URLs, and the renderer decodes each one into a
+ * browser image cache entry. This is the cumulative budget applied before any
+ * of them reach that cache.
+ */
+export const MAX_SVG_EMBEDDED_RASTER_PIXELS = MAX_RASTER_PIXELS;
+
+/**
+ * Conversion state for one SVG parse. The budget must be shared by every
+ * element (including those reached through `<use>`, masks and clip paths), so
+ * it travels with the options rather than living at module scope.
+ */
+export type SvgConversionOptions = ImportOptions & { rasterBudget: SvgRasterPixelBudget };
+
+export interface SvgRasterPixelBudget {
+  readonly maxPixels: number;
+  /** Decoded pixels already charged against {@link maxPixels}. */
+  usedPixels: number;
+  /** href → charged pixels, or the refusal reason once charged. */
+  readonly sources: Map<string, number | SvgRasterRefusal>;
+}
+
+export type SvgRasterRefusal = 'invalid' | 'over-budget';
+export type SvgRasterAdmission = 'allowed' | SvgRasterRefusal;
+
+export function createSvgRasterPixelBudget(
+  maxPixels = MAX_SVG_EMBEDDED_RASTER_PIXELS,
+): SvgRasterPixelBudget {
+  return { maxPixels, usedPixels: 0, sources: new Map() };
+}
+
+/**
+ * Admit one embedded raster against the aggregate budget.
+ *
+ * The same data URL is charged once: the renderer's image cache keys decoded
+ * sources by src, so ten references to one image cost one decoded surface.
+ * Animated payloads are charged by canvas pixels × frame count because that is
+ * what the media system decodes and retains. The payload's own header is
+ * inspected before the budget is charged, so an image that would be rejected
+ * by the standalone raster gate is refused here for the same reason.
+ */
+export function admitSvgRasterSource(
+  href: string,
+  budget: SvgRasterPixelBudget,
+): SvgRasterAdmission {
+  const previous = budget.sources.get(href);
+  if (previous !== undefined) {
+    return typeof previous === 'number' ? 'allowed' : previous;
+  }
+
+  let decodedPixels: number;
+  try {
+    const inspection = inspectRasterBytes(decodeDataImage(href));
+    decodedPixels = inspection.width * inspection.height * (inspection.animated?.frameCount ?? 1);
+  } catch {
+    budget.sources.set(href, 'invalid');
+    return 'invalid';
+  }
+
+  if (!Number.isSafeInteger(decodedPixels) || decodedPixels > budget.maxPixels - budget.usedPixels) {
+    budget.sources.set(href, 'over-budget');
+    return 'over-budget';
+  }
+  budget.sources.set(href, decodedPixels);
+  budget.usedPixels += decodedPixels;
+  return 'allowed';
+}
+
+/** Decode a `data:image/...` URL's payload without touching the network. */
+function decodeDataImage(href: string): Uint8Array {
+  const comma = href.indexOf(',');
+  if (comma < 0) throw new Error('Invalid data URL');
+  const header = href.slice(5, comma);
+  const payload = href.slice(comma + 1);
+  if (/(?:^|;)base64(?:;|$)/i.test(header)) {
+    const binary = atob(decodeURIComponent(payload));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  // Non-base64 data URLs carry bytes through percent escapes. Reject raw
+  // non-ASCII instead of silently changing their byte representation.
+  const bytes = new Uint8Array(payload.length);
+  let length = 0;
+  for (let i = 0; i < payload.length; i++) {
+    const char = payload[i]!;
+    if (char === '%') {
+      const hex = payload.slice(i + 1, i + 3);
+      if (!/^[0-9a-f]{2}$/i.test(hex)) throw new Error('Invalid data URL escape');
+      bytes[length++] = Number.parseInt(hex, 16);
+      i += 2;
+    } else {
+      const code = payload.charCodeAt(i);
+      if (code > 0x7f) throw new Error('Non-ASCII data URL payload must be percent-encoded');
+      bytes[length++] = code;
+    }
+  }
+  return bytes.subarray(0, length);
+}
 
 export type SvgResourceDecision =
   | { allowed: true; href: string }
