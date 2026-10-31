@@ -130,6 +130,37 @@ payloads are carried in the landed C-02 stack.
 6. Triage the 79 remote-only branches against open PRs before deleting refs.
 7. Schedule a dedicated architecture-cycle health pass for the C-01 delta.
 
+## 7.1 WIP recovery round (2026-10-30, later)
+
+The shared checkout and the repo-local dirty worktrees were reviewed by two
+fresh-context analysts and then resolved:
+
+- The shared checkout is now **clean**. Recovered work landed in four commits
+  (`055dde47e` caches ignore, `3861c2b15` realtime-collaboration page,
+  `327a9201a` dirty-replay + document-version tests, `8e8a1b191` research
+  ledgers + repo map). Checks: 14/14 unit tests, editor/scene/e2e tsc 0,
+  Astro check 206 files 0 diagnostics, docs/emoji/file-size/agent-surface green.
+- Generated artifacts were archived outside git under
+  `.worktrees/archive-20261030/`: 136 MB `.pipeline` evidence, a stale
+  automation snapshot, root scratch path notes, a redundant research ledger,
+  and per-worktree held patches. Nothing was deleted without preservation.
+- The two e2e specs are preserved on the unmerged branch
+  `integration/e2e-pending-20261030` (`7d8caff6b`) because the Chromium run
+  could not be executed in this environment.
+- All repo-local dirty worktrees are clean: nine branches gained recovered WIP
+  commits (`745dcb287`, `978da47d6`, `1dd825849`, `8d39aeaf9`, `2e8ca301d`,
+  `46bd6be46`, `350e4f6c4`, `7428c81fe`, `b92fdd1cb`). Five held patches
+  (stale lightcraft docs, graphite note, incomplete native presenter, stale
+  penpot lock bump, duplicate nested inkscape test) are archived as patches in
+  the same directory. External worktrees remain untouched by policy.
+- Not merged: origin-lineage WIP branches stay on their branches because local
+  `master` and `origin/master` are still divergent (558 ahead / 164 behind);
+  merging them would import the upstream line through the unresolved 282-path
+  conflict. `feat/agent-control` (automation package) additionally needs six
+  over-400-line files split and an ADR number collision fixed before it can
+  pass the file-size and docs gates. Both are follow-ups after the canonical
+  mainline decision.
+
 ## 8. References
 
 - [branch-consolidation.md](branch-consolidation.md)
