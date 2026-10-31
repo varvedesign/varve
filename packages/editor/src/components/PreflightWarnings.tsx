@@ -16,6 +16,7 @@ import { Icon, Popover } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import { measureTextOverset, resetTextOversetCache } from '../render/textOverset';
+import { emailPreflightResult } from './emailPreflight';
 import './PreflightWarnings.css';
 
 const SEVERITY_ORDER: CombinedPreflightSeverity[] = ['error', 'warning', 'info'];
@@ -82,6 +83,7 @@ export function PreflightWarnings() {
 
   const result = useMemo(() => {
     if (!state.document) return null;
+    if (state.workspaceMode === 'email') return emailPreflightResult(state.document);
     const measure = preflightMeasureContext();
     const overset = measure ? measureTextOverset(state.document, measure) : null;
     return runCombinedPreflight(state.document, {
@@ -89,7 +91,7 @@ export function PreflightWarnings() {
       oversetMap: overset?.map,
       oversetUnmeasured: overset?.unmeasured.length ?? 0,
     });
-  }, [state.document, fontEpoch]);
+  }, [state.document, state.workspaceMode, fontEpoch]);
 
   const hasIssues = result && result.errorCount + result.warningCount + result.infoCount > 0;
 

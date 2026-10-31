@@ -223,6 +223,9 @@ function tokenHeight(token: LineToken): number {
   return token.pieces.reduce((tallest, piece) => Math.max(tallest, pieceHeight(piece.opts)), 0);
 }
 
+/** Closing punctuation stays on the same line as the word it follows. */
+const PUNCT_ONLY_RE = /^[\p{P}]+$/u;
+
 /**
  * Split a paragraph into break opportunities.
  *
@@ -283,7 +286,9 @@ function breakToken(token: LineToken, maxWidth: number, startWidth: number): Lin
     for (const char of piece.text) {
       const charWidth = measureAdvanceWidth(char, piece.opts);
       const advance = current ? charWidth + seamSpacing(piece.opts) : charWidth;
-      if (current && width + advance > maxWidth) {
+      // A period or comma that does not fit is kept with the word; splitting
+      // it onto its own line produced "WHATEVER" / "." and "run" / ".".
+      if (current && width + advance > maxWidth && !PUNCT_ONLY_RE.test(char)) {
         parts.push(current);
         current = null;
         width = 0;
@@ -330,14 +335,19 @@ function layoutParagraph(
     return [{ text: '', width: 0, height: emptyHeight }];
   }
 
-  // A contour profile narrows specific lines; the caller's maxWidth stays the
-  // hard cap. `lineOffset` makes the profile index global across paragraphs.
+  // Contour profiles narrow the crown. The hard cap is the box (`maxWidth`),
+  // matching the painter: a word that fits the box stays whole even when the
+  // crown is narrower. Only a token wider than the box is char-broken, and
+  // then at this line's authored width (or the box), never by stealing the
+  // next chord's measure for a row that still paints at the crown.
   const hardLimit = maxWidth ?? 0;
-  const limitForLine = (lineIndex: number): number | null => {
+  let profileIndex = lineOffset;
+  const peekLimit = (index: number): number | null => {
     if (!lineWidths || lineWidths.length === 0) return maxWidth;
-    if (maxWidth === null) return lineWidthAt(lineWidths, hardLimit, lineIndex + lineOffset);
-    return lineWidthAt(lineWidths, maxWidth, lineIndex + lineOffset);
+    if (maxWidth === null) return lineWidthAt(lineWidths, hardLimit, index);
+    return lineWidthAt(lineWidths, maxWidth, index);
   };
+  const limitForLine = (): number | null => peekLimit(profileIndex);
 
   const lines: MeasuredLine[] = [];
   let lineTokens: LineToken[] = [];
@@ -345,9 +355,13 @@ function layoutParagraph(
 
   const flush = (): void => {
     // Trailing whitespace advances the caret but paints no ink, so it must not
-    // widen the box that encloses the line.
+    // widen the box that encloses the line. An empty flush is a no-op.
     while (lineTokens.length > 0 && lineTokens[lineTokens.length - 1]?.whitespace) {
       lineWidth -= lineTokens.pop()?.width ?? 0;
+    }
+    if (lineTokens.length === 0) {
+      lineWidth = 0;
+      return;
     }
     const height = lineTokens.reduce((tallest, token) => Math.max(tallest, tokenHeight(token)), 0);
     lines.push({
@@ -357,10 +371,11 @@ function layoutParagraph(
     });
     lineTokens = [];
     lineWidth = 0;
+    profileIndex += 1;
   };
 
   for (const token of tokens) {
-    const limit = limitForLine(lines.length);
+    const limit = limitForLine();
     if (limit === null) {
       lineTokens.push(token);
       lineWidth += token.width;
@@ -379,24 +394,33 @@ function layoutParagraph(
       lineWidth += token.width;
       continue;
     }
-    // The token does not fit this line. If it could fit a wider line later
-    // (the middle of a balloon), move it whole rather than breaking a word;
-    // only char-break when it exceeds every line in the box.
-    if (token.width <= hardLimit) {
-      flush();
+    // A punctuation-only token between spaces stays on the line that already
+    // has text. Wrapping it alone produced "Wait" / em dash / "what?" while
+    // the painter kept "Wait" plus the mark on one line.
+    if (PUNCT_ONLY_RE.test(token.text) && lineTokens.length > 0) {
+      lineTokens.push(token);
+      lineWidth += token.width;
+      continue;
+    }
+    if (hardLimit <= 0 || token.width <= hardLimit) {
+      // Fits the box. Wrap if this line already has ink, then keep the word
+      // whole. Splitting against the crown invented "somethin" / "g".
+      if (lineWidth > 0) flush();
       lineTokens.push(token);
       lineWidth = token.width;
       continue;
     }
-    // Too wide even for the widest line: break it by character, continuing the
-    // current line.
-    const fragments = breakToken(token, hardLimit, lineWidth);
+    // Wider than the box: split at the box, not the crown. Each chunk is
+    // then a word. A leftover shorter than the box wraps before the next
+    // chunk the same way the painter wraps a packed run.
+    if (lineWidth > 0) flush();
+    const fragments = breakToken(token, hardLimit, 0);
     for (let i = 0; i < fragments.length; i++) {
       const fragment = fragments[i];
       if (!fragment) continue;
       if (i > 0) flush();
       lineTokens.push(fragment);
-      lineWidth += fragment.width;
+      lineWidth = fragment.width;
     }
   }
   flush();

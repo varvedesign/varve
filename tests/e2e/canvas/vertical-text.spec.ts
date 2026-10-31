@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
+import { openToolOptions } from './open-tool-options';
 
 async function selectCustomOption(
   page: import('@playwright/test').Page,
@@ -32,8 +33,7 @@ test.describe('vertical text canvas workflow', () => {
     if (!box) throw new Error('editor canvas has no bounds');
 
     await page.keyboard.press('t');
-    const options = page.locator('.tool-options__popover');
-    await expect(options).toBeVisible({ timeout: 5000 });
+    const options = await openToolOptions(page);
     await options.getByRole('combobox', { name: 'Writing mode' }).selectOption('vertical-rl');
     await options.getByRole('combobox', { name: 'Character orientation' }).selectOption('mixed');
 

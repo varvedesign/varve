@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { navigateToEditor, switchWorkspace } from '../shared';
+import { openToolOptions } from './open-tool-options';
 
 /**
  * 2026-09-17 toolbar surface review — regression coverage for the defects
@@ -172,6 +173,7 @@ test.describe('Toolbar surface review', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page, '/', { startupTimeout: 120_000 });
     await page.keyboard.press('t');
+    await openToolOptions(page);
     await page.locator('.tool-options__content [data-testid="text-options"]').waitFor({
       timeout: 5000,
     });

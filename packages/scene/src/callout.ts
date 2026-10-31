@@ -62,13 +62,31 @@ type RectCalloutBody = ShapeNode & {
 
 export interface CreateCalloutOptions {
   kind?: CalloutKind;
+  /** Group origin in parent space (the group's translation). */
   x: number;
+  /** Group origin in parent space (the group's translation). */
   y: number;
   w: number;
   h: number;
   text?: string;
   padding?: number;
+  /**
+   * Tip of the first pointed tail, in balloon-local coordinates. Origin is
+   * the group's top-left, the same space as `w`/`h`. `x`/`y` place the group
+   * in parent space and are not added into this point: `{ x: 100, y: 100 }`
+   * with `{ x: 160, y: 220 }` puts the group at parent (100, 100) and the tip
+   * at local (160, 220), which is parent (260, 320) only after the group
+   * transform is applied.
+   */
   tailEndpoint?: { x: number; y: number };
+  /**
+   * Pointed-tail length in document units (the same local balloon space as
+   * `w`/`h`). Used when `tailEndpoint` is omitted so area text and point text
+   * agree. Values under 24 are clamped to 24 so a zero or negative length
+   * cannot hide the tip inside the body. When omitted, the default is
+   * `max(32, 35% of the tail-anchor height)`.
+   */
+  tailLength?: number;
   /** Base width of the pointed tail in px; derived from the body when omitted. */
   tailBaseWidth?: number;
   /** Signed bend as a fraction of the tail length (-1..1). */
@@ -182,27 +200,23 @@ export function migrateShapedCalloutFills(
 }
 
 const BURST_INNER_RATIO = 0.62;
-const CLOUD_INNER_RATIO = 0.9;
+const BURST_POINTS = 14;
+const CLOUD_SCALLOPS = 8;
 
 /**
- * Star geometry for a shaped balloon. The star's inner radius tracks the text
- * box so fitting keeps the same meaning as a rect body: the inner radius is
- * the text container, and the outer radius adds the burst/cloud depth.
+ * Star geometry for a burst balloon. The inner radius tracks the text box so
+ * fitting keeps the same meaning as a rect body: the inner radius is the text
+ * container, and the outer radius adds the jagged burst depth.
  */
-function outlineStarShape(
-  kind: CalloutKind,
-  w: number,
-  h: number,
-): Extract<ShapeNode['shape'], { kind: 'star' }> {
+function outlineStarShape(w: number, h: number): Extract<ShapeNode['shape'], { kind: 'star' }> {
   const inner = Math.max(24, Math.max(w, h) / 2);
-  const ratio = kind === 'cloud' ? CLOUD_INNER_RATIO : BURST_INNER_RATIO;
   return {
     kind: 'star',
     cx: w / 2,
     cy: h / 2,
     innerRadius: inner,
-    outerRadius: inner / ratio,
-    points: kind === 'cloud' ? 12 : 14,
+    outerRadius: inner / BURST_INNER_RATIO,
+    points: BURST_POINTS,
     rotation: 0,
   };
 }
@@ -210,6 +224,118 @@ function outlineStarShape(
 /** Outer bottom edge of a star outline in body-local coordinates. */
 function outlineBottom(shape: Extract<ShapeNode['shape'], { kind: 'star' }>): number {
   return shape.cy + shape.outerRadius * Math.cos(Math.PI / shape.points);
+}
+
+/**
+ * Classic thought-cloud outline: overlapping circular scallops, not a star.
+ * Jagged stars stay the burst style.
+ */
+function cloudOutlineGeometry(w: number, h: number): { points: PathPoint[]; bottom: number } {
+  const cx = w / 2;
+  const cy = h / 2;
+  const rx = Math.max(12, w / 2);
+  const ry = Math.max(12, h / 2);
+  const scallopR = Math.min(rx, ry) * 0.48;
+  const ringRx = Math.max(4, rx - scallopR * 0.45);
+  const ringRy = Math.max(4, ry - scallopR * 0.45);
+  const centers = Array.from({ length: CLOUD_SCALLOPS }, (_, index) => {
+    const angle = (index / CLOUD_SCALLOPS) * Math.PI * 2 - Math.PI / 2;
+    return { x: cx + ringRx * Math.cos(angle), y: cy + ringRy * Math.sin(angle) };
+  });
+  const outerIntersect = (
+    left: { x: number; y: number },
+    right: { x: number; y: number },
+  ): { x: number; y: number } => {
+    const dx = right.x - left.x;
+    const dy = right.y - left.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const midX = (left.x + right.x) / 2;
+    const midY = (left.y + right.y) / 2;
+    const rise = Math.sqrt(Math.max(0, scallopR * scallopR - (distance / 2) * (distance / 2)));
+    const ux = -dy / distance;
+    const uy = dx / distance;
+    const first = { x: midX + ux * rise, y: midY + uy * rise };
+    const second = { x: midX - ux * rise, y: midY - uy * rise };
+    return Math.hypot(first.x - cx, first.y - cy) >= Math.hypot(second.x - cx, second.y - cy)
+      ? first
+      : second;
+  };
+  const intersects = centers.map((center, index) =>
+    outerIntersect(center, centers[(index + 1) % CLOUD_SCALLOPS]!),
+  );
+  const points: PathPoint[] = [];
+  for (let index = 0; index < CLOUD_SCALLOPS; index++) {
+    const start = intersects[(index + CLOUD_SCALLOPS - 1) % CLOUD_SCALLOPS]!;
+    const end = intersects[index]!;
+    const handles = circularArcHandles(centers[index]!, start, end, { x: cx, y: cy });
+    if (index === 0) {
+      const first = point(start.x, start.y);
+      first.handleOut = handles.outFrom;
+      points.push(first);
+    } else {
+      const previous = points[points.length - 1];
+      if (previous) previous.handleOut = handles.outFrom;
+    }
+    const next = point(end.x, end.y);
+    next.handleIn = handles.inTo;
+    points.push(next);
+  }
+  const last = points.pop();
+  const first = points[0];
+  if (first && last) first.handleIn = last.handleIn;
+  return {
+    points,
+    bottom: Math.max(...centers.map((center) => center.y + scallopR), h),
+  };
+}
+
+function normalizeAngle(angle: number): number {
+  const tau = Math.PI * 2;
+  return ((angle % tau) + tau) % tau;
+}
+
+function circularArcHandles(
+  center: { x: number; y: number },
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  cloudCenter: { x: number; y: number },
+): { outFrom: [number, number]; inTo: [number, number] } {
+  const start = Math.atan2(from.y - center.y, from.x - center.x);
+  const end = Math.atan2(to.y - center.y, to.x - center.x);
+  const outward = Math.atan2(center.y - cloudCenter.y, center.x - cloudCenter.x);
+  const ccw = normalizeAngle(end - start);
+  const sweep = normalizeAngle(outward - start) <= ccw + 1e-6 ? ccw : ccw - Math.PI * 2;
+  const sign = sweep >= 0 ? 1 : -1;
+  const radius = Math.hypot(from.x - center.x, from.y - center.y) || 1;
+  const kappa = (4 / 3) * Math.tan(Math.abs(sweep) / 4) * radius;
+  return {
+    outFrom: [sign * -Math.sin(start) * kappa, sign * Math.cos(start) * kappa],
+    inTo: [sign * Math.sin(end) * kappa, sign * -Math.cos(end) * kappa],
+  };
+}
+
+function outlineShape(kind: CalloutKind, w: number, h: number): ShapeNode['shape'] {
+  if (kind === 'cloud') {
+    return { kind: 'path', points: cloudOutlineGeometry(w, h).points, closed: true, tolerance: 3 };
+  }
+  return outlineStarShape(w, h);
+}
+
+function pathOutlineBottom(points: PathPoint[], fallback: number): number {
+  let bottom = fallback;
+  for (const entry of points) {
+    bottom = Math.max(bottom, entry.y);
+    if (entry.handleOut) bottom = Math.max(bottom, entry.y + entry.handleOut[1]);
+    if (entry.handleIn) bottom = Math.max(bottom, entry.y + entry.handleIn[1]);
+  }
+  return bottom;
+}
+
+function outlineAnchorHeight(outline: ShapeNode | undefined, fallback: number): number {
+  if (!outline) return fallback;
+  if (outline.shape.kind === 'star') return outlineBottom(outline.shape);
+  if (outline.shape.kind === 'path') return pathOutlineBottom(outline.shape.points, fallback);
+  return fallback;
 }
 
 /**
@@ -224,10 +350,8 @@ function tailAnchorHeight(
 ): number {
   const outlineId = group.callout.outlineNodeId;
   const outline = outlineId ? nodes[outlineId] : undefined;
-  if (outline?.kind === 'shape' && outline.shape.kind === 'star') {
-    return outlineBottom(outline.shape);
-  }
-  return body.shape.kind === 'rect' ? body.shape.h : 0;
+  const fallback = body.shape.kind === 'rect' ? body.shape.h : 0;
+  return outline?.kind === 'shape' ? outlineAnchorHeight(outline, fallback) : fallback;
 }
 
 function bubbleStroke(kind: CalloutKind): Stroke {
@@ -412,6 +536,26 @@ function tailControlPoint(
   };
 }
 
+/**
+ * Keep a pointed tail from collapsing to a sliver, without pushing the tip
+ * into the balloon. `rawDy === 0` and tiny interior offsets default outward
+ * (down from a bottom-anchored tail). A clearly upward tip stays upward.
+ */
+function clampPointedTailTipY(
+  baseY: number,
+  bodyH: number,
+  endpointY: number,
+  minTailHeight: number,
+): number {
+  const rawDy = endpointY - baseY;
+  const insideBody = endpointY > 0 && endpointY < bodyH;
+  if (Math.abs(rawDy) >= minTailHeight && !insideBody) return endpointY;
+  const upward = rawDy < 0 && endpointY <= 0;
+  const tipY = baseY + (upward ? -1 : 1) * minTailHeight;
+  if (tipY > 0 && tipY < bodyH) return baseY + minTailHeight;
+  return tipY;
+}
+
 function pointedTailPoints(
   w: number,
   h: number,
@@ -426,7 +570,9 @@ function pointedTailPoints(
   const baseY = Math.max(0, h - (options?.baseInset ?? (options?.strokeWeight ?? 2) + 1));
   const left = point(cx - base / 2, baseY);
   const right = point(cx + base / 2, baseY);
-  const tip = point(endpoint.x, endpoint.y);
+  const minTailHeight = Math.max(10, base * 0.35);
+  const tipY = clampPointedTailTipY(baseY, h, endpoint.y, minTailHeight);
+  const tip = point(endpoint.x, tipY);
   const curve = Math.max(-1, Math.min(1, options?.curve ?? 0));
   if (curve !== 0) {
     const control = tailControlPoint({ x: cx, y: baseY }, endpoint, curve);
@@ -670,7 +816,7 @@ function bodyNode(id: NodeId, w: number, h: number, kind: CalloutKind, stroke: S
       // through the burst/cloud spikes.
       fill: shaped ? CLEAR : WHITE,
       // Shaped balloons draw their stroke on the outline; a rect stroke would
-      // show through the star's interior.
+      // show through the burst/cloud interior.
       strokes: shaped ? [] : [stroke],
       cornerRadius: shaped ? 0 : calloutStyle(kind).cornerRadius,
     },
@@ -684,11 +830,42 @@ function outlineNode(
   kind: CalloutKind,
   stroke: Stroke,
 ): ShapeNode {
-  return makeShapeNode(id, outlineStarShape(kind, w, h), {
+  return makeShapeNode(id, outlineShape(kind, w, h), {
     name: `${kind[0]!.toUpperCase()}${kind.slice(1)} outline`,
     fill: WHITE,
     strokes: [stroke],
   });
+}
+
+/** Floor for an authored `tailLength`; shorter tips sit inside the body. */
+const MIN_AUTHORED_TAIL_LENGTH = 24;
+/** Floor for the implied tail when `tailLength` is omitted. */
+const MIN_DEFAULT_TAIL_LENGTH = 32;
+/** Implied tail as a fraction of the tail-anchor height when omitted. */
+const DEFAULT_TAIL_LENGTH_RATIO = 0.35;
+
+/**
+ * Resolve the pointed-tail length used when `tailEndpoint` is omitted.
+ * An explicit length is honoured (clamped to 24). The historical default is
+ * `max(32, 0.35 * tailH)`, not a flat 32, so a tall balloon keeps a
+ * proportional tail.
+ */
+function resolveDefaultTailLength(tailH: number, tailLength?: number): number {
+  if (tailLength !== undefined && Number.isFinite(tailLength)) {
+    return Math.max(MIN_AUTHORED_TAIL_LENGTH, tailLength);
+  }
+  return Math.max(MIN_DEFAULT_TAIL_LENGTH, tailH * DEFAULT_TAIL_LENGTH_RATIO);
+}
+
+function defaultTailEndpoint(
+  w: number,
+  tailH: number,
+  tailLength?: number,
+): { x: number; y: number } {
+  return {
+    x: w / 2,
+    y: tailH + resolveDefaultTailLength(tailH, tailLength),
+  };
 }
 
 function recipe(
@@ -805,15 +982,11 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
     transform: [1, 0, 0, 1, options.x, options.y] as Affine,
     children: [],
   });
-  const body = bodyNode(bodyId, w, h, kind, bubbleStroke(kind));
-  const outline = outlineId ? outlineNode(outlineId, w, h, kind, bubbleStroke(kind)) : undefined;
-  const tailH = outline
-    ? outlineBottom(outline.shape as Extract<ShapeNode['shape'], { kind: 'star' }>)
-    : h;
-  const endpoint = options.tailEndpoint ?? {
-    x: w / 2,
-    y: tailH + Math.max(32, h * 0.35),
-  };
+  const ink = bubbleStroke(kind);
+  const body = bodyNode(bodyId, w, h, kind, ink);
+  const outline = outlineId ? outlineNode(outlineId, w, h, kind, ink) : undefined;
+  const tailH = outline ? outlineAnchorHeight(outline, h) : h;
+  const endpoint = options.tailEndpoint ?? defaultTailEndpoint(w, tailH, options.tailLength);
   const built = buildTailNodes(
     next,
     kind,
@@ -825,7 +998,7 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
       baseWidth: options.tailBaseWidth,
       curve: options.tailCurve,
     },
-    bubbleStroke(kind),
+    ink,
   );
   next = built.doc;
   const text = makeTextNode(textId, options.text ?? '', {
@@ -898,7 +1071,7 @@ export function wrapTextInCallout(
     w,
     h,
     padding,
-    tailEndpoint: { x: w / 2, y: h + Math.max(24, options.tailLength ?? 32) },
+    tailLength: options.tailLength,
     parentId,
   });
   let next = created.document;
@@ -987,22 +1160,40 @@ export function wrapTextInCallout(
           },
         },
       };
-      const body = next.nodes[created.bodyId];
-      const firstTailId = fittedGroup.callout.tailNodeIds[0];
-      if (body?.kind === 'shape' && body.shape.kind === 'rect' && firstTailId) {
-        const anchorH = tailAnchorHeight(
-          fittedGroup as GroupNode & { callout: CalloutRecipe },
-          body,
-          next.nodes,
-        );
-        next = updateCalloutTailEndpoint(next, created.groupId, firstTailId, {
-          x: body.shape.w / 2,
-          y: anchorH + Math.max(24, options.tailLength ?? 32),
-        });
-      }
     }
   }
+  next = applyAuthoredTailLength(next, created.groupId, created.bodyId, options.tailLength);
   return { ...created, document: next, textId };
+}
+
+function applyAuthoredTailLength(
+  doc: Document,
+  groupId: NodeId,
+  bodyId: NodeId,
+  tailLength?: number,
+): Document {
+  const group = doc.nodes[groupId];
+  const body = doc.nodes[bodyId];
+  const firstTailId =
+    group?.kind === 'group' && group.callout ? group.callout.tailNodeIds[0] : undefined;
+  if (
+    group?.kind !== 'group' ||
+    !group.callout ||
+    !firstTailId ||
+    body?.kind !== 'shape' ||
+    body.shape.kind !== 'rect'
+  ) {
+    return doc;
+  }
+  const anchorH = tailAnchorHeight(
+    group as GroupNode & { callout: CalloutRecipe },
+    body,
+    doc.nodes,
+  );
+  return updateCalloutTailEndpoint(doc, groupId, firstTailId, {
+    x: body.shape.w / 2,
+    y: anchorH + resolveDefaultTailLength(anchorH, tailLength),
+  });
 }
 
 function calloutGroup(
@@ -1242,18 +1433,18 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
   let nextId = doc.nextId;
   let nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
 
-  // Outline lifecycle: shaped kinds carry a star outline behind the body;
-  // rect-bodied kinds must not keep one. Authored paint (fills, paintRefs,
-  // and the legacy fill) moves with the silhouette so an Inspector recolor
-  // is not wiped by a kind switch.
+  // Outline lifecycle: shaped kinds carry a decorative outline behind the
+  // body (star for burst, scalloped path for cloud); rect-bodied kinds must
+  // not keep one. Authored paint (fills, paintRefs, and the legacy fill)
+  // moves with the silhouette so an Inspector recolor is not wiped by a
+  // kind switch. Cloud outlines are paths, so the check is any outline
+  // shape, not only stars.
   let outlineId = group.callout.outlineNodeId;
   const existingOutline = outlineId ? nodes[outlineId] : undefined;
-  const hasStarOutline = existingOutline?.kind === 'shape' && existingOutline.shape.kind === 'star';
+  const hasOutline = existingOutline?.kind === 'shape';
   const bodyPaint = readCalloutPaint(body);
   const outlinePaint =
-    hasStarOutline && existingOutline?.kind === 'shape'
-      ? readCalloutPaint(existingOutline)
-      : undefined;
+    hasOutline && existingOutline?.kind === 'shape' ? readCalloutPaint(existingOutline) : undefined;
   const movingPaint = movingCalloutPaint(
     wasShaped,
     group.callout.fillLayout,
@@ -1262,10 +1453,10 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
     outlinePaint,
   );
 
-  if (shaped && outlineId && hasStarOutline) {
+  if (shaped && outlineId && hasOutline) {
     nodes[outlineId] = {
       ...withCalloutPaint(existingOutline as ShapeNode, movingPaint),
-      shape: outlineStarShape(kind, body.shape.w, body.shape.h),
+      shape: outlineShape(kind, body.shape.w, body.shape.h),
       strokes: [ink],
     };
   } else if (shaped) {
@@ -1288,11 +1479,11 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
     strokes: shaped ? [] : [ink],
   };
 
-  const outline = outlineId ? nodes[outlineId] : undefined;
-  const anchorH =
-    outline?.kind === 'shape' && outline.shape.kind === 'star'
-      ? outlineBottom(outline.shape)
-      : body.shape.h;
+  const outline = outlineId && nodes[outlineId]?.kind === 'shape' ? nodes[outlineId] : undefined;
+  const anchorH = outlineAnchorHeight(
+    outline?.kind === 'shape' ? outline : undefined,
+    body.shape.h,
+  );
 
   const nextTails: CalloutTail[] = [];
   for (const tail of tails) {
@@ -1678,25 +1869,27 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
   // A shaped balloon's outline tracks the fitted body; tails anchor at its
   // outer bottom edge, not at the text box.
   const outlineId = group.callout.outlineNodeId;
-  const previousOutline = outlineId ? nodes[outlineId] : undefined;
-  const previousAnchorH =
-    previousOutline?.kind === 'shape' && previousOutline.shape.kind === 'star'
-      ? outlineBottom(previousOutline.shape)
-      : body.shape.h;
+  const previousOutline =
+    outlineId && nodes[outlineId]?.kind === 'shape' ? nodes[outlineId] : undefined;
+  const previousAnchorH = outlineAnchorHeight(
+    previousOutline?.kind === 'shape' ? previousOutline : undefined,
+    body.shape.h,
+  );
   if (outlineId) {
     const outline = nodes[outlineId];
-    if (outline?.kind === 'shape' && outline.shape.kind === 'star') {
+    if (outline?.kind === 'shape') {
       nodes[outlineId] = {
         ...outline,
-        shape: outlineStarShape(group.callout.kind, localW, localH),
+        shape: outlineShape(group.callout.kind, localW, localH),
       };
     }
   }
-  const nextOutline = outlineId ? nodes[outlineId] : undefined;
-  const nextAnchorH =
-    nextOutline?.kind === 'shape' && nextOutline.shape.kind === 'star'
-      ? outlineBottom(nextOutline.shape)
-      : localH;
+  const nextOutline =
+    outlineId && nodes[outlineId]?.kind === 'shape' ? nodes[outlineId] : undefined;
+  const nextAnchorH = outlineAnchorHeight(
+    nextOutline?.kind === 'shape' ? nextOutline : undefined,
+    localH,
+  );
   // A fit can grow the body past a preserved tip; move only those endpoints
   // that the new geometry swallowed, then rebuild every tail from them.
   for (const tail of calloutTails(group)) {

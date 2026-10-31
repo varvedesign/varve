@@ -1,5 +1,6 @@
 /** Tablet text authoring and native-edit-surface regression. */
 import { expect, test } from '@playwright/test';
+import { openToolOptions } from '../canvas/open-tool-options';
 import { readEditorState } from '../helpers/tabletControls';
 import { navigateToEditor } from '../shared';
 
@@ -58,8 +59,7 @@ test.describe('tablet text editing', () => {
       .getByRole('button', { name: 'Text', exact: true })
       .first()
       .tap();
-    const options = page.locator('.tool-options__popover');
-    await expect(options).toBeVisible();
+    const options = await openToolOptions(page);
     const writing = options.getByRole('combobox', { name: 'Writing mode', exact: true });
     const orientation = options.getByRole('combobox', {
       name: 'Character orientation',
@@ -147,6 +147,7 @@ test.describe('tablet text editing', () => {
     // The writing-mode controls must also remain usable in the reduced-height
     // layout after the edit flow returns to the Text tool.
     await page.keyboard.press('t');
+    await openToolOptions(page);
     await expect(options).toBeVisible();
     for (const control of [writing, orientation]) {
       await expect(control).toBeVisible();

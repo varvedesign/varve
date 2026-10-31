@@ -199,6 +199,11 @@ export function isWhitespaceUnit(text: string): boolean {
   return text.length > 0 && WHITESPACE_RE.test(text);
 }
 
+/** True for a punctuation-only string (UAX #14 CI/EX/CL). */
+export function isPunctuationOnly(text: string): boolean {
+  return text.length > 0 && PUNCT_ONLY_RE.test(text);
+}
+
 function fallbackBreakUnits(text: string): BreakUnit[] {
   const units: BreakUnit[] = [];
   const parts = text.split(/(\s+)/);

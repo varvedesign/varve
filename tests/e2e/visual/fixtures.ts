@@ -209,6 +209,11 @@ export const FIXTURES: VisualFixture[] = [
     ],
   },
   {
+    // Gradient field is local to the 160x160 rect. The item CTM translates
+    // that rect to x=40; replay must not map the handles through that
+    // translation a second time (comic 5). Goldens regenerated after the
+    // double-offset was removed so the teal-white-red ramp stays on the
+    // shifted rect instead of starting another 40px to the right.
     name: 'linear-gradient-translated',
     width: 240,
     height: 160,
