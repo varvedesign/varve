@@ -645,6 +645,7 @@ function preserveDistinctHues(
       next.push(entry);
       continue;
     }
+    recountPalette(unique, next);
     let steal = -1;
     let survivor = -1;
     let stealDist = Number.POSITIVE_INFINITY;
@@ -653,13 +654,9 @@ function preserveDistinctHues(
         const d = oklabDistanceSq(next[i]!.r, next[i]!.g, next[i]!.b, next[j]!);
         if (d < stealDist) {
           stealDist = d;
-          if ((next[i]!.count ?? 0) <= (next[j]!.count ?? 0)) {
-            steal = i;
-            survivor = j;
-          } else {
-            steal = j;
-            survivor = i;
-          }
+          const choice = stealChoice(next, i, j);
+          steal = choice.steal;
+          survivor = choice.survivor;
         }
       }
     }
@@ -671,6 +668,39 @@ function preserveDistinctHues(
     next[steal] = entry;
   }
   return next.sort((a, b) => b.count - a.count);
+}
+
+function recountPalette(
+  unique: Map<number, { r: number; g: number; b: number; count: number }>,
+  palette: QuantizedColor[],
+): void {
+  for (const color of palette) color.count = 0;
+  for (const color of unique.values()) {
+    const idx = assignPaletteIndex(color.r, color.g, color.b, palette);
+    palette[idx]!.count += color.count;
+  }
+}
+
+/** Evict the less common of a pair; on a count tie keep the higher-chroma colour. */
+function stealChoice(
+  palette: QuantizedColor[],
+  i: number,
+  j: number,
+): { steal: number; survivor: number } {
+  const countI = palette[i]!.count ?? 0;
+  const countJ = palette[j]!.count ?? 0;
+  if (countI < countJ) return { steal: i, survivor: j };
+  if (countJ < countI) return { steal: j, survivor: i };
+  const chromaI = oklabChroma(palette[i]!.r, palette[i]!.g, palette[i]!.b);
+  const chromaJ = oklabChroma(palette[j]!.r, palette[j]!.g, palette[j]!.b);
+  if (chromaI < chromaJ) return { steal: i, survivor: j };
+  return { steal: j, survivor: i };
+}
+
+function oklabChroma(r: number, g: number, b: number): number {
+  const linear = [srgbToLinear(r), srgbToLinear(g), srgbToLinear(b)] as [number, number, number];
+  const [, a, b_] = linearSrgbToOklab(linear);
+  return Math.hypot(a, b_);
 }
 
 function oklabDistanceSq(

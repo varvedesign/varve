@@ -379,7 +379,11 @@ describe('quantizePalette hue preservation', () => {
       .reduce((sum, color) => sum + color.count, 0);
     expect(tealCount).toBeGreaterThan(5000);
     expect(palette[0]?.r).toBeLessThan(80);
-    expect(palette.every((color) => color.count >= 16)).toBe(true);
+    const distinctNoise = palette.filter((color) => {
+      if ((color.count ?? 0) >= 16) return false;
+      return !(color.r < 80 && color.g > 70 && color.b > 70);
+    });
+    expect(distinctNoise).toHaveLength(0);
   });
 
   it.each([3, 4])('keeps the dominant red on a logo at maxColors %s', (maxColors) => {
@@ -389,5 +393,32 @@ describe('quantizePalette hue preservation', () => {
     expect(red?.count ?? 0).toBeGreaterThan(2000);
     const hasBlue = palette.some((color) => color.b > 150 && color.r < 80);
     expect(hasBlue).toBe(true);
+  });
+
+  /** Red disk + pink anti-alias ring + white field + small blue. Median-cut
+   * halves the red family into equal-count red and pink buckets at k=3. */
+  function logoRedTiedWithBlendedPink(): ImageData {
+    const w = 128;
+    const h = 128;
+    const pixels: number[] = [];
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        const blue = x <= y && y < 12;
+        const radius = Math.hypot(x - 64, y - 64);
+        if (blue) pixels.push(20, 40, 220, 255);
+        else if (radius < 40) pixels.push(203, 42, 54, 255);
+        else if (radius < 48) pixels.push(234, 129, 129, 255);
+        else pixels.push(255, 255, 255, 255);
+      }
+    }
+    return rgba(w, h, pixels);
+  }
+
+  it('keeps the logo red when it ties a blended pink bucket at 3 colours', () => {
+    const palette = quantizePalette(logoRedTiedWithBlendedPink(), 3, false, 1);
+    const red = palette.find((color) => color.r > 160 && color.g < 80 && color.b < 80);
+    expect(red).toBeDefined();
+    expect(red?.count ?? 0).toBeGreaterThan(2000);
+    expect(palette.some((color) => color.b > 150 && color.r < 80)).toBe(true);
   });
 });

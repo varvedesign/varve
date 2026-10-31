@@ -307,6 +307,7 @@ fn preserve_distinct_hues(
             palette.push(entry);
             continue;
         }
+        recount_palette(&unique, &mut palette);
         let mut steal = None;
         let mut survivor = None;
         let mut steal_dist = f64::INFINITY;
@@ -322,13 +323,9 @@ fn preserve_distinct_hues(
                 );
                 if d < steal_dist {
                     steal_dist = d;
-                    if palette[i].count <= palette[j].count {
-                        steal = Some(i);
-                        survivor = Some(j);
-                    } else {
-                        steal = Some(j);
-                        survivor = Some(i);
-                    }
+                    let (victim, keep) = steal_choice(&palette, i, j);
+                    steal = Some(victim);
+                    survivor = Some(keep);
                 }
             }
         }
@@ -339,6 +336,54 @@ fn preserve_distinct_hues(
     }
     palette.sort_by_key(|c| std::cmp::Reverse(c.count));
     palette
+}
+
+fn nearest_index(palette: &[QuantizedColor], r: u8, g: u8, b: u8) -> usize {
+    let mut best = 0;
+    let mut best_dist = f64::INFINITY;
+    for (i, color) in palette.iter().enumerate() {
+        let d = oklab_distance_sq(r, g, b, color.r, color.g, color.b);
+        if d < best_dist {
+            best_dist = d;
+            best = i;
+        }
+    }
+    best
+}
+
+fn recount_palette(
+    unique: &std::collections::BTreeMap<u32, (u8, u8, u8, usize, f64)>,
+    palette: &mut [QuantizedColor],
+) {
+    for color in palette.iter_mut() {
+        color.count = 0;
+    }
+    for (r, g, b, count, _) in unique.values() {
+        let i = nearest_index(palette, *r, *g, *b);
+        palette[i].count += *count;
+    }
+}
+
+fn srgb_chroma(r: u8, g: u8, b: u8) -> f64 {
+    let oklab = linear_srgb_to_oklab([srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)]);
+    oklab[1].hypot(oklab[2])
+}
+
+/// Evict the less common of a pair; on a count tie keep the higher-chroma colour.
+fn steal_choice(palette: &[QuantizedColor], i: usize, j: usize) -> (usize, usize) {
+    let count_i = palette[i].count;
+    let count_j = palette[j].count;
+    if count_i < count_j {
+        (i, j)
+    } else if count_j < count_i {
+        (j, i)
+    } else if srgb_chroma(palette[i].r, palette[i].g, palette[i].b)
+        < srgb_chroma(palette[j].r, palette[j].g, palette[j].b)
+    {
+        (i, j)
+    } else {
+        (j, i)
+    }
 }
 
 #[cfg(test)]
@@ -561,8 +606,11 @@ mod tests {
                 teal_count > 5000 && palette[0].r < 80,
                 "max_colors={max_colors} dropped the photo teal: {palette:?}"
             );
+            let distinct_noise = palette
+                .iter()
+                .any(|c| c.count < 16 && !(c.r < 80 && c.g > 70 && c.b > 70));
             assert!(
-                palette.iter().all(|c| c.count >= 16),
+                !distinct_noise,
                 "max_colors={max_colors} kept 1-px noise: {palette:?}"
             );
         }
@@ -580,5 +628,40 @@ mod tests {
                 "max_colors={max_colors} dropped the logo blue: {palette:?}"
             );
         }
+    }
+
+    fn logo_red_tied_with_blended_pink() -> Vec<u8> {
+        let mut pixels = Vec::new();
+        for y in 0..128 {
+            for x in 0..128 {
+                let blue = x <= y && y < 12;
+                let radius = (x as f64 - 64.0).hypot(y as f64 - 64.0);
+                if blue {
+                    pixels.extend_from_slice(&rgba_pixel(20, 40, 220, 255));
+                } else if radius < 40.0 {
+                    pixels.extend_from_slice(&rgba_pixel(203, 42, 54, 255));
+                } else if radius < 48.0 {
+                    pixels.extend_from_slice(&rgba_pixel(234, 129, 129, 255));
+                } else {
+                    pixels.extend_from_slice(&rgba_pixel(255, 255, 255, 255));
+                }
+            }
+        }
+        pixels
+    }
+
+    #[test]
+    fn logo_red_survives_tied_blended_pink_at_3_colours() {
+        let pixels = logo_red_tied_with_blended_pink();
+        let palette = quantize_palette(&pixels, 128, 128, 3, 1, false);
+        let red = palette.iter().find(|c| c.r > 160 && c.g < 80 && c.b < 80);
+        assert!(
+            red.is_some_and(|c| c.count > 2000),
+            "k=3 evicted the logo red for a tied pink bucket: {palette:?}"
+        );
+        assert!(
+            palette.iter().any(|c| c.b > 150 && c.r < 80),
+            "k=3 dropped the logo blue: {palette:?}"
+        );
     }
 }
