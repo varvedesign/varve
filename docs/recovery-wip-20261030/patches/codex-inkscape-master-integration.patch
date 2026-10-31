@@ -1,0 +1,56 @@
+diff --git a/tests/e2e/export/native-pdf-contract.spec.ts b/tests/e2e/export/native-pdf-contract.spec.ts
+index 4665eaaa2..e32d86ab5 100644
+--- a/tests/e2e/export/native-pdf-contract.spec.ts
++++ b/tests/e2e/export/native-pdf-contract.spec.ts
+@@ -101,3 +101,51 @@ test('real embedded-artwork export sends decoded pixels across the native PDF bo
+   );
+   await page.screenshot({ path: testInfo.outputPath('native-pdf-export-inspector.png') });
+ });
++
++test('native PDF manifest errors are shown instead of downloading a placeholder PDF', async ({
++  page,
++}, testInfo) => {
++  test.setTimeout(90000);
++  await navigateToCleanEditor(page);
++  const fixturePath = path.resolve('tests/e2e/fixtures/published-v021/poster-embedded.varve');
++  await page.setInputFiles('#file-open-input', fixturePath);
++  await expect(page.locator('.editor-shell h1.sr-only')).toContainText('poster-embedded.varve');
++  const image = page.getByRole('treeitem', { name: /^Published embedded image/ });
++  if (!(await image.isVisible()))
++    await page
++      .getByRole('treeitem', { name: /^Poster — A3/ })
++      .getByRole('button', { name: 'Expand', exact: true })
++      .click();
++  await image.click();
++  const exportTab = page.getByRole('tab', { name: 'Export', exact: true });
++  if (await exportTab.isVisible()) await exportTab.click();
++  else {
++    await page.getByRole('button', { name: /^More inspector tabs/ }).click();
++    await page
++      .getByRole('menu', { name: 'More inspector tabs' })
++      .getByRole('menuitem', { name: 'Export', exact: true })
++      .click();
++  }
++  await page.getByRole('radio', { name: 'PDF', exact: true }).click();
++
++  await page.evaluate(() => {
++    const win = window as unknown as { __TAURI__: unknown };
++    win.__TAURI__ = {
++      core: {
++        invoke: async () => {
++          return Promise.reject('PDF image manifest parse error: invalid test payload');
++        },
++      },
++    };
++  });
++  let downloadStarted = false;
++  page.on('download', () => {
++    downloadStarted = true;
++  });
++  await page.getByRole('button', { name: 'Download PDF', exact: true }).click();
++  await expect(
++    page.getByText('Export failed: PDF image manifest parse error: invalid test payload'),
++  ).toBeVisible();
++  expect(downloadStarted).toBe(false);
++  await page.screenshot({ path: testInfo.outputPath('native-pdf-export-error.png') });
++});

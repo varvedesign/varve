@@ -1,0 +1,119 @@
+diff --git a/apps/desktop/src-tauri/src/native_raster.rs b/apps/desktop/src-tauri/src/native_raster.rs
+index 6851dd4e7..a1e0e6cfe 100644
+--- a/apps/desktop/src-tauri/src/native_raster.rs
++++ b/apps/desktop/src-tauri/src/native_raster.rs
+@@ -7,12 +7,13 @@
+ //! usable compute device and still decline to rasterize a frame, and the
+ //! diagnostics must not conflate the two.
+ //!
+-//! What this path is: the scene nodes the editor already sends to
+-//! `build_render_ir` are lowered into the native draw plan on this thread, and
+-//! the admitted frame is rasterized on the GPU and returned as straight-alpha
+-//! RGBA8. What this path is **not**: native presentation. The pixels reach the
+-//! window through the existing Canvas2D present surface. ADR-0244 records why,
+-//! with the measured bridge cost that drove the decision.
++//! What this path is: the command accepts scene nodes, lowers them into the
++//! native draw plan, and can rasterize an admitted frame to straight-alpha
++//! RGBA8 returned over Tauri IPC. What this path is **not**: an editor render
++//! path or native presentation. The current editor does not call the frame
++//! command, so these pixels are not displayed by Canvas2D or another surface.
++//! ADR-0244 records the remaining integration work and the measured bridge
++//! costs that constrain possible consumers.
+ 
+ use std::sync::{Arc, Mutex};
+ 
+diff --git a/docs/plans/threaded-wasm-native-presentation-implementation-2026-10-17.md b/docs/plans/threaded-wasm-native-presentation-implementation-2026-10-17.md
+index fd5b2e4b4..13ac5d4b8 100644
+--- a/docs/plans/threaded-wasm-native-presentation-implementation-2026-10-17.md
++++ b/docs/plans/threaded-wasm-native-presentation-implementation-2026-10-17.md
+@@ -372,3 +372,54 @@ jointly (the capability-shape extension and this plan are examples).
+   passed for the Tauri probe; the check reported an unrelated unused
+   `closed` binding in the dirty `varve-accel` work. The full-gate checkpoint
+   and the remaining staged lanes are still outstanding.
++
++## Follow-up — raster call graph and probe idle behavior (2026-10-17)
++
++- A fresh repository-wide call-site search found no editor consumer of
++  `nativeRasterFrame` or `nativeRasterPlan`. `native_raster_frame` is registered
++  as a Tauri command and the TypeScript client exposes it, but the editor does
++  not call it; returned pixels are not currently displayed through Canvas2D
++  either. The earlier wording that native RGBA reaches the Canvas2D surface
++  was therefore too strong. `docs/architecture/native-render-stage.md` now
++  describes the command as an offscreen raster API with no current display
++  consumer. The feature page and performance guide remain truthful and need no
++  native-presentation marketing claim or copy change.
++- The real Tauri probe uses `GtkGLArea` as the `GtkOverlay` base child and keeps
++  the Wry WebView in front. The home-view capture showed the marker hidden by
++  the opaque page. The editor's `.editor-canvas` background and canvas render
++  routines also paint opaque surface pixels, so this layout cannot yet reveal
++  native document pixels. The next integration slice must establish a native
++  frame consumer, match the editor canvas rectangle and viewport generation,
++  and complete the transparent-region/Canvas2D handoff without exposing stale
++  or double-rendered pixels. Input and a real-document editor screenshot are
++  still pending.
++- The static diagnostic now disables `GtkGLArea` auto-render; attach queues one
++  initial draw, and future frame updates must explicitly queue a replacement.
++  This avoids continuously redrawing a marker that never changes.
++- `9c5adfca2` corrects the native-render guide's call-graph claims. Its staged
++  plan and affected run pass (`audit:emoji`, `audit:docs`; 1,166 docs, 864
++  links, 182 ADRs in the isolated checkout). `7abf26beb` disables idle GLArea
++  auto-render. Direct `rustfmt --check --edition 2021` passes for the changed
++  presenter file. Workspace `cargo fmt --check` reports unrelated format
++  drift in `collab_host.rs`, `lib.rs`, and `lifecycle.rs`.
++- The isolated worktree's first `pnpm verify:affected --staged` stopped at the
++  pre-existing `audit:radius` failure (10 raw-radius consumers in Presentation
++  and SpecPanel CSS). The presenter change's next affected run stopped at
++  desktop TypeScript before package units/native lanes because this clean
++  branch lacks the root worktree's uncommitted `packages/codegen/src/bundle-assets.ts`
++  and `packages/scene/src/nodeResize.ts`; it also reports the existing
++  `CollabSurfaces.tsx:450` readonly-cast issue and an `exportService.ts`
++  implicit-any error. No unrelated files were copied or modified to hide these
++  failures.
++- `cargo check --locked` initially refused the isolated checkout because its
++  committed lock predates five workspace dependency entries already present
++  in the root worktree's uncommitted `Cargo.lock`. The offline desktop check
++  (`cargo check --offline --manifest-path apps/desktop/src-tauri/Cargo.toml`,
++  with `CARGO_BUILD_JOBS=2`) then passed in 8m24s; its generated lock matched
++  the root's in-progress lock exactly and was restored in this worktree, not
++  committed. Re-run the canonical locked check after those shared dependency
++  changes are integrated.
++- This implementation branch is based on `e8ec99c37` and lives at
++  `.worktrees/native-presenter-completion/` so source edits do not trigger the
++  open Varve dev window. It has not been merged to local `master`; the shared
++  root tree remains dirty and local `master` is 148 ahead / 7 behind its remote.
+diff --git a/packages/editor/src/render/nativeRasterClient.ts b/packages/editor/src/render/nativeRasterClient.ts
+index 66fe9eaad..c3e3e9521 100644
+--- a/packages/editor/src/render/nativeRasterClient.ts
++++ b/packages/editor/src/render/nativeRasterClient.ts
+@@ -2,11 +2,11 @@
+  * Native IR raster client — the frontend half of `crates/varve-accel::render`.
+  *
+  * Scope, stated precisely because the distinction is the whole point of this
+- * module: the native stage *rasterizes* the render IR on the GPU and returns
+- * pixels. It does not present them. The returned frame reaches the window
+- * through the existing Canvas2D present surface, exactly like every other
+- * frame, which is why device loss, unsupported content, and a paused stage all
+- * degrade to "the authoritative replay keeps drawing" with no special case.
++ * module: the native stage *can rasterize* the render IR on the GPU and return
++ * pixels. It does not present them, and the current editor render path does not
++ * call `nativeRasterFrame`; no returned frame is displayed in the window. A
++ * future consumer must preserve the authoritative Canvas2D fallback on device
++ * loss, unsupported content, or a paused stage.
+  *
+  * This is deliberately separate from `@varve/engine`'s `nativeAcceleration.ts`
+  * (native *compute*: discovery, self-test, effect kernels) and from
+@@ -157,10 +157,10 @@ export async function nativeRasterStatus(): Promise<NativeRasterDiagnostics | nu
+ /**
+  * Lower the scene and report admission without touching the device.
+  *
+- * This is the call the renderer makes *before* deciding whether a native frame
+- * is worth requesting: admission is pure computation over the IR (measured at
+- * 0.31 ms for 600 items on the reference machine), while a real frame pays for
+- * GPU submission and a full-frame readback.
++ * This is the dry-run admission API intended to precede a native frame request.
++ * No editor render path currently calls it. Admission is pure computation over
++ * the IR (measured at 0.31 ms for 600 items on the reference machine), while a
++ * real frame pays for GPU submission and a full-frame readback.
+  */
+ export async function nativeRasterPlan(input: {
+   nodes: readonly unknown[];

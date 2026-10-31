@@ -1,0 +1,3 @@
+ M apps/desktop/src-tauri/src/native_raster.rs
+M  docs/plans/threaded-wasm-native-presentation-implementation-2026-10-17.md
+ M packages/editor/src/render/nativeRasterClient.ts

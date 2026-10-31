@@ -1,0 +1,18 @@
+diff --git a/docs/audits/graphite/paint-batch.md b/docs/audits/graphite/paint-batch.md
+index d42138af7..a23e79787 100644
+--- a/docs/audits/graphite/paint-batch.md
++++ b/docs/audits/graphite/paint-batch.md
+@@ -2,6 +2,13 @@
+ 
+ ## Current resumable state (supersedes historical attempts below)
+ 
++- Head is now **`56e045784`**, with the reviewed goldens + invariance oracle
++  committed. Required docs/imports/emoji/tokens audits and normal commit gate
++  passed. Active jobs (do not duplicate): reviewed-golden assertion rerun
++  `sh_16b06de08001gpNQaBbDYHnKpP` (7495); normal eight-worker push
++  `sh_16b0a544f001IyR59djrkyoi8a`; complete pinned-base affected gate
++  `sh_16b0a5450001iKl4vwNSf1uMEv` (7493, eight JS/one browser worker).
++  Push opens a draft PR only on success; no integration is yet established.
+ - **Visual diagnosis resolved:** fixed translation oracle passed **3/3** at
+   DPR 1/2/3 with exact local RGBA equality (`sh_16af73990001rdn2QEoKwZ7WNX`).
+   Its affected gate also passed format/lint, docs/emoji/claims and E2E compiler.
