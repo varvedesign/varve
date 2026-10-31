@@ -104,10 +104,7 @@ export function AdjustmentsPanel() {
                 <FrameInterpolationSection nodes={nodes} />
               </>
             ) : (
-              <>
-                <p className="insp-hint">{AI_DISABLED_HINT}</p>
-                <LensBlurSection nodes={nodes} />
-              </>
+              <p className="insp-hint">{AI_DISABLED_HINT}</p>
             )}
           </AdjustmentGroup>
           {aiEnabled ? (

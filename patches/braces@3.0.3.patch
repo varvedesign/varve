@@ -1,3 +1,4 @@
+diff --git a/lib/parse.js b/lib/parse.js
 --- a/lib/parse.js
 +++ b/lib/parse.js
 @@ -55,6 +55,13 @@

@@ -90,6 +90,7 @@ fn available_memory_bytes_impl() -> Option<u64> {
 }
 
 #[cfg(target_os = "windows")]
+#[allow(unsafe_code)] // GlobalMemoryStatusEx is the documented Windows query.
 fn available_memory_bytes_impl() -> Option<u64> {
     use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
 
@@ -104,6 +105,7 @@ fn available_memory_bytes_impl() -> Option<u64> {
 }
 
 #[cfg(target_os = "macos")]
+#[allow(unsafe_code)] // host_statistics64 / vm_page_size are Darwin sysctls.
 fn available_memory_bytes_impl() -> Option<u64> {
     let mut statistics = std::mem::MaybeUninit::<libc::vm_statistics64>::zeroed();
     let mut count = libc::HOST_VM_INFO64_COUNT;

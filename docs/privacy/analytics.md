@@ -11,7 +11,7 @@ There is no remote analytics script; Varve emits only the events listed below.
 | Which pages help visitors reach a useful destination? | `website_page_viewed` | normalized route | Website | ACTIVE | Improve navigation and documentation |
 | Which release/platform downloads matter? | `website_download_started` | release, platform, architecture, package type, release channel | Website | ACTIVE | Prioritize packaging and release support |
 | Do website clicks open the browser demo? | `browser_demo_launched` (`demo-launch-website`) | entry source | Website | ACTIVE | Measure site-to-demo clicks |
-| Do people open `/try` directly? | `demo-launch-direct` plus `try` / `try?ref=` | allowlisted campaign tag only | Website | ACTIVE | Measure demo visits and first-party campaign tags |
+| Do people open `/try` directly? | `demo-launch-direct` plus `try` pageview (`q=?ref=` on the pageview only) | allowlisted campaign tag only | Website | ACTIVE | Measure demo visits and first-party campaign tags |
 | Which demo export formats are used? | `demo-export-<format>` | png, jpeg, webp, or svg | Website | ACTIVE | See whether the demo is used to save work |
 | Do demo visitors click Download desktop? | `demo-download-click` | none | Website | ACTIVE | Measure demo-to-download interest |
 | Do community links help? | `website_outbound_clicked` | destination category | Website | SCHEMA ONLY | Not sent by the current provider |
@@ -49,8 +49,10 @@ this inventory.
 - **Deletion / export**: export before any account change; deletion is account
   termination plus a provider deletion request.
 - **Provider settings**: Sessions and Individual pageviews disabled, no remote
-  script, query strings limited to an allowlisted first-party `ref` tag,
-  DNT and GPC honored.
+  script, query strings limited to an allowlisted first-party `ref` tag:
+  pageviews send it as GoatCounter `q` (Campaign-scheme referrer, not the
+  Campaigns list; this replaces the HTTP origin referrer for that hit),
+  events keep it on the event path, DNT and GPC honored.
 
 ## Search Console and Bing Webmaster Tools
 

@@ -115,6 +115,8 @@ export interface ModelComponent {
   sizeBytes: number;
   remoteUrl: string;
   checksum?: string;
+  /** Alias used by some manifest components; the downloader must read this too. */
+  sha256?: string | null;
   /** SHA-256 of the upstream artifact before an optional repair transform. */
   upstreamChecksum?: string;
   /** Optional post-download transform required before the component is usable. */
@@ -257,6 +259,8 @@ export interface ModelComponentEntry {
   sizeBytes: number;
   remoteUrl?: string;
   checksum?: string;
+  /** Alias used by some manifest components; the downloader must read this too. */
+  sha256?: string | null;
   /** SHA-256 of the upstream artifact before an optional repair transform. */
   upstreamChecksum?: string;
   /** Optional post-download transform required before the component is usable. */

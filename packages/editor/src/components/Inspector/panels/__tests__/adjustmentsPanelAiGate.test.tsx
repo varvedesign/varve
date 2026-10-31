@@ -112,6 +112,7 @@ describe('AdjustmentsPanel AI master switch', () => {
     expect(screen.queryByText('Identify Font')).not.toBeInTheDocument();
     expect(screen.queryByText('Frame Interpolation')).not.toBeInTheDocument();
     expect(screen.queryByText('Line Art')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lens Blur')).not.toBeInTheDocument();
   });
 
   it('shows model-backed sections when AI features are on', () => {
@@ -126,5 +127,6 @@ describe('AdjustmentsPanel AI master switch', () => {
     expect(screen.getByText('Identify Font')).toBeInTheDocument();
     expect(screen.getByText('Frame Interpolation')).toBeInTheDocument();
     expect(screen.getByText('Line Art')).toBeInTheDocument();
+    expect(screen.getByText('Lens Blur')).toBeInTheDocument();
   });
 });

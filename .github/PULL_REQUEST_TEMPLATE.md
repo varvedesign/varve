@@ -1,18 +1,21 @@
-<!--
-External contributions are not yet open — see CONTRIBUTING.md. This template
-exists for when they are, and for the maintainer's own PRs in the meantime.
--->
+## Lane
 
-## Summary
+- [ ] Library
+- [ ] Docs
+- [ ] Plugin
+- [ ] Translation
+- [ ] Testing
+- [ ] App
 
-<!-- What does this change, and why? -->
+## What and why
 
-## Test plan
+<!-- Link the related issue. -->
 
-<!-- How was this verified? e.g. pnpm verify:affected, just test-rust, manual steps -->
+## Check command
+
+<!-- What command did you run to check it? -->
 
 ## Checklist
 
-- [ ] `pnpm verify:affected` passes (or the reason it doesn't is explained above)
-- [ ] Documentation updated if user-facing behavior changed
-- [ ] Commit(s) are signed off (`git commit -s`) once DCO is active — see [CONTRIBUTING.md](../CONTRIBUTING.md)
+- [ ] My commits are signed off (`git commit -s`)
+- [ ] I could not fix a CI failure (explain above)

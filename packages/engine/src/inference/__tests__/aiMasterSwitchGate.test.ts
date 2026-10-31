@@ -6,8 +6,16 @@
  * `ai.enabled` is false. This is the regression that fails if a new model
  * is added to the catalog but the choke-point gate is bypassed.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getModelLoader, resetModelLoader } from '../../backgroundRemoval/modelLoader';
+import {
+  applyWorkerAiGate,
+  getAiFeaturesEnabled,
+  notifyAiFeaturesSettingsChanged,
+  resetAiFeaturesGateForTests,
+} from '../aiFeaturesGate';
 import { DownloadManager } from '../core/DownloadManager';
 import { InferenceError } from '../core/InferenceError';
 import { createModelStorage } from '../core/ModelStorage';
@@ -16,10 +24,12 @@ import { SessionManager } from '../SessionManager';
 
 function disableAi(): void {
   localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+  notifyAiFeaturesSettingsChanged();
 }
 
 function enableAi(): void {
   localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));
+  notifyAiFeaturesSettingsChanged();
 }
 
 describe('AI master switch choke point', () => {
@@ -27,6 +37,7 @@ describe('AI master switch choke point', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    resetAiFeaturesGateForTests();
     resetModelLoader();
     fetchSpy.mockReset();
     fetchSpy.mockRejectedValue(new Error('network must not run while AI is off'));
@@ -36,6 +47,7 @@ describe('AI master switch choke point', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     localStorage.clear();
+    resetAiFeaturesGateForTests();
     resetModelLoader();
   });
 
@@ -129,11 +141,90 @@ describe('AI master switch choke point', () => {
     );
   });
 
-  it('treats a missing localStorage as enabled so worker-side asserts are no-ops', async () => {
-    const { getAiFeaturesEnabled, assertAiFeaturesEnabled } = await import('../aiFeaturesGate');
-    vi.stubGlobal('localStorage', undefined);
+  it('defaults on when the settings key is missing', () => {
     expect(getAiFeaturesEnabled()).toBe(true);
-    expect(() => assertAiFeaturesEnabled()).not.toThrow();
+  });
+
+  it('defaults on when a readable blob has no ai object', () => {
+    localStorage.setItem(
+      'varve-editor-settings',
+      JSON.stringify({ appearance: { theme: 'dark' } }),
+    );
+    expect(getAiFeaturesEnabled()).toBe(true);
+  });
+
+  it('fails closed and logs when the settings blob is corrupt', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    localStorage.setItem('varve-editor-settings', '{"ai":');
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[ai-gate]'));
+    warn.mockRestore();
+  });
+
+  it('does not throw when window exists without addEventListener', () => {
+    const previous = globalThis.window;
+    globalThis.window = { localStorage } as unknown as Window & typeof globalThis;
+    resetAiFeaturesGateForTests();
+    expect(() => getAiFeaturesEnabled()).not.toThrow();
+    expect(getAiFeaturesEnabled()).toBe(true);
+    globalThis.window = previous;
+  });
+
+  it('fails closed and logs when localStorage is unreadable', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('localStorage', undefined);
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(() => applyWorkerAiGate(undefined)).toThrow(InferenceError);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('accepts an explicit worker snapshot so worker-side asserts can refuse', () => {
+    vi.stubGlobal('localStorage', undefined);
+    expect(() => applyWorkerAiGate(false)).toThrow(InferenceError);
+    expect(() => applyWorkerAiGate(true)).not.toThrow();
+    expect(getAiFeaturesEnabled()).toBe(true);
+  });
+
+  it('clears a prior true snapshot when a later job omits aiEnabled', () => {
+    enableAi();
+    expect(() => applyWorkerAiGate(true)).not.toThrow();
+    expect(getAiFeaturesEnabled()).toBe(true);
+    expect(() => applyWorkerAiGate(undefined)).toThrow(InferenceError);
+    vi.stubGlobal('localStorage', undefined);
+    expect(getAiFeaturesEnabled()).toBe(false);
+  });
+
+  it('honours strata-editor-settings when the current key is absent', () => {
+    localStorage.setItem('strata-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    expect(getAiFeaturesEnabled()).toBe(false);
+  });
+
+  it('prefers varve-editor-settings over the legacy key', () => {
+    localStorage.setItem('strata-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));
+    expect(getAiFeaturesEnabled()).toBe(true);
+  });
+
+  it('logs the unreadable warning only once until settings change', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    localStorage.setItem('varve-editor-settings', '{"ai":');
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    notifyAiFeaturesSettingsChanged();
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it('does not re-export test-only configure/reset helpers from public barrels', () => {
+    const engineIndex = readFileSync(resolve(__dirname, '../../index.ts'), 'utf-8');
+    const inferenceIndex = readFileSync(resolve(__dirname, '../index.ts'), 'utf-8');
+    expect(engineIndex).not.toContain('configureAiFeaturesEnabled');
+    expect(engineIndex).not.toContain('resetAiFeaturesGateForTests');
+    expect(inferenceIndex).not.toContain('configureAiFeaturesEnabled');
+    expect(inferenceIndex).not.toContain('resetAiFeaturesGateForTests');
   });
 
   it('refuses AI worker-host dispatch on the main thread when the switch is off', async () => {
@@ -176,5 +267,17 @@ describe('AI master switch choke point', () => {
     expect(posted).toHaveLength(0);
     terminateWorkerPool();
     resetEnhancementWorkerForTests();
+  });
+
+  it('the three model-loading workers enforce the gate inside the worker', () => {
+    const workers = [
+      'inference/inferenceWorker.ts',
+      'upscaleProviders/enhancementWorker.ts',
+      'backgroundRemoval/worker.ts',
+    ];
+    for (const relative of workers) {
+      const source = readFileSync(resolve(__dirname, '../../', relative), 'utf-8');
+      expect(source, relative).toContain('applyWorkerAiGate');
+    }
   });
 });

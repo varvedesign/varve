@@ -1,15 +1,14 @@
 # Contributing to Varve
 
-Varve is a public-beta, local-first design suite built in the open. The
+Varve is a public-beta, local-first design suite. The
 project is maintained by a small team, so clear reports, thoughtful product
 feedback, and practical examples are especially valuable.
 
 ## Current contribution status
 
-External code pull requests are temporarily paused while the project
-stabilizes its build, release, and documentation foundations. The repository's
-issue and pull-request templates describe the intended workflow, but they are
-not an invitation to start an uncoordinated implementation yet.
+Contributions are open for docs and examples, translations, plugins in your
+own repository, testing and device reports, and the nine MIT OR Apache-2.0
+libraries. App code remains maintainer-only for now.
 
 You can still help today. Use the channel that matches the kind of help:
 
@@ -56,7 +55,7 @@ Read the nearest architecture document before changing a boundary. In
 particular, do not introduce a package cycle, bypass the editor command/history
 path, or describe a planned capability as shipped.
 
-## Development workflow when code contributions reopen
+## Development workflow
 
 1. Start a Discussion for a new feature, architecture change, or significant
    UX change. Wait for the scope to be accepted before implementing it.
@@ -117,8 +116,7 @@ a squash is not required for validation.
 
 ## Pull request quality bar
 
-When external code contributions reopen, maintainers will prioritize changes
-that are:
+Maintainers prioritize changes that are:
 
 - focused on one problem and small enough to review;
 - consistent with the existing architecture and design tokens;
@@ -152,15 +150,4 @@ Varve is source-available under FSL-1.1-MIT, with the MIT change licence after
 the applicable period. It is not currently presented as OSI-approved open
 source. Read [LICENSE](../../LICENSE) before contributing.
 
-The DCO and CLA documents in the repository are drafts and are not active
-while external code contributions are paused. When the project opens, the
-maintainer will publish the active sign-off and contribution terms before
-accepting outside code.
-
-## AI-assisted contributions
-
-AI-assisted work is allowed as a tool, not as a substitute for ownership.
-Contributors remain responsible for the provenance, licenses, tests, security,
-and behavior of submitted work. Explain generated or substantially
-AI-assisted changes when that context helps review, and never include secrets,
-private documents, or unlicensed source material in prompts or commits.
+Contributions use DCO 1.1 sign-off (`git commit -s`) under the licence of the files changed.

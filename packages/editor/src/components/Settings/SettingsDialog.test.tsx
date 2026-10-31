@@ -7,6 +7,7 @@ import { enableDrawDiagnostics, isDiagnosticsEnabled } from '../../canvas/drawDi
 import { EditorProvider } from '../../context';
 import { setCompositorDiagnostics } from '../../render/compositorDiagnosticsStore';
 import { loadSettings } from '../../settings';
+import * as organizationPolicy from '../../settings/organizationPolicy';
 import { SettingsProvider } from './SettingsContext';
 import { SettingsDialog } from './SettingsDialog';
 
@@ -26,6 +27,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   setCompositorDiagnostics(null);
 });
 
@@ -119,6 +121,32 @@ describe('SettingsDialog', () => {
     fireEvent.click(toggle);
     expect(toggle.checked).toBe(true);
     expect(loadSettings().ai.enabled).toBe(true);
+  });
+
+  it('shows and locks the checked AI state forced by policy', async () => {
+    vi.spyOn(organizationPolicy, 'loadOrganizationPolicy').mockResolvedValue({
+      restricted: false,
+      lockedSettings: [],
+      aiEnabled: 'on',
+    });
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="ai" />);
+    const toggle = document.getElementById('ai-features-toggle') as HTMLInputElement;
+    expect((await screen.findAllByText('Managed by your organisation')).length).toBeGreaterThan(0);
+    expect(toggle.checked).toBe(true);
+    expect(toggle.disabled).toBe(true);
+  });
+
+  it('shows and locks the unchecked AI state forced by policy', async () => {
+    vi.spyOn(organizationPolicy, 'loadOrganizationPolicy').mockResolvedValue({
+      restricted: false,
+      lockedSettings: [],
+      aiEnabled: 'off',
+    });
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="ai" />);
+    const toggle = document.getElementById('ai-features-toggle') as HTMLInputElement;
+    expect((await screen.findAllByText('Managed by your organisation')).length).toBeGreaterThan(0);
+    expect(toggle.checked).toBe(false);
+    expect(toggle.disabled).toBe(true);
   });
 
   it('closes on close button', () => {

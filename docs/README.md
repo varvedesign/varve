@@ -86,6 +86,7 @@ pass report in
 | [AGENTS.md](../AGENTS.md) (root) | AI agent instructions — cross-project rules for automation |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) (root) | Contribution status, current ways to help, and future code workflow |
 | [development/contributing.md](development/contributing.md) | Current contribution status, ways to help now, project map, validation, and future PR workflow |
+| [development/contribution-gates.md](development/contribution-gates.md) | Open contribution lanes, DCO 1.1 sign-off, and docs/library/plugin gates |
 | [CHANGELOG.md](../CHANGELOG.md) (root) | Release notes — source for `release-notes.mjs` |
 | [brand/github-repository-presence.md](brand/github-repository-presence.md) | Canonical GitHub metadata, social preview, and public-content maintenance |
 | [marketing/positioning-and-discovery.md](marketing/positioning-and-discovery.md) | Current positioning, audience/search intent, claim register, and SEO/GEO/AEO contract |

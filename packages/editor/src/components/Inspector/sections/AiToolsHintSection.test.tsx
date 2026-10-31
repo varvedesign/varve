@@ -2,7 +2,8 @@
 
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { notifyAiFeaturesSettingsChanged } from '@varve/engine';
+import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../../context';
 import { AiToolsHintSection } from './AiToolsHintSection';
 
@@ -19,6 +20,22 @@ function expandAiTools() {
 }
 
 describe('AiToolsHintSection', () => {
+  afterEach(() => {
+    localStorage.clear();
+    notifyAiFeaturesSettingsChanged();
+  });
+
+  it('hides the Design-tab pointer when AI features are off', () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
+    render(
+      <EditorProvider>
+        <AiToolsHintSection />
+      </EditorProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'AI Tools' })).toBeNull();
+  });
+
   it('points at Photo mode and names the tools that live there', () => {
     render(
       <EditorProvider>

@@ -128,7 +128,7 @@
     ],
     "publisher": "K-Arthur (Varve Founder)",
     "homepage": "https://github.com/varvedesign/varve",
-    "copyright": "Copyright 2024-2026 K-Arthur — FSL-1.1-MIT",
+    "copyright": "Copyright 2024-2026 K-Arthur, FSL-1.1-MIT",
     "category": "GraphicsAndDesign",
     "shortDescription": "Local-first design suite",
     "longDescription": "Varve is a local-first design suite for vector, layout, typography, motion, prototyping, and print production. Runs natively on Linux, macOS, and Windows. Your designs stay on your machine. Source-available under FSL-1.1-MIT.",

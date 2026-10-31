@@ -28,6 +28,7 @@ import { Button, Icon, Select, ToggleButton, Toolbar, Tooltip } from '@varve/ui'
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { getTextEditSessionNodeId, subscribeTextEditSession } from '../../context/textEditSession';
+import { resolveBackgroundRemovalMethod } from '../../features/useAiFeaturesEnabled';
 import { formatShortcut, getEffectiveBinding } from '../../shortcuts/ShortcutManager';
 import { type FontFaceSelection, FontSelector } from '../FontBrowser/FontSelector';
 import {
@@ -189,7 +190,7 @@ function ImageSection({
     setRemoving(true);
     // Failures surface through the editor's existing inference error path;
     // the local flag only drives the busy state of this trigger.
-    void removeBackground('ai-balanced')
+    void removeBackground(resolveBackgroundRemovalMethod())
       .catch(() => undefined)
       .finally(() => setRemoving(false));
   };
