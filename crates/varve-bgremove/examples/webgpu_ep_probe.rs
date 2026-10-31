@@ -10,7 +10,6 @@
 
 use std::path::Path;
 
-use ort::environment::Environment;
 use ort::session::Session;
 
 fn lcg_input(size: usize) -> Vec<f32> {
@@ -81,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let size: usize = args.get(4).and_then(|v| v.parse().ok()).unwrap_or(320);
 
     varve_bgremove::runtime::init_native_runtime(Path::new(&args[1]))?;
-    let env = Environment::current()?;
+    let env = varve_bgremove::runtime::environment()?;
     // Use the production registration path (the app calls the same function).
     match varve_bgremove::webgpu_ep::register(std::path::Path::new(&args[2])) {
         Ok(()) => println!(
@@ -115,7 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let input = lcg_input(size);
-    let mut cpu_session = Session::builder()?.commit_from_file(&args[3])?;
+    let mut cpu_session = Session::builder(&env)?.commit_from_file(&args[3])?;
     let cpu_out = run(&mut cpu_session, size, &input)?;
     let mut cpu_times = Vec::new();
     for _ in 0..3 {
@@ -138,7 +137,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     let options = [("preferredLayout".to_string(), "NHWC".to_string())];
-    let mut gpu_session = Session::builder()?
+    let mut gpu_session = Session::builder(&env)?
         .with_devices(webgpu_devices, Some(&options))?
         .with_profiling(std::path::Path::new(profile_dir).join(profile_prefix))?
         .commit_from_file(&args[3])?;

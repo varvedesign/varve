@@ -145,7 +145,8 @@ impl OrtInferenceRuntime {
         // constant for a much lower retained footprint; inference math is
         // identical (the golden parity test runs with these options).
         let base_builder = || -> Result<ort::session::builder::SessionBuilder, String> {
-            Session::builder()
+            let env = crate::runtime::environment()?;
+            Session::builder(&env)
                 .map_err(|e| format!("Failed to create ONNX session: {e}"))?
                 .with_config_entry("session.enable_cpu_mem_arena", "0")
                 .map_err(|e| format!("Failed to disable CPU memory arena: {e}"))?

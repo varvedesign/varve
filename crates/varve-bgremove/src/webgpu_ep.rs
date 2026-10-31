@@ -21,8 +21,6 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Mutex, OnceLock};
 
-use ort::environment::Environment;
-use ort::ep::ExecutionProviderLibrary;
 use ort::session::builder::SessionBuilder;
 
 /// Execution provider policy for native inference sessions.
@@ -102,7 +100,6 @@ pub enum WebGpuEpStatus {
 }
 
 static REGISTRATION: OnceLock<Result<WebGpuEpDevice, String>> = OnceLock::new();
-static LIBRARY: Mutex<Option<ExecutionProviderLibrary>> = Mutex::new(None);
 static DEVICE_USABLE: AtomicBool = AtomicBool::new(false);
 static EXECUTION_VERIFIED: AtomicBool = AtomicBool::new(false);
 static LAST_ATTACH_ERROR: Mutex<Option<String>> = Mutex::new(None);
@@ -123,13 +120,14 @@ fn init(plugin_path: &Path) -> Result<WebGpuEpDevice, String> {
             plugin_path.display()
         ));
     }
-    let environment = Environment::current()
-        .map_err(|err| format!("ONNX Runtime environment unavailable: {err}"))?;
+    let environment = crate::runtime::environment()?;
     // ORT resolves a plugin library path relative to the core runtime's own
     // directory, so an absolute path is required.
     let canonical = std::fs::canonicalize(plugin_path)
         .map_err(|err| format!("Cannot resolve WebGPU plugin path: {err}"))?;
-    let library = environment
+    // rc.15 dropped the `ExecutionProviderLibrary` handle; registration is
+    // owned by the environment for the rest of the process.
+    environment
         .register_ep_library("webgpu_ep_registration", &canonical)
         .map_err(|err| format!("Failed to register WebGPU plugin EP: {err}"))?;
 
@@ -158,9 +156,6 @@ fn init(plugin_path: &Path) -> Result<WebGpuEpDevice, String> {
         "WebGPU plugin registered but no WebGpuExecutionProvider device was reported".to_string()
     })?;
 
-    if let Ok(mut guard) = LIBRARY.lock() {
-        *guard = Some(library);
-    }
     DEVICE_USABLE.store(true, Ordering::SeqCst);
     Ok(device)
 }
@@ -221,8 +216,7 @@ pub fn attach_webgpu(builder: SessionBuilder) -> Result<SessionBuilder, String> 
     if !device_usable() {
         return Err("WebGPU execution provider is not registered".to_string());
     }
-    let environment = Environment::current()
-        .map_err(|err| format!("ONNX Runtime environment unavailable: {err}"))?;
+    let environment = crate::runtime::environment()?;
     let devices: Vec<_> = environment
         .devices()
         .filter(|entry| {
