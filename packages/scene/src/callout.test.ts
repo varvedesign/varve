@@ -524,7 +524,7 @@ describe('shaped balloons (burst and cloud)', () => {
     const body = doc.nodes[created.bodyId];
     if (outline?.kind !== 'shape' || outline.shape.kind !== 'star') throw new Error('no star');
     if (body?.kind !== 'shape' || body.shape.kind !== 'rect') throw new Error('no body');
-    expect(outline.shape.points).toBe(12);
+    expect(outline.shape.points).toBe(18);
     // The star's inner core follows the fitted text container.
     expect(outline.shape.innerRadius).toBeCloseTo(Math.max(body.shape.w, body.shape.h) / 2, 1);
     const tail = doc.nodes[created.tailNodeIds[0]!];
@@ -555,7 +555,7 @@ describe('shaped balloons (burst and cloud)', () => {
     if (cloudOutline?.kind !== 'shape' || cloudOutline.shape.kind !== 'star') {
       throw new Error('no star');
     }
-    expect(cloudOutline.shape.points).toBe(12);
+    expect(cloudOutline.shape.points).toBe(18);
 
     const speech = updateCalloutKind(cloud, created.groupId, 'speech');
     const speechGroup = speech.nodes[created.groupId] as GroupNode;
@@ -591,5 +591,39 @@ describe('shaped balloons (burst and cloud)', () => {
     const cloned = result.nodes[result.rootId] as GroupNode;
     expect(cloned.callout?.outlineNodeId).toBe(result.idMap.get(outlineId!));
     expect(result.nodes[cloned.callout!.outlineNodeId!]).toBeDefined();
+  });
+
+  it('keeps a shallow-angle tail from collapsing to a sliver', () => {
+    const created = createCallout(createDocument('sliver', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      tailEndpoint: { x: 170, y: 92 },
+    });
+    const tail = created.document.nodes[created.tailNodeIds[0]!];
+    if (tail?.kind !== 'path') throw new Error('no tail');
+    const ys = tail.points.map((point) => point.y);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThanOrEqual(10);
+  });
+
+  it('anchors a wrapped cloud tail below the outline, not the body box', () => {
+    const text = makeTextNode('cloud-wrap', 'Hello', {
+      transform: [1, 0, 0, 1, 0, 0],
+      w: 80,
+      h: 36,
+    });
+    const wrapped = wrapTextInCallout(addNode(createDocument('wrap-cloud', true), text), text.id, {
+      kind: 'cloud',
+    });
+    expect(wrapped).not.toBeNull();
+    const group = wrapped!.document.nodes[wrapped!.groupId] as GroupNode;
+    const outline = wrapped!.document.nodes[group.callout!.outlineNodeId!];
+    const tail = wrapped!.document.nodes[group.callout!.tailNodeIds[0]!];
+    if (outline?.kind !== 'shape' || outline.shape.kind !== 'star') throw new Error('no star');
+    if (tail?.kind !== 'path') throw new Error('no tail');
+    const outlineBottom =
+      outline.shape.cy + outline.shape.outerRadius * Math.cos(Math.PI / outline.shape.points);
+    expect(tail.points[1]!.y).toBeGreaterThan(outlineBottom);
   });
 });

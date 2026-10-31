@@ -121,7 +121,9 @@ export function isShapedCalloutKind(kind: CalloutKind): boolean {
 }
 
 const BURST_INNER_RATIO = 0.62;
-const CLOUD_INNER_RATIO = 0.9;
+const CLOUD_INNER_RATIO = 0.82;
+const CLOUD_POINTS = 18;
+const BURST_POINTS = 14;
 
 /**
  * Star geometry for a shaped balloon. The star's inner radius tracks the text
@@ -141,7 +143,7 @@ function outlineStarShape(
     cy: h / 2,
     innerRadius: inner,
     outerRadius: inner / ratio,
-    points: kind === 'cloud' ? 12 : 14,
+    points: kind === 'cloud' ? CLOUD_POINTS : BURST_POINTS,
     rotation: 0,
   };
 }
@@ -245,7 +247,11 @@ function pointedTailPoints(
   const baseY = Math.max(0, h - (options?.baseInset ?? (options?.strokeWeight ?? 2) + 1));
   const left = point(cx - base / 2, baseY);
   const right = point(cx + base / 2, baseY);
-  const tip = point(endpoint.x, endpoint.y);
+  const minTailHeight = Math.max(10, base * 0.35);
+  const rawDy = endpoint.y - baseY;
+  const tipY =
+    Math.abs(rawDy) < minTailHeight ? baseY + Math.sign(rawDy || 1) * minTailHeight : endpoint.y;
+  const tip = point(endpoint.x, tipY);
   const curve = Math.max(-1, Math.min(1, options?.curve ?? 0));
   if (curve !== 0) {
     const control = tailControlPoint({ x: cx, y: baseY }, endpoint, curve);
@@ -696,7 +702,6 @@ export function wrapTextInCallout(
     w,
     h,
     padding,
-    tailEndpoint: { x: w / 2, y: h + Math.max(24, options.tailLength ?? 32) },
     parentId,
   });
   let next = created.document;

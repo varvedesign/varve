@@ -184,7 +184,7 @@ function reportOverlaps(parent: EmailIrNode, warnings: EmailIrWarning[]): void {
         sourceNodeId: first.sourceNodeId,
         category: 'layout',
         suggestedFix: semantic
-          ? 'Separate the overlapping objects, or move the artwork into a background colour.'
+          ? 'Put each text block in its own frame, separate the overlapping objects, or move the artwork into a background colour.'
           : 'Group the artwork and mark it decorative so it can be rasterised as one image.',
       });
       return; // one report per container is enough to point the designer at it

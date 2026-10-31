@@ -330,9 +330,11 @@ function layoutParagraph(
     return [{ text: '', width: 0, height: emptyHeight }];
   }
 
-  // A contour profile narrows specific lines; the caller's maxWidth stays the
-  // hard cap. `lineOffset` makes the profile index global across paragraphs.
-  const hardLimit = maxWidth ?? 0;
+  // A contour profile narrows specific lines. Words that fit the widest
+  // authored line move whole; only tokens wider than every line char-break.
+  // Using the current (often crown) line as the hard cap mid-word-broke
+  // ellipse balloons.
+  const hardLimit = Math.max(maxWidth ?? 0, ...(lineWidths ?? []));
   const limitForLine = (lineIndex: number): number | null => {
     if (!lineWidths || lineWidths.length === 0) return maxWidth;
     if (maxWidth === null) return lineWidthAt(lineWidths, hardLimit, lineIndex + lineOffset);

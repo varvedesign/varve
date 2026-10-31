@@ -442,6 +442,24 @@ describe('contour (balloon) wrapping', () => {
     expect(tall.lines[0]!.width).toBeGreaterThan(150);
   });
 
+  it('does not mid-word-break a token that fits the ellipse equator', () => {
+    // Crown lines of an ellipse are narrower than the box. A word that
+    // overflows the crown but fits the equator must move whole; char-breaking
+    // it against the crown produced "some" / "thing" in comic balloons.
+    setTextAdvanceMeasurer(monospace(10));
+    const contour = resolveTextGeometry({
+      ...BASE,
+      text: 'something something something something',
+      w: 200,
+      h: 200,
+      textResizing: 'fixed',
+      textWrapShape: 'ellipse',
+    });
+    const words = contour.lines.flatMap((line) => line.text.trim().split(/\s+/).filter(Boolean));
+    expect(words.length).toBeGreaterThan(0);
+    expect(words.every((word) => word === 'something')).toBe(true);
+  });
+
   it('ignores the contour for vertical writing so columns stay rectangular', () => {
     setTextAdvanceMeasurer(monospace(10));
     const vertical = resolveTextGeometry({
