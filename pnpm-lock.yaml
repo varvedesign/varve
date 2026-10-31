@@ -37,7 +37,7 @@ overrides:
   minimatch@>=9: 11.0.3
 
 patchedDependencies:
-  braces@3.0.3: a6e05b72366c236c173e82dfdb1ef4062020f7ef190f9fdd72955ae33a8ec874
+  braces@3.0.3: 2be9984984f84c5ba56989d174cf9de2e9470604f53b21eb8a125b2f5f03cdfb
   extract-zip@2.0.1: be6a52b47b68a28a08db1a720a187a7f7090ba4bb0bc6eebd597341e00b537e1
   jsdom@30.0.1: c1fbc7747d25c1bda478526476bf792e8f1d1ebf018b7b5f4e2e391ea9e9728f
 
