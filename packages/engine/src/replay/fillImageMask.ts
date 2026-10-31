@@ -1,6 +1,6 @@
 import type { ImagePlacement, ImagePlacementRect } from '../imagePlacement';
 import type { ReplayTarget } from '../replayTypes';
-import { drawPlacedImageSample } from './fillImage';
+import { drawPlacedImageSample } from './imageSample';
 
 const MASK_CACHE_MAX_ENTRIES = 24;
 const MASK_CACHE_MAX_PIXELS = 16_777_216;

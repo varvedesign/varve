@@ -1,11 +1,11 @@
 import { getImageCache } from '../imageCache';
 import { paintWarpedImage, resolveReplayImage } from '../mockup/warpReplay';
 import { pathFillRule, pathRings } from '../pathCompound';
-import { imageLookupForCurrentReplay } from '../replay';
 import type { ReplayTarget } from '../replayTypes';
 import { tracePathRing } from '../strokeReplay';
 import type { RenderItem } from '../types';
 import { paintRasterLayer } from './raster';
+import { replayRuntime } from './runtime';
 import { paintTable } from './table';
 import { paintText } from './text';
 
@@ -171,7 +171,7 @@ export function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
       break;
     case 'warpedImage':
       paintWarpedImage(target, p, (src) =>
-        resolveReplayImage(src, imageLookupForCurrentReplay, getImageCache()),
+        resolveReplayImage(src, replayRuntime.imageLookup, getImageCache()),
       );
       break;
     default:

@@ -5,10 +5,10 @@ import { computePointwiseFilterSurface } from '../filterSurfaceRegion';
 import { filterToCss, supportsCanvasFilter } from '../filters';
 import type { ReplayImagePolicy } from '../mockup/warpReplay';
 import { createRasterSurface } from '../rasterSurface';
-import { effectMaskResolverForCurrentReplay, replayIr } from '../replay';
 import type { ReplayTarget } from '../replayTypes';
 import type { RenderItem } from '../types';
 import { primitiveBounds } from './primitiveBounds';
+import { replayRuntime } from './runtime';
 import type { EffectMaskResolver, ReplayAffine, ReplayColorOptions } from './types';
 
 function multiplyReplayAffine(left: ReplayAffine, right: ReplayAffine): ReplayAffine {
@@ -130,7 +130,9 @@ export function replayItemOnIsolatedSurface(
     matrix.e - (region?.x ?? 0),
     matrix.f - (region?.y ?? 0),
   );
-  replayIr(
+  const nestedReplay = replayRuntime.nestedReplay;
+  if (!nestedReplay) return false;
+  nestedReplay(
     surface.context as unknown as ReplayTarget,
     [
       {
@@ -141,7 +143,7 @@ export function replayItemOnIsolatedSurface(
       },
     ],
     imageLookup,
-    effectMaskResolver ?? effectMaskResolverForCurrentReplay ?? undefined,
+    effectMaskResolver ?? replayRuntime.effectMaskResolver ?? undefined,
     imagePolicy,
     colorOptions,
   );

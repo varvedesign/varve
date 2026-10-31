@@ -8,10 +8,10 @@ import { gradientStrokeToFill, paintStroke as replayPaintStroke } from '../strok
 import type { RenderItem, Stroke } from '../types';
 import { backdropCacheKey, getBackdropCache, setBackdropCache } from './backdropCache';
 import { rgba } from './color';
-import { createEffectBuffer } from './effect';
+import { createEffectBuffer } from './effectBuffer';
 import { reportEffectDiagnostic } from './effectDiagnostics';
-import { paintFill } from './fill';
 import { paintImageFill } from './fillImage';
+import { paintFill } from './paintFill';
 import { paintShapeFill, traceOutline } from './primitive';
 import { primitiveBounds } from './primitiveBounds';
 import { paintCanonicalTextStroke } from './textCanonical';

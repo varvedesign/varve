@@ -27,6 +27,7 @@ import { paintContentEffects } from './replay/effect';
 import { reportUnsupportedEffectMasks } from './replay/effectDiagnostics';
 import { paintFillsAndStrokes } from './replay/fill';
 import { replayItemOnIsolatedSurface, treatmentSpaceForReplayItem } from './replay/isolatedSurface';
+import { replayRuntime } from './replay/runtime';
 import type {
   ChromaticAberrationEffect,
   DepthBlurEffect,
@@ -55,17 +56,12 @@ export type { ReplayGradient, ReplayPattern, ReplayTarget } from './replayTypes'
 
 /** Replay `ir` into `target` (a 2D context). Clears nothing; caller manages. */
 /**
- * Module-level image lookup for the current replayIr call.
- * Set before calling internal paint functions, used by paintImageFill.
- * This avoids threading a parameter through 7 levels of function calls.
+ * Per-replay mutable state lives in ./replay/runtime.ts so moved paint modules
+ * can read the current lookup/policy/resolver without importing this
+ * orchestrator (which would create dependency cycles). This function is the
+ * only writer: it saves the previous values, installs the current ones, and
+ * restores them in the finally block below.
  */
-export let imageLookupForCurrentReplay: ((src: string) => CanvasImageSource | undefined) | null =
-  null;
-export let effectMaskResolverForCurrentReplay: EffectMaskResolver | null = null;
-export let imagePolicyForCurrentReplay: ReplayImagePolicy | undefined;
-
-export let effectDiagnosticSinkForCurrentReplay: ((diagnostic: EffectDiagnostic) => void) | null =
-  null;
 
 /**
  * Replay a list of render items to the given canvas target.
@@ -92,14 +88,14 @@ export function replayIr(
   backdropCache.clear();
   // Frame-based gradient cache eviction
   advanceGradientCacheFrame();
-  const previousImageLookup = imageLookupForCurrentReplay;
-  const previousEffectMaskResolver = effectMaskResolverForCurrentReplay;
-  const previousImagePolicy = imagePolicyForCurrentReplay;
-  const previousEffectDiagnosticSink = effectDiagnosticSinkForCurrentReplay;
-  imageLookupForCurrentReplay = imageLookup ?? previousImageLookup;
-  effectMaskResolverForCurrentReplay = effectMaskResolver ?? previousEffectMaskResolver;
-  imagePolicyForCurrentReplay = imagePolicy ?? previousImagePolicy;
-  effectDiagnosticSinkForCurrentReplay = onEffectDiagnostic ?? previousEffectDiagnosticSink;
+  const previousImageLookup = replayRuntime.imageLookup;
+  const previousEffectMaskResolver = replayRuntime.effectMaskResolver;
+  const previousImagePolicy = replayRuntime.imagePolicy;
+  const previousEffectDiagnosticSink = replayRuntime.diagnosticSink;
+  replayRuntime.imageLookup = imageLookup ?? previousImageLookup;
+  replayRuntime.effectMaskResolver = effectMaskResolver ?? previousEffectMaskResolver;
+  replayRuntime.imagePolicy = imagePolicy ?? previousImagePolicy;
+  replayRuntime.diagnosticSink = onEffectDiagnostic ?? previousEffectDiagnosticSink;
   try {
     primeCanvasTypographyAliases(target, ir);
     for (const item of ir) {
@@ -108,9 +104,9 @@ export function replayIr(
         replayItemOnIsolatedSurface(
           target,
           item,
-          imageLookupForCurrentReplay ?? undefined,
-          effectMaskResolverForCurrentReplay ?? undefined,
-          imagePolicyForCurrentReplay ?? undefined,
+          replayRuntime.imageLookup ?? undefined,
+          replayRuntime.effectMaskResolver ?? undefined,
+          replayRuntime.imagePolicy as ReplayImagePolicy | undefined,
           colorOptions,
         )
       ) {
@@ -241,7 +237,7 @@ export function replayIr(
             contentEffects,
             itemAlpha,
             itemBlend,
-            effectMaskResolverForCurrentReplay ?? undefined,
+            replayRuntime.effectMaskResolver ?? undefined,
           );
         } else {
           paintFillsAndStrokes(target, item, itemAlpha, itemBlend);
@@ -351,12 +347,32 @@ export function replayIr(
       }
     }
   } finally {
-    imageLookupForCurrentReplay = previousImageLookup;
-    effectMaskResolverForCurrentReplay = previousEffectMaskResolver;
-    imagePolicyForCurrentReplay = previousImagePolicy;
-    effectDiagnosticSinkForCurrentReplay = previousEffectDiagnosticSink;
+    replayRuntime.imageLookup = previousImageLookup;
+    replayRuntime.effectMaskResolver = previousEffectMaskResolver;
+    replayRuntime.imagePolicy = previousImagePolicy;
+    replayRuntime.diagnosticSink = previousEffectDiagnosticSink;
   }
 }
+// Break the orchestrator <-> moved-module cycle: paint modules recurse into the
+// replay entry point through this hook instead of importing ../replay.
+replayRuntime.nestedReplay = (
+  target,
+  ir,
+  imageLookupArg,
+  effectMaskResolverArg,
+  imagePolicyArg,
+  colorOptionsArg,
+) => {
+  replayIr(
+    target,
+    ir,
+    imageLookupArg,
+    effectMaskResolverArg,
+    imagePolicyArg as ReplayImagePolicy | undefined,
+    colorOptionsArg,
+  );
+};
+
 export { renderAlphaMask } from './replay/alphaMask';
 export { __clearBackdropCache, __getBackdropCacheSize } from './replay/backdropCache';
 export { contentEffectPadding } from './replay/effect';
