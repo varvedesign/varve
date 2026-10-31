@@ -468,28 +468,36 @@ function buildIR(doc: Document): IRDocument {
 }
 
 /**
- * Active-page artwork plus leftover flat roots, excluding other pages'
- * content roots and any leaked inactive descendants.
+ * Active-page artwork plus leftover flat roots, excluding page and Design
+ * Canvas content roots and any leaked inactive descendants.
  */
 export function documentSceneRootIds(doc: Document): string[] {
   const pageRoots = activePageNodes(doc);
-  // activePageNodes already includes the active page and global roots. The
-  // legacy root list is still needed for flat documents, but in paged
-  // documents it also contains roots from other pages.
-  const pageContentRoots = new Set<string>();
-  const inactivePageNodes = new Set<string>();
+  // activePageNodes already includes the active page / canvas children and
+  // global roots. The legacy root list is still needed for flat documents,
+  // but in paged and Design Canvas documents it also contains the surface
+  // content roots themselves, which would emit the whole email twice.
+  const excludedRoots = new Set<string>();
+  const inactiveSurfaceNodes = new Set<string>();
   if (doc.activePageId && doc.pages?.length) {
     for (const page of doc.pages) {
-      pageContentRoots.add(page.contentRoot);
+      excludedRoots.add(page.contentRoot);
       if (page.id !== doc.activePageId)
-        collectSceneSubtree(page.contentRoot, doc, inactivePageNodes);
+        collectSceneSubtree(page.contentRoot, doc, inactiveSurfaceNodes);
     }
+  }
+  const canvases = doc.designCanvases ?? [];
+  const activeCanvasId = doc.activeDesignCanvasId ?? canvases[0]?.id;
+  for (const canvas of canvases) {
+    excludedRoots.add(canvas.contentRoot);
+    if (canvas.id !== activeCanvasId)
+      collectSceneSubtree(canvas.contentRoot, doc, inactiveSurfaceNodes);
   }
   return [
     ...new Set([
       ...pageRoots,
       ...doc.rootChildren.filter(
-        (rootId) => !pageContentRoots.has(rootId) && !inactivePageNodes.has(rootId),
+        (rootId) => !excludedRoots.has(rootId) && !inactiveSurfaceNodes.has(rootId),
       ),
     ]),
   ];

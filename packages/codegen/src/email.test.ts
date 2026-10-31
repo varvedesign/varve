@@ -3,6 +3,7 @@ import {
   addNode,
   addPage,
   createDocument,
+  createNewDocument,
   DEFAULT_EMAIL_PROFILE,
   DEFAULT_EMAIL_SEMANTIC_MAP,
   makeFrameNode,
@@ -428,6 +429,42 @@ describe('email output', () => {
     expect(count('AUDIT-INACTIVE-TOKEN-4d1e')).toBe(0);
   });
 
+  it('emits a single-design-canvas document once in HTML and plain text', () => {
+    const created = createNewDocument({ documentName: 'Newsletter' });
+    if (!created.ok) throw new Error(created.error);
+    let doc = created.result.document;
+    const canvasRoot = doc.designCanvases?.[0]?.contentRoot;
+    if (!canvasRoot) throw new Error('Expected a design canvas');
+
+    const heading = makeTextNode('heading-1', 'AUDIT-HEADING-TOKEN-a1');
+    const cta = makeTextNode('cta-copy', 'AUDIT-CTA-TOKEN-b2');
+    doc = addChild(doc, canvasRoot, heading);
+    doc = addChild(doc, canvasRoot, cta);
+    doc = {
+      ...doc,
+      emailProfile: DEFAULT_EMAIL_PROFILE,
+      emailSemantics: DEFAULT_EMAIL_SEMANTIC_MAP,
+    };
+
+    const designIr = sceneToIR(doc);
+    expect(
+      designIr.rootIds.some((id) => designIr.nodes[id]?.metadata.sourceNodeId === canvasRoot),
+    ).toBe(false);
+
+    const result = compileEmail(doc, designIr, {
+      profile: 'modern',
+      provider: 'generic',
+    });
+    const html = emitEmailHtml(result.ir).html;
+    const text = emitEmailPlainText({ ...result.ir, plainText: '' });
+    const count = (haystack: string, token: string) => haystack.split(token).length - 1;
+
+    expect(count(html, 'AUDIT-HEADING-TOKEN-a1')).toBe(1);
+    expect(count(html, 'AUDIT-CTA-TOKEN-b2')).toBe(1);
+    expect(count(text, 'AUDIT-HEADING-TOKEN-a1')).toBe(1);
+    expect(count(text, 'AUDIT-CTA-TOKEN-b2')).toBe(1);
+  });
+
   it('emits safe linked content and plain text', () => {
     const ir = fixture({
       nodes: [
@@ -486,6 +523,80 @@ describe('email output', () => {
     expect(output.html).not.toContain('background-color: #111111; color: #111111');
     expect(emitEmailPlainText({ ...ir, plainText: '' })).toContain('Shop now');
     expect(emitEmailPlainText({ ...ir, plainText: '' })).toContain('https://shop.example');
+  });
+
+  function compileButtonFromScene(opts: {
+    buttonName: string;
+    buttonFill: { r: number; g: number; b: number };
+    labelFill: { r: number; g: number; b: number };
+    explicit?: boolean;
+  }) {
+    const created = createNewDocument({ documentName: 'CTA' });
+    if (!created.ok) throw new Error(created.error);
+    let doc = created.result.document;
+    const canvasRoot = doc.designCanvases?.[0]?.contentRoot;
+    if (!canvasRoot) throw new Error('Expected a design canvas');
+
+    const button = makeFrameNode('cta-btn', {
+      name: opts.buttonName,
+      w: 160,
+      h: 44,
+      fill: {
+        space: 'rgb',
+        r: opts.buttonFill.r,
+        g: opts.buttonFill.g,
+        b: opts.buttonFill.b,
+        a: 255,
+      },
+    });
+    const label = makeTextNode('cta-label', 'Shop now', {
+      fill: { space: 'rgb', r: opts.labelFill.r, g: opts.labelFill.g, b: opts.labelFill.b, a: 255 },
+    });
+    doc = addChild(doc, canvasRoot, button);
+    doc = addChild(doc, button.id, label);
+    doc = {
+      ...doc,
+      emailProfile: DEFAULT_EMAIL_PROFILE,
+      emailSemantics: {
+        ...DEFAULT_EMAIL_SEMANTIC_MAP,
+        nodes: opts.explicit ? { 'cta-btn': { kind: 'button', inferred: false } } : {},
+        nodeLinks: {
+          'cta-btn': { kind: 'web', url: 'https://shop.example' },
+        },
+      },
+    };
+
+    return compileEmail(doc, sceneToIR(doc), {
+      profile: 'modern',
+      provider: 'generic',
+    });
+  }
+
+  it('uses the label fill, not the button fill, for an explicit dark button', () => {
+    const result = compileButtonFromScene({
+      buttonName: 'Shop frame',
+      buttonFill: { r: 20, g: 120, b: 80 },
+      labelFill: { r: 255, g: 255, b: 255 },
+      explicit: true,
+    });
+    const html = emitEmailHtml(result.ir).html;
+    expect(html).toContain('background-color: rgb(20,120,80)');
+    expect(html).toContain('color: rgb(255,255,255)');
+    expect(html).not.toContain('background-color: rgb(20,120,80); color: rgb(20,120,80)');
+    expect(html).toContain('>Shop now</a>');
+  });
+
+  it('uses the label fill, not the button fill, for an auto-detected light button', () => {
+    const result = compileButtonFromScene({
+      buttonName: 'Shop Button',
+      buttonFill: { r: 255, g: 255, b: 255 },
+      labelFill: { r: 17, g: 17, b: 17 },
+    });
+    const html = emitEmailHtml(result.ir).html;
+    expect(html).toContain('background-color: rgb(255,255,255)');
+    expect(html).toContain('color: rgb(17,17,17)');
+    expect(html).not.toContain('background-color: rgb(255,255,255); color: rgb(255,255,255)');
+    expect(html).toContain('>Shop now</a>');
   });
 
   it('emits left alignment explicitly for linked and unlinked live text', () => {

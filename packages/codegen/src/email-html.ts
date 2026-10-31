@@ -549,7 +549,7 @@ function emitButton(
 
   // Button as table for Outlook compatibility
   const bgColor = node.styles['background-color'] ?? '#000000';
-  const textColor = node.styles.color ?? '#ffffff';
+  const textColor = buttonLabelColor(node);
   const padding = node.styles.padding ?? '12px 24px';
   const borderRadius = node.styles['border-radius'];
 
@@ -586,6 +586,31 @@ function buttonLabel(node: EmailIrNode): string {
   };
   for (const child of node.children) visit(child);
   return labels.join(' ').trim();
+}
+
+function buttonLabelColor(node: EmailIrNode): string {
+  const fromLabel = firstDescendantTextColor(node);
+  if (fromLabel) return fromLabel;
+  const own = node.styles.color;
+  const background = node.styles['background-color'];
+  if (own && own !== background) return own;
+  return own ?? '#ffffff';
+}
+
+function firstDescendantTextColor(node: EmailIrNode): string | undefined {
+  const visit = (child: EmailIrNode): string | undefined => {
+    if (child.content?.text && child.styles.color) return child.styles.color;
+    for (const nested of child.children) {
+      const found = visit(nested);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  for (const child of node.children) {
+    const found = visit(child);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 function firstDescendantLink(node: EmailIrNode): EmailIrLink | undefined {
