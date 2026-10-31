@@ -198,7 +198,9 @@ describe('BatchBgRemoveDialog', () => {
     expect(screen.getByText('AI Balanced')).toBeTruthy();
     await waitFor(() => {
       expect(
-        screen.getByText(/This model can only be downloaded in the desktop app/i),
+        screen.getByText(
+          /High quality and the IS-Net upgrade can only be downloaded in the desktop app/i,
+        ),
       ).toBeTruthy();
     });
     expect(screen.queryByText('AI Quality')).toBeNull();

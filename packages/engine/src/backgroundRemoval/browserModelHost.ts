@@ -17,6 +17,10 @@ export function isGithubReleaseAssetUrl(url: string): boolean {
 export const DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE =
   'This model can only be downloaded in the desktop app.';
 
+/** Hint under the web method picker; names the models it applies to. */
+export const WEB_DESKTOP_ONLY_MODELS_HINT =
+  'High quality and the IS-Net upgrade can only be downloaded in the desktop app.';
+
 /** @deprecated Use DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE. */
 export const HIGH_QUALITY_DESKTOP_ONLY_MESSAGE = DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE;
 

@@ -24,6 +24,7 @@ export {
   HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
   isBrowserBlockedSegmentationModel,
   isGithubReleaseAssetUrl,
+  WEB_DESKTOP_ONLY_MODELS_HINT,
 } from './browserModelHost';
 export type { CategoryProfile, ImageCategoryFeatures } from './categoryTuning';
 export {

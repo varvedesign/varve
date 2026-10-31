@@ -14,9 +14,9 @@ import {
   checkGifExportSupport,
   checkVideoExportSupport,
   computeVideoFrameCount,
-  DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE,
   getEnvironmentCapabilities,
   getModelLoaderReady,
+  WEB_DESKTOP_ONLY_MODELS_HINT,
   workerModelIdForMethod,
 } from '@varve/engine';
 import { isTauriRuntime } from '@varve/platform';
@@ -1157,7 +1157,7 @@ export function ExportDialog({
                     />
                     {!aiEnabled && <p className="export-dialog__note">{AI_DISABLED_HINT}</p>}
                     {aiEnabled && !isDesktop && (
-                      <p className="export-dialog__note">{DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE}</p>
+                      <p className="export-dialog__note">{WEB_DESKTOP_ONLY_MODELS_HINT}</p>
                     )}
                     {aiEnabled && bgMethod !== 'quick' && !aiAvailable && (
                       <button

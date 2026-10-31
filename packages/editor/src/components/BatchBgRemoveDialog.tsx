@@ -8,12 +8,12 @@
  */
 
 import {
-  DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE,
   getEnvironmentCapabilities,
   getImageCache,
   getModelLoaderReady,
   isWasmModelSafe,
   removeBackground,
+  WEB_DESKTOP_ONLY_MODELS_HINT,
   workerModelIdForMethod,
 } from '@varve/engine';
 import { isTauriRuntime } from '@varve/platform';
@@ -498,7 +498,7 @@ export function BatchBgRemoveDialog({
                   </div>
                   {!aiEnabled && <p className="batch-bg-remove__hint">{AI_DISABLED_HINT}</p>}
                   {aiEnabled && !isDesktop && (
-                    <p className="batch-bg-remove__hint">{DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE}</p>
+                    <p className="batch-bg-remove__hint">{WEB_DESKTOP_ONLY_MODELS_HINT}</p>
                   )}
                 </section>
 

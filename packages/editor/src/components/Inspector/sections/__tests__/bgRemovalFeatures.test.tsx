@@ -1034,7 +1034,7 @@ describe('BackgroundRemovalSection - web GitHub-hosted model availability', () =
     render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
     await waitFor(() => {
       expect(screen.getByTestId('bg-desktop-only-model').textContent).toMatch(
-        /this model can only be downloaded in the desktop app/i,
+        /high quality and the is-net upgrade can only be downloaded in the desktop app/i,
       );
     });
     fireEvent.click(screen.getByLabelText('Background removal method'));

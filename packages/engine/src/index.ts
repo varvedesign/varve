@@ -158,6 +158,7 @@ export {
   TRIMap,
   terminateWorkerPool,
   trimapFromMask,
+  WEB_DESKTOP_ONLY_MODELS_HINT,
   workerModelIdForMethod,
 } from './backgroundRemoval';
 export * from './backup';

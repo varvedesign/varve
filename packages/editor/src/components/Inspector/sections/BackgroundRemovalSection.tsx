@@ -27,6 +27,7 @@ import {
   MOBILE_SAM_ENCODER_ID,
   MOBILE_SAM_PROVIDER_ID,
   SAM2_PROVIDER_ID,
+  WEB_DESKTOP_ONLY_MODELS_HINT,
   workerModelIdForMethod,
 } from '@varve/engine';
 import { isTauriRuntime } from '@varve/platform';
@@ -1411,7 +1412,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           {!aiEnabled && <p className="insp-hint">{AI_DISABLED_HINT}</p>}
           {aiEnabled && !isDesktop && (
             <p className="insp-hint" data-testid="bg-desktop-only-model">
-              {DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE}
+              {WEB_DESKTOP_ONLY_MODELS_HINT}
             </p>
           )}
           <span id="bg-method-desc" className="sr-only">
