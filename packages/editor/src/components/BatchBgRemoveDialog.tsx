@@ -8,14 +8,15 @@
  */
 
 import {
+  DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE,
   getEnvironmentCapabilities,
   getImageCache,
   getModelLoaderReady,
-  HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
   isWasmModelSafe,
   removeBackground,
   workerModelIdForMethod,
 } from '@varve/engine';
+import { isTauriRuntime } from '@varve/platform';
 import type {
   BackgroundRemovalMethod,
   Document,
@@ -129,7 +130,7 @@ export function BatchBgRemoveDialog({
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [wasmModelSafe, setWasmModelSafe] = useState(true);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => isTauriRuntime());
 
   const submittedNodesRef = useRef(nodes);
   submittedNodesRef.current = nodes;
@@ -497,7 +498,7 @@ export function BatchBgRemoveDialog({
                   </div>
                   {!aiEnabled && <p className="batch-bg-remove__hint">{AI_DISABLED_HINT}</p>}
                   {aiEnabled && !isDesktop && (
-                    <p className="batch-bg-remove__hint">{HIGH_QUALITY_DESKTOP_ONLY_MESSAGE}</p>
+                    <p className="batch-bg-remove__hint">{DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE}</p>
                   )}
                 </section>
 

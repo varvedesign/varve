@@ -812,8 +812,8 @@ describe('ModelLoader', () => {
 
   it('cancel mid-download aborts fetch and resets state to unavailable', async () => {
     const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    const { resetModelManifestCache } = await import('../modelManifest');
     resetModelLoader();
-    const loader = await getModelLoaderReady();
     const controller = new AbortController();
 
     vi.stubGlobal(
@@ -822,7 +822,7 @@ describe('ModelLoader', () => {
         if (String(url).includes('manifest.json')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ version: 1, models: [] }),
+            json: async () => mockManifest([new Uint8Array([1])]),
           });
         }
         if (init?.method === 'HEAD') {
@@ -839,6 +839,8 @@ describe('ModelLoader', () => {
       }),
     );
 
+    resetModelManifestCache();
+    const loader = await getModelLoaderReady();
     const download = loader.downloadModel('u2netp', undefined, controller.signal);
     controller.abort();
     await expect(download).rejects.toThrow(/cancelled/i);
@@ -847,12 +849,15 @@ describe('ModelLoader', () => {
     expect(mockDeletePartial).not.toHaveBeenCalled();
   });
 
-  it('refuses BiRefNet Lite downloads in the browser', async () => {
+  it('refuses GitHub-hosted background-removal downloads in the browser', async () => {
     const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
     resetModelLoader();
     const loader = await getModelLoaderReady();
     await expect(loader.downloadModel('birefnet-general-lite')).rejects.toThrow(
-      /High quality is available in the desktop app/,
+      /This model can only be downloaded in the desktop app/,
+    );
+    await expect(loader.downloadModel('isnet-general-use')).rejects.toThrow(
+      /This model can only be downloaded in the desktop app/,
     );
     expect(loader.getState()).toBe('error');
     expect(mockSave).not.toHaveBeenCalled();

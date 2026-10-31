@@ -197,7 +197,9 @@ describe('BatchBgRemoveDialog', () => {
     expect(screen.getByText('Quick')).toBeTruthy();
     expect(screen.getByText('AI Balanced')).toBeTruthy();
     await waitFor(() => {
-      expect(screen.getByText(/High quality is available in the desktop app/i)).toBeTruthy();
+      expect(
+        screen.getByText(/This model can only be downloaded in the desktop app/i),
+      ).toBeTruthy();
     });
     expect(screen.queryByText('AI Quality')).toBeNull();
     const radios = screen.getAllByRole('radio');

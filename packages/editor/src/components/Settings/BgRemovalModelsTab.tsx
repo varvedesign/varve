@@ -6,9 +6,9 @@
  */
 
 import {
+  DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE,
   deriveAcquisition,
   getModelLoaderReady,
-  HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
   isBrowserBlockedSegmentationModel,
   listAllModels,
   type RemovalMethod,
@@ -83,7 +83,8 @@ async function buildRows(
     }
 
     const installed = await loader.isModelAvailable(model.id);
-    const desktopOnly = !isTauriRuntime() && isBrowserBlockedSegmentationModel(model.id);
+    const desktopOnly =
+      !isTauriRuntime() && isBrowserBlockedSegmentationModel(model.id, model.remoteUrl);
     results.push({
       id: model.id,
       name: model.name,
@@ -323,7 +324,7 @@ export function BgRemovalModelsTab() {
                     )}
                     {!row.installed && !row.downloadable && (
                       <span className="bg-models-list__meta">
-                        {row.desktopOnly ? HIGH_QUALITY_DESKTOP_ONLY_MESSAGE : 'Unavailable'}
+                        {row.desktopOnly ? DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE : 'Unavailable'}
                       </span>
                     )}
                   </div>

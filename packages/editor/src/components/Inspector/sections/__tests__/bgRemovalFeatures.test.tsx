@@ -1028,15 +1028,18 @@ describe('BackgroundRemovalSection - Error normalization', () => {
   });
 });
 
-describe('BackgroundRemovalSection - web High quality availability', () => {
-  it('tells the user High quality is desktop-only and hides that method', async () => {
+describe('BackgroundRemovalSection - web GitHub-hosted model availability', () => {
+  it('hides High quality and Upgrade Balanced, and names the desktop-only limit', async () => {
+    mockExportIsModelAvailable.mockImplementation(async (id: string) => id !== 'isnet-general-use');
     render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
     await waitFor(() => {
-      expect(screen.getByTestId('bg-high-quality-desktop-only').textContent).toMatch(
-        /high quality is available in the desktop app/i,
+      expect(screen.getByTestId('bg-desktop-only-model').textContent).toMatch(
+        /this model can only be downloaded in the desktop app/i,
       );
     });
     fireEvent.click(screen.getByLabelText('Background removal method'));
-    expect(screen.queryByRole('option', { name: /high quality — fine details/i })).toBeNull();
+    expect(screen.queryByRole('option', { name: /high quality: fine details/i })).toBeNull();
+    fireEvent.click(await screen.findByRole('option', { name: /general photos/i }));
+    expect(screen.queryByRole('button', { name: /upgrade balanced/i })).toBeNull();
   });
 });

@@ -14,11 +14,12 @@ import {
   checkGifExportSupport,
   checkVideoExportSupport,
   computeVideoFrameCount,
+  DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE,
   getEnvironmentCapabilities,
   getModelLoaderReady,
-  HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
   workerModelIdForMethod,
 } from '@varve/engine';
+import { isTauriRuntime } from '@varve/platform';
 import { prefersReducedMotion } from '@varve/prototype';
 import type {
   BackgroundRemovalMethod,
@@ -376,7 +377,7 @@ export function ExportDialog({
   const [includeAiDisclosure, setIncludeAiDisclosure] = useState(true);
   const [bgMethod, setBgMethod] = useState<BackgroundRemovalMethod>('quick');
   const [aiAvailable, setAiAvailable] = useState(true);
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => isTauriRuntime());
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [videoExporting, setVideoExporting] = useState(false);
   const [videoProgress, setVideoProgress] = useState({ done: 0, total: 0 });
@@ -1156,7 +1157,7 @@ export function ExportDialog({
                     />
                     {!aiEnabled && <p className="export-dialog__note">{AI_DISABLED_HINT}</p>}
                     {aiEnabled && !isDesktop && (
-                      <p className="export-dialog__note">{HIGH_QUALITY_DESKTOP_ONLY_MESSAGE}</p>
+                      <p className="export-dialog__note">{DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE}</p>
                     )}
                     {aiEnabled && bgMethod !== 'quick' && !aiAvailable && (
                       <button

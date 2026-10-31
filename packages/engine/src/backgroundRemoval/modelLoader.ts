@@ -5,6 +5,7 @@ import { getUpscaleModel } from '../upscaleModels';
 import {
   browserBlockedModelDownloadMessage,
   isBrowserBlockedSegmentationModel,
+  isGithubReleaseAssetUrl,
 } from './browserModelHost';
 import { fetchWithTimeout } from './fetchWithTimeout';
 import { getManifestEntry, verifyModelChecksum } from './modelManifest';
@@ -1024,7 +1025,11 @@ class ModelLoader {
         return;
       }
 
-      if (isBrowserEnv() && isBrowserBlockedSegmentationModel(modelId)) {
+      if (
+        isBrowserEnv() &&
+        isGithubReleaseAssetUrl(remoteUrl) &&
+        isBrowserBlockedSegmentationModel(modelId, remoteUrl)
+      ) {
         throw new Error(browserBlockedModelDownloadMessage(modelId));
       }
 

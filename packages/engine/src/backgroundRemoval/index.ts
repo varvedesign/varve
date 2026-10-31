@@ -20,6 +20,7 @@ export type { AdaptiveSelection, AdaptiveSelectionOptions } from './adaptiveSele
 export { selectAdaptiveModel } from './adaptiveSelection';
 export {
   browserBlockedModelDownloadMessage,
+  DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE,
   HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
   isBrowserBlockedSegmentationModel,
   isGithubReleaseAssetUrl,

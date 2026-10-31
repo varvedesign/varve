@@ -1754,10 +1754,17 @@ mod tests {
         }
         let out = resize_mask(&mask, 4, 4, 8, 4);
         assert_eq!(out.len(), 32);
+        assert_eq!(&out[0..8], &[255, 255, 255, 191, 64, 0, 0, 0]);
         assert_eq!(out[0], 255);
         assert_eq!(out[7], 0);
         assert_eq!(out[24], 255);
         assert_eq!(out[31], 0);
+    }
+
+    #[test]
+    fn stretch_1x1_mask_fills_non_square_source() {
+        // Pinned to the TS squareInputResize parity suite.
+        assert_eq!(resize_mask(&[128], 1, 1, 3, 2), vec![128; 6]);
     }
 
     #[test]

@@ -102,6 +102,33 @@ describe('TS / Rust preprocessing parity contract', () => {
    * A 2x1 red/green row stretch-resized conceptually to 2x2 keeps both
    * rows identical; ImageNet packing must match the Rust NCHW loop.
    */
+  it('chooses stretch vs letterbox with the same aspect cutoff as Rust', () => {
+    expect(squareInputResizeMode(800, 600)).toBe('stretch');
+    expect(squareInputResizeMode(5, 2)).toBe('stretch');
+    expect(squareInputResizeMode(6, 2)).toBe('letterbox');
+    expect(squareInputResizeMode(2, 6)).toBe('letterbox');
+  });
+
+  it('inverse-stretches the same 4x4 half-mask Rust resize_mask does', () => {
+    const model = new Uint8Array(16);
+    for (let y = 0; y < 4; y++) {
+      for (let x = 0; x < 2; x++) {
+        model[y * 4 + x] = 255;
+      }
+    }
+    const out = reconstructSquareInputMask(model, 4, 4, 8, 4);
+    expect([...out.slice(0, 8)]).toEqual([255, 255, 255, 191, 64, 0, 0, 0]);
+    expect(out[0]).toBe(255);
+    expect(out[7]).toBe(0);
+    expect(out[24]).toBe(255);
+    expect(out[31]).toBe(0);
+  });
+
+  it('fills a 1x1 mask across a non-square source the same way as Rust', () => {
+    const out = reconstructSquareInputMask(new Uint8Array([128]), 1, 1, 3, 2);
+    expect([...out]).toEqual([128, 128, 128, 128, 128, 128]);
+  });
+
   it('packs ImageNet NCHW the same way as the Rust pack_rgba_nchw helper', () => {
     const spec = {
       inputSize: 2,

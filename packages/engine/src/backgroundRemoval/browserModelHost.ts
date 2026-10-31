@@ -1,3 +1,5 @@
+import { AVAILABLE_MODELS } from './types';
+
 /** GitHub Releases send no CORS headers, so a browser fetch cannot read them. */
 export function isGithubReleaseAssetUrl(url: string): boolean {
   try {
@@ -12,15 +14,22 @@ export function isGithubReleaseAssetUrl(url: string): boolean {
   }
 }
 
-export const HIGH_QUALITY_DESKTOP_ONLY_MESSAGE = 'High quality is available in the desktop app';
+export const DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE =
+  'This model can only be downloaded in the desktop app.';
 
-export function isBrowserBlockedSegmentationModel(modelId: string): boolean {
-  return modelId === 'birefnet-general-lite' || modelId === 'birefnet-general';
+/** @deprecated Use DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE. */
+export const HIGH_QUALITY_DESKTOP_ONLY_MESSAGE = DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE;
+
+export function segmentationModelRemoteUrl(modelId: string): string {
+  return AVAILABLE_MODELS.find((model) => model.id === modelId)?.remoteUrl ?? '';
 }
 
-export function browserBlockedModelDownloadMessage(modelId: string): string {
-  if (isBrowserBlockedSegmentationModel(modelId)) {
-    return HIGH_QUALITY_DESKTOP_ONLY_MESSAGE;
-  }
-  return 'This model cannot be downloaded in the browser. Use the desktop app.';
+/** True when this background-removal model is hosted on GitHub Releases. */
+export function isBrowserBlockedSegmentationModel(modelId: string, remoteUrl?: string): boolean {
+  if (!AVAILABLE_MODELS.some((model) => model.id === modelId)) return false;
+  return isGithubReleaseAssetUrl(remoteUrl ?? segmentationModelRemoteUrl(modelId));
+}
+
+export function browserBlockedModelDownloadMessage(_modelId?: string): string {
+  return DESKTOP_ONLY_MODEL_DOWNLOAD_MESSAGE;
 }
