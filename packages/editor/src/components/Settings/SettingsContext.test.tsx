@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadSettings } from '../../settings';
@@ -78,5 +80,14 @@ describe('SettingsContext', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Deny' }));
     expect(loadSettings().icons.remoteSearch).toBe('denied');
     expect(screen.getByTestId('resolved-consent').textContent).toBe('denied');
+  });
+
+  it('starts organisation policy through the shared loader only', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'packages/editor/src/components/Settings/SettingsContext.tsx'),
+      'utf8',
+    );
+    expect(source).toContain('beginOrganizationPolicyLoad');
+    expect(source).not.toMatch(/loadOrganizationPolicy\(\)\.then/);
   });
 });

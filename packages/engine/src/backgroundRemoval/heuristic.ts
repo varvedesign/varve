@@ -5,13 +5,41 @@ function isFullyTransparent(alpha: number): boolean {
   return alpha === 0;
 }
 
-/** True when any pixel is not fully opaque, including anti-aliased edges. */
+/** Share of a=0 pixels that means this is a cutout, not a rounded screenshot. */
+const SUBSTANTIAL_ALPHA_SHARE = 0.08;
+/** Share of the frame that is a=0 before we treat the image as a cutout. */
+const SUBSTANTIAL_BORDER_SHARE = 0.4;
+
+/**
+ * True when transparency is a real cutout: a meaningful share of pixels is
+ * fully transparent and/or much of the border is. A few rounded-corner or
+ * stray a<255 pixels must not skip segmentation.
+ */
 export function hasMeaningfulTransparency(img: ImageData): boolean {
-  const { data } = img;
+  const { data, width, height } = img;
+  if (width === 0 || height === 0) return false;
+  const total = width * height;
+  let transparent = 0;
   for (let i = 3; i < data.length; i += 4) {
-    if ((data[i] ?? 255) < 255) return true;
+    if ((data[i] ?? 255) === 0) transparent++;
   }
-  return false;
+  if (transparent / total >= SUBSTANTIAL_ALPHA_SHARE) return true;
+
+  let border = 0;
+  let borderTransparent = 0;
+  const count = (x: number, y: number) => {
+    border++;
+    if ((data[(y * width + x) * 4 + 3] ?? 255) === 0) borderTransparent++;
+  };
+  for (let x = 0; x < width; x++) {
+    count(x, 0);
+    if (height > 1) count(x, height - 1);
+  }
+  for (let y = 1; y < height - 1; y++) {
+    count(0, y);
+    if (width > 1) count(width - 1, y);
+  }
+  return border > 0 && borderTransparent / border >= SUBSTANTIAL_BORDER_SHARE;
 }
 
 /** Use the source alpha as the subject mask so leftover RGB is ignored and soft edges stay. */
@@ -145,6 +173,7 @@ export function kMeansMask(img: ImageData): Uint8Array {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
+      if (isFullyTransparent(data[i + 3] ?? 0)) continue;
       flattened.push({
         r: data[i] ?? 0,
         g: data[i + 1] ?? 0,

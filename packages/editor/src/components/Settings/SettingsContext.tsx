@@ -28,11 +28,7 @@ import {
   setLayoutPreference,
   setTabletControlsMirrored,
 } from '../../settings/layoutPresentation';
-import {
-  applyOrganizationAiPolicy,
-  beginOrganizationPolicyLoad,
-  loadOrganizationPolicy,
-} from '../../settings/organizationPolicy';
+import { beginOrganizationPolicyLoad } from '../../settings/organizationPolicy';
 import {
   dispatchIconRemoteSearchChanged,
   ICON_REMOTE_SEARCH_CHANGED_EVENT,
@@ -135,11 +131,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [settings.ai.enabled]);
 
   useEffect(() => {
-    // Startup hold-off / auxiliary windows use beginOrganizationPolicyLoad.
-    // This mount path also applies the fetched policy so Settings UI tests and
-    // a late provider still push the overlay into the engine gate.
     void beginOrganizationPolicyLoad();
-    void loadOrganizationPolicy().then(applyOrganizationAiPolicy);
   }, []);
 
   const updateSettings = useCallback(

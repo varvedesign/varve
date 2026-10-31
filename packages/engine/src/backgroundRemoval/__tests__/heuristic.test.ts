@@ -223,6 +223,21 @@ describe('kMeansMask', () => {
     const img = makeTestImage(8, 8, () => [12, 34, 56, 0]);
     expect(kMeansMask(img).every((v) => v === 0)).toBe(true);
   });
+
+  it('still segments an opaque subject when only the corners are transparent', () => {
+    const img = makeTestImage(40, 40, (x, y) => {
+      const corner =
+        (x < 2 && y < 2) || (x >= 38 && y < 2) || (x < 2 && y >= 38) || (x >= 38 && y >= 38);
+      if (corner) return [12, 34, 56, 0];
+      const subject = x >= 12 && x < 28 && y >= 12 && y < 28;
+      return subject ? [200, 40, 40, 255] : [180, 180, 180, 255];
+    });
+    const mask = kMeansMask(img);
+    expect(mask[0]).toBe(0);
+    const kept = [...mask].filter((v) => v >= 128).length;
+    expect(kept).not.toBe(1584);
+    expect(mask[20 * 40 + 20] !== mask[2 * 40 + 10]).toBe(true);
+  });
 });
 
 describe('adaptiveBorderMask', () => {
@@ -325,6 +340,23 @@ describe('removeBackgroundHeuristic', () => {
     expect(result.height).toBe(8);
     expect(result.rawMask?.[4 * 80 + 40]).toBe(255);
     expect(result.rawMask?.[0]).toBe(0);
+  });
+
+  it('auto still segments when only rounded-corner pixels are transparent', async () => {
+    const img = makeTestImage(40, 40, (x, y) => {
+      const corner =
+        (x < 2 && y < 2) || (x >= 38 && y < 2) || (x < 2 && y >= 38) || (x >= 38 && y >= 38);
+      if (corner) return [12, 34, 56, 0];
+      const subject = x >= 12 && x < 28 && y >= 12 && y < 28;
+      return subject ? [200, 40, 40, 255] : [180, 180, 180, 255];
+    });
+    const result = await removeBackgroundHeuristic(img, {
+      method: 'quick',
+      heuristicMethod: 'auto',
+    });
+    expect(result.rawMask?.[20 * 40 + 20]).toBe(255);
+    expect(result.rawMask?.[0]).toBe(0);
+    expect(result.rawMask?.filter((v) => (v ?? 0) >= 128)).toHaveLength(256);
   });
 
   it('auto uses source alpha when a cutout subject touches the frame', async () => {

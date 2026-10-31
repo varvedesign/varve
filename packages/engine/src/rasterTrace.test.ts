@@ -339,4 +339,55 @@ describe('quantizePalette hue preservation', () => {
     const hasBlue = palette.some((color) => color.b > 150 && color.r < 80);
     expect(hasBlue).toBe(true);
   });
+
+  function photoLikeField(): ImageData {
+    const w = 80;
+    const h = 80;
+    const pixels: number[] = [];
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        if (x === 0 && y === 0) pixels.push(33, 13, 2, 255);
+        else if (x === 1 && y === 0) pixels.push(33, 13, 2, 255);
+        else if (x === 2 && y === 0) pixels.push(251, 219, 192, 255);
+        else if (x >= 70 && y >= 70) pixels.push(191, 156, 137, 255);
+        else pixels.push(33, 108, 118, 255);
+      }
+    }
+    return rgba(w, h, pixels);
+  }
+
+  function logoRedWithHoleAndBlue(): ImageData {
+    const w = 64;
+    const h = 64;
+    const pixels: number[] = [];
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        const blue = x <= y && y < 6;
+        const hole = x >= 24 && x < 40 && y >= 24 && y < 40;
+        if (blue) pixels.push(20, 40, 220, 255);
+        else if (hole) pixels.push(255, 255, 255, 255);
+        else pixels.push(203, 42, 54, 255);
+      }
+    }
+    return rgba(w, h, pixels);
+  }
+
+  it.each([3, 4])('keeps the dominant teal on a photo-like field at maxColors %s', (maxColors) => {
+    const palette = quantizePalette(photoLikeField(), maxColors, false, 1);
+    const tealCount = palette
+      .filter((color) => color.r < 80 && color.g > 70 && color.b > 70)
+      .reduce((sum, color) => sum + color.count, 0);
+    expect(tealCount).toBeGreaterThan(5000);
+    expect(palette[0]?.r).toBeLessThan(80);
+    expect(palette.every((color) => color.count >= 16)).toBe(true);
+  });
+
+  it.each([3, 4])('keeps the dominant red on a logo at maxColors %s', (maxColors) => {
+    const palette = quantizePalette(logoRedWithHoleAndBlue(), maxColors, false, 1);
+    const red = palette.find((color) => color.r > 160 && color.g < 80 && color.b < 80);
+    expect(red).toBeDefined();
+    expect(red?.count ?? 0).toBeGreaterThan(2000);
+    const hasBlue = palette.some((color) => color.b > 150 && color.r < 80);
+    expect(hasBlue).toBe(true);
+  });
 });

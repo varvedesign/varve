@@ -588,6 +588,9 @@ export function quantizePalette(
 /** Oklab distance² above which a colour is a distinct hue, not a shade of a palette entry. */
 const DISTINCT_HUE_DIST_SQ = 0.018;
 const MIN_CHROMA = 0.04;
+/** Ignore 1-3 px specks. A 6 px triangle on 16x16 (2.3%) still qualifies. */
+const MIN_HUE_SHARE = 0.0025;
+const MIN_HUE_PIXELS = 4;
 
 function preserveDistinctHues(
   samples: OklabSample[],
@@ -596,6 +599,7 @@ function preserveDistinctHues(
 ): QuantizedColor[] {
   if (palette.length === 0 || samples.length === 0) return palette;
   const next = [...palette];
+  const minCount = Math.max(MIN_HUE_PIXELS, Math.ceil(samples.length * MIN_HUE_SHARE));
 
   const nearestDist = (r: number, g: number, b: number): number => {
     let best = Number.POSITIVE_INFINITY;
@@ -628,6 +632,7 @@ function preserveDistinctHues(
   const outliers = [...unique.values()]
     .filter(
       (color) =>
+        color.count >= minCount &&
         color.chroma >= MIN_CHROMA &&
         nearestDist(color.r, color.g, color.b) >= DISTINCT_HUE_DIST_SQ,
     )
@@ -641,18 +646,28 @@ function preserveDistinctHues(
       continue;
     }
     let steal = -1;
+    let survivor = -1;
     let stealDist = Number.POSITIVE_INFINITY;
     for (let i = 0; i < next.length; i++) {
-      for (let j = 0; j < next.length; j++) {
-        if (i === j) continue;
+      for (let j = i + 1; j < next.length; j++) {
         const d = oklabDistanceSq(next[i]!.r, next[i]!.g, next[i]!.b, next[j]!);
         if (d < stealDist) {
           stealDist = d;
-          steal = i;
+          if ((next[i]!.count ?? 0) <= (next[j]!.count ?? 0)) {
+            steal = i;
+            survivor = j;
+          } else {
+            steal = j;
+            survivor = i;
+          }
         }
       }
     }
-    if (steal < 0) break;
+    if (steal < 0 || survivor < 0) break;
+    next[survivor] = {
+      ...next[survivor]!,
+      count: (next[survivor]!.count ?? 0) + (next[steal]!.count ?? 0),
+    };
     next[steal] = entry;
   }
   return next.sort((a, b) => b.count - a.count);
