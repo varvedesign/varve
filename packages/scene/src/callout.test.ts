@@ -42,7 +42,7 @@ describe('comic callouts', () => {
     // The fill closes implicitly, but the outline must remain open so its
     // invisible base edge does not draw a black seam across the balloon.
     expect(tail.closed).toBe(false);
-    expect(tail.points[1]).toMatchObject({ x: 120, y: 132 });
+    expect(tail.points[1]).toMatchObject({ x: 120, y: 135 });
     expect(tail.points[0]!.y).toBe(97);
     expect(tail.points[2]!.y).toBe(97);
     expect(result.document.nodes[result.textId]?.kind).toBe('text');
@@ -669,6 +669,31 @@ describe('shaped balloons (burst and cloud)', () => {
     expect(tail.points[1]!.x).toBeCloseTo(pointTail.points[1]!.x, 5);
     expect(tail.points[1]!.y).toBeCloseTo(pointTail.points[1]!.y, 5);
     expect(tail.points[1]!.y).toBeGreaterThan(body.shape.h + 70);
+  });
+
+  it('defaults an omitted tail to max(32, 35 percent of height) and clamps short authored lengths', () => {
+    const tall = createCallout(createDocument('tail-default-tall', true), {
+      x: 0,
+      y: 0,
+      w: 120,
+      h: 200,
+      text: 'Hi',
+    });
+    const tallTail = tall.document.nodes[tall.tailNodeIds[0]!];
+    if (tallTail?.kind !== 'path') throw new Error('no tail');
+    expect(tallTail.points[1]!.y).toBeCloseTo(270, 5);
+
+    const short = createCallout(createDocument('tail-authored-short', true), {
+      x: 0,
+      y: 0,
+      w: 120,
+      h: 80,
+      tailLength: 10,
+      text: 'Hi',
+    });
+    const shortTail = short.document.nodes[short.tailNodeIds[0]!];
+    if (shortTail?.kind !== 'path') throw new Error('no tail');
+    expect(shortTail.points[1]!.y).toBeCloseTo(104, 5);
   });
 
   it('clamps shallow, zero-length, and interior tail tips without flipping x', () => {

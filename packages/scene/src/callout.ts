@@ -59,16 +59,29 @@ type RectCalloutBody = ShapeNode & {
 
 export interface CreateCalloutOptions {
   kind?: CalloutKind;
+  /** Group origin in parent space (the group's translation). */
   x: number;
+  /** Group origin in parent space (the group's translation). */
   y: number;
   w: number;
   h: number;
   text?: string;
   padding?: number;
+  /**
+   * Tip of the first pointed tail, in balloon-local coordinates. Origin is
+   * the group's top-left, the same space as `w`/`h`. `x`/`y` place the group
+   * in parent space and are not added into this point: `{ x: 100, y: 100 }`
+   * with `{ x: 160, y: 220 }` puts the group at parent (100, 100) and the tip
+   * at local (160, 220), which is parent (260, 320) only after the group
+   * transform is applied.
+   */
   tailEndpoint?: { x: number; y: number };
   /**
-   * Pointed-tail length in document units (the same local space as `w`/`h`).
-   * Used when `tailEndpoint` is omitted so area text and point text agree.
+   * Pointed-tail length in document units (the same local balloon space as
+   * `w`/`h`). Used when `tailEndpoint` is omitted so area text and point text
+   * agree. Values under 24 are clamped to 24 so a zero or negative length
+   * cannot hide the tip inside the body. When omitted, the default is
+   * `max(32, 35% of the tail-anchor height)`.
    */
   tailLength?: number;
   /** Base width of the pointed tail in px; derived from the body when omitted. */
@@ -633,6 +646,26 @@ function outlineNode(id: NodeId, w: number, h: number, kind: CalloutKind): Shape
   });
 }
 
+/** Floor for an authored `tailLength`; shorter tips sit inside the body. */
+const MIN_AUTHORED_TAIL_LENGTH = 24;
+/** Floor for the implied tail when `tailLength` is omitted. */
+const MIN_DEFAULT_TAIL_LENGTH = 32;
+/** Implied tail as a fraction of the tail-anchor height when omitted. */
+const DEFAULT_TAIL_LENGTH_RATIO = 0.35;
+
+/**
+ * Resolve the pointed-tail length used when `tailEndpoint` is omitted.
+ * An explicit length is honoured (clamped to 24). The historical default is
+ * `max(32, 0.35 * tailH)`, not a flat 32, so a tall balloon keeps a
+ * proportional tail.
+ */
+function resolveDefaultTailLength(tailH: number, tailLength?: number): number {
+  if (tailLength !== undefined && Number.isFinite(tailLength)) {
+    return Math.max(MIN_AUTHORED_TAIL_LENGTH, tailLength);
+  }
+  return Math.max(MIN_DEFAULT_TAIL_LENGTH, tailH * DEFAULT_TAIL_LENGTH_RATIO);
+}
+
 function defaultTailEndpoint(
   w: number,
   tailH: number,
@@ -640,7 +673,7 @@ function defaultTailEndpoint(
 ): { x: number; y: number } {
   return {
     x: w / 2,
-    y: tailH + Math.max(24, tailLength ?? 32),
+    y: tailH + resolveDefaultTailLength(tailH, tailLength),
   };
 }
 
@@ -956,7 +989,7 @@ function applyAuthoredTailLength(
   );
   return updateCalloutTailEndpoint(doc, groupId, firstTailId, {
     x: body.shape.w / 2,
-    y: anchorH + Math.max(24, tailLength ?? 32),
+    y: anchorH + resolveDefaultTailLength(anchorH, tailLength),
   });
 }
 

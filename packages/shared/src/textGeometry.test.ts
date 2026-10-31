@@ -460,10 +460,10 @@ describe('contour (balloon) wrapping', () => {
     expect(words.every((word) => word === 'something')).toBe(true);
   });
 
-  it('skips a too-narrow crown instead of splitting or dummy-wrapping a word that fits the equator', () => {
-    // Master used the box as the hard cap and flushed an empty first line
-    // (or left the word overflowing the crown). A 90px word in a 9-line
-    // ellipse has a crown near 86px and an equator near 188px.
+  it('keeps a box-fitting word whole instead of splitting it on a narrow crown', () => {
+    // The box is the hard cap. A 90px word in a 9-line ellipse has a crown
+    // near 86px and an equator near 188px; the word stays intact and may
+    // sit slightly past the crown rather than becoming "some" / "thing".
     setTextAdvanceMeasurer(monospace(10));
     const text = Array.from({ length: 12 }, () => 'something').join(' ');
     const contour = resolveTextGeometry({
