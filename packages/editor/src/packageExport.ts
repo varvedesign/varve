@@ -19,17 +19,11 @@ import {
   inheritedFontReference,
 } from '@varve/engine/font';
 import { dataUrlToBytes } from '@varve/import';
-import {
-  type Document,
-  type DocumentAsset,
-  DocumentCodec,
-  type Fill,
-  type NodeId,
-  type SceneNode,
-} from '@varve/scene';
+import type { Document, DocumentAsset, Fill, NodeId, SceneNode } from '@varve/scene';
 import { dtcgExport } from '@varve/ui/tokens';
 import { strToU8, zipSync } from 'fflate';
 import type { ExportReport } from './exportService';
+import { encodeDocumentJson } from './persistence/encodeWarnings';
 
 /**
  * Convert raw fsType embedding bits to a PackageFontEntry embedding status string.
@@ -140,7 +134,7 @@ export async function buildPackageExport(
   const assets = collectAssets(doc, pkg);
   const fonts = await collectFonts(doc, catalog, pkg);
 
-  addJson(pkg, 'document.varve', 'document', DocumentCodec.encode(doc));
+  addJson(pkg, 'document.varve', 'document', encodeDocumentJson(doc).json);
   addJson(pkg, 'tokens/tokens.dtcg.json', 'tokens', dtcgExport());
   addJson(pkg, 'assets/manifest.json', 'asset-manifest', { assets });
   addJson(pkg, 'fonts/manifest.json', 'font-manifest', {

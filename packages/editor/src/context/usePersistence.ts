@@ -9,7 +9,7 @@ import {
 } from '@varve/platform';
 import { type Document, DocumentCodec, validateDocument } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { commitLibrarySave } from '../persistence/librarySave';
 import { createSaveCoordinator } from '../persistence/saveCoordinator';
 import { flushPendingEdits } from './pendingEdits';
@@ -24,6 +24,14 @@ import {
   getPersistenceFontCatalog,
   serializeDocumentSnapshot as serializeDocumentSnapshotPure,
 } from '../persistence/documentRevision';
+import {
+  clearEncodeWarningState,
+  encodeDocumentJson,
+  setEncodeWarningToast,
+} from '../persistence/encodeWarnings';
+
+export { clearEncodeWarningState };
+
 import { type SaveIntent, type SaveOutcome, saveTargetFromSession } from '../persistence/saveTypes';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
@@ -75,7 +83,12 @@ export function usePersistence(
     doc: Document,
     viewport: Viewport,
   ) => { zoom: number; pan: { x: number; y: number } } | null,
+  reportEncodeWarning?: (message: string) => void,
 ): PersistenceAPI {
+  useEffect(() => {
+    setEncodeWarningToast(reportEncodeWarning);
+    return () => setEncodeWarningToast(undefined);
+  }, [reportEncodeWarning]);
   const serializeDocument = useCallback(() => {
     return serializeDocumentSnapshot(stateRef.current.document);
   }, [stateRef]);
@@ -125,21 +138,35 @@ export function usePersistence(
             patch,
             revision,
             stateRef.current.sessions.find((sess) => sess.id === stateRef.current.activeId)?.name,
+            reportEncodeWarning,
           );
         }
         if (intent === 'save-copy') {
-          const outcome = await performSaveCopy(platform, stateRef, patch, revision);
+          const outcome = await performSaveCopy(
+            platform,
+            stateRef,
+            patch,
+            revision,
+            reportEncodeWarning,
+          );
           patch({ saveState: prevSaveState, saveIssue: null });
           return outcome;
         }
-        return await performSave(platform, stateRef, recoveryRef, patch, revision);
+        return await performSave(
+          platform,
+          stateRef,
+          recoveryRef,
+          patch,
+          revision,
+          reportEncodeWarning,
+        );
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         patch({ saveState: 'error', saveIssue: issue('unknown-io', message) });
         return { status: 'failed', issue: issue('unknown-io', message) };
       }
     },
-    [platform, stateRef, recoveryRef, patch],
+    [platform, stateRef, recoveryRef, patch, reportEncodeWarning],
   );
 
   // Coordinator is created once; runSave only reads stable refs, so the
@@ -168,6 +195,7 @@ export function usePersistence(
       try {
         const decoded = DocumentCodec.decode(json);
         if (!decoded.ok) throw new Error(decoded.error);
+        clearEncodeWarningState();
         const doc = decoded.document;
         const result = validateDocument(doc);
         if (!result.valid && typeof console !== 'undefined') {
@@ -242,6 +270,7 @@ async function performSave(
   recoveryRef: React.MutableRefObject<RecoveryManager | null>,
   patch: (partial: Partial<EditorState>) => void,
   revision: Document,
+  reportEncodeWarning?: (message: string) => void,
 ): Promise<SaveOutcome> {
   const s = stateRef.current;
   const meta = s.sessions.find((sess) => sess.id === s.activeId);
@@ -251,14 +280,24 @@ async function performSave(
     return { status: 'failed', issue: e };
   }
   const target = saveTargetFromSession(meta);
-  const json = DocumentCodec.encode(s.document);
 
   // First save: the user picks a location. Never silently fall into
   // internal storage — recovery may keep running, but the UI may only say
   // "Saved" once the user chose a real destination and the write succeeded.
   if (target.kind === 'unsaved') {
-    return chooseAndAdopt(platform, stateRef, recoveryRef, patch, revision, meta.name);
+    return chooseAndAdopt(
+      platform,
+      stateRef,
+      recoveryRef,
+      patch,
+      revision,
+      meta.name,
+      reportEncodeWarning,
+    );
   }
+
+  const encoded = encodeDocumentJson(s.document, reportEncodeWarning);
+  const json = encoded.json;
 
   if (target.kind === 'download-only') {
     // Browser without the File System Access API: every Save produces a
@@ -366,6 +405,7 @@ async function chooseAndAdopt(
   patch: (partial: Partial<EditorState>) => void,
   revision: Document,
   name: string | undefined,
+  reportEncodeWarning?: (message: string) => void,
 ): Promise<SaveOutcome> {
   const choice = await platform.chooseDocumentSaveTarget(name ?? 'Untitled');
   if (choice.kind === 'cancelled') {
@@ -385,7 +425,8 @@ async function chooseAndAdopt(
   const target = choice.target;
   const s = stateRef.current;
   const meta = s.sessions.find((sess) => sess.id === s.activeId);
-  const json = DocumentCodec.encode(s.document);
+  const encoded = encodeDocumentJson(s.document, reportEncodeWarning);
+  const json = encoded.json;
   const written = await platform.writeSaveTarget(target, json);
   if (written.kind !== 'written') {
     // The new destination failed — the CURRENT destination stays untouched.
@@ -453,10 +494,12 @@ async function performSaveCopy(
   stateRef: React.MutableRefObject<EditorState>,
   patch: (partial: Partial<EditorState>) => void,
   revision: Document,
+  reportEncodeWarning?: (message: string) => void,
 ): Promise<SaveOutcome> {
   const s = stateRef.current;
   const meta = s.sessions.find((sess) => sess.id === s.activeId);
-  const json = DocumentCodec.encode(s.document);
+  const encoded = encodeDocumentJson(s.document, reportEncodeWarning);
+  const json = encoded.json;
   const choice = await platform.chooseDocumentSaveTarget(meta?.name ?? 'Untitled');
   if (choice.kind === 'cancelled') {
     patch({ saveState: 'idle' });
@@ -493,7 +536,7 @@ async function afterPrimaryWrite(
 ): Promise<SaveOutcome> {
   await recoveryRef.current?.deleteSession(stateRef.current.activeId);
   const cur = stateRef.current;
-  const json = DocumentCodec.encode(cur.document);
+  const json = encodeDocumentJson(cur.document).json;
   // Revision-aware clean: if the user edited while the write was in flight,
   // the save covered an older revision — the document stays dirty.
   const clean = cur.document === revision;

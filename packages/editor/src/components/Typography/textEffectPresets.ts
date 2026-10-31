@@ -6,17 +6,35 @@
  * geometry are untouched so a preset can be applied to a selected balloon's
  * dialogue or an SFX node without breaking the lettering relationship.
  *
- * Research: docs/research/comic-preset-svg-research-2026-09-20.md. The
+ * Research basis: docs/research/comic-preset-svg-research-2026-09-20.md. The
  * vocabulary follows published comic lettering practice (heavy contrasting
  * outline for SFX, italic light whisper, wide-tracked electronic voice) and
  * uses no third-party assets.
  */
-import { defaultStroke, type Stroke, type TextNode } from '@varve/scene';
+import {
+  cloneStrokesWithFreshIds,
+  createDefaultEffect,
+  defaultStroke,
+  type Effect,
+  type Fill,
+  type ManagedColor,
+  type Stroke,
+  type TextEffectState,
+  type TextNode,
+} from '@varve/scene';
 
 export type TextEffectPatch = Partial<
   Pick<
     TextNode,
-    'fontWeight' | 'fontStyle' | 'textCase' | 'textAlign' | 'letterSpacing' | 'tracking' | 'strokes'
+    | 'fontWeight'
+    | 'fontStyle'
+    | 'textCase'
+    | 'textAlign'
+    | 'letterSpacing'
+    | 'tracking'
+    | 'strokes'
+    | 'fill'
+    | 'effects'
   >
 >;
 
@@ -27,6 +45,10 @@ export interface TextEffectPreset {
   patch: TextEffectPatch;
 }
 
+export const SFX_IMPACT_SHADOW_ID = 'sfx-impact-shadow';
+
+type DropShadowEffect = Extract<Effect, { type: 'dropShadow' }>;
+
 function stroke(r: number, g: number, b: number, weight: number): Stroke {
   return {
     ...defaultStroke(),
@@ -35,16 +57,38 @@ function stroke(r: number, g: number, b: number, weight: number): Stroke {
   };
 }
 
+function sfxShadow(): DropShadowEffect {
+  const base = createDefaultEffect('dropShadow', SFX_IMPACT_SHADOW_ID);
+  if (base.type !== 'dropShadow') {
+    throw new Error('Sound effect shadow must be a drop shadow.');
+  }
+  return {
+    ...base,
+    x: 5,
+    y: 7,
+    blur: 0,
+    spread: 0,
+    color: { space: 'rgb' as const, r: 48, g: 16, b: 48, a: 255 },
+    opacity: 1,
+    visible: true,
+  };
+}
+
+const SFX_FILL: ManagedColor = { space: 'rgb', r: 255, g: 214, b: 10, a: 255 };
+
 export const TEXT_EFFECT_PRESETS: readonly TextEffectPreset[] = [
   {
     id: 'sfx-impact',
     label: 'Sound effect',
-    description: 'Uppercase heavy display type with a thick contrasting outline.',
+    description:
+      'Uppercase heavy display type with a bright fill, thick dark outline, and offset shadow.',
     patch: {
       fontWeight: 900,
       textCase: 'uppercase',
       textAlign: 'center',
-      strokes: [stroke(255, 255, 255, 3)],
+      fill: SFX_FILL,
+      strokes: [stroke(0, 0, 0, 10)],
+      effects: [sfxShadow()],
     },
   },
   {
@@ -105,9 +149,148 @@ export const TEXT_EFFECT_PRESETS: readonly TextEffectPreset[] = [
   },
 ];
 
+function clonePresetEffects(effects: Effect[]): Effect[] {
+  return effects.map((effect) => ({ ...effect }));
+}
+
+function upsertEffects(existing: Effect[] | undefined, incoming: Effect[]): Effect[] {
+  const next = [...(existing ?? [])];
+  for (const effect of incoming) {
+    const index = next.findIndex((candidate) => candidate.id && candidate.id === effect.id);
+    if (index >= 0) {
+      next[index] = { ...effect };
+    } else {
+      next.push(effect);
+    }
+  }
+  return next;
+}
+
+function cloneFills(fills: Fill[] | undefined): Fill[] | undefined {
+  if (!fills) return undefined;
+  return fills.map((fill) => ({ ...fill }));
+}
+
+function colorsEqual(left: ManagedColor | undefined, right: ManagedColor): boolean {
+  if (!left) return false;
+  return left.space === right.space && JSON.stringify(left) === JSON.stringify(right);
+}
+
+function fillStillMatchesPreset(node: TextNode, fill: ManagedColor): boolean {
+  if (node.paintRefs && node.paintRefs.length > 0) return false;
+  if (node.fills && node.fills.length > 0) {
+    const visible = node.fills.filter((entry) => entry.visible !== false);
+    if (visible.length !== 1) return false;
+    const current = visible[0]!;
+    return current.type === 'solid' && colorsEqual(current.color, fill);
+  }
+  return colorsEqual(node.fill, fill);
+}
+
+function applyPresetFill(
+  node: TextNode,
+  fill: ManagedColor,
+): Partial<Pick<TextNode, 'fill' | 'fills'>> {
+  if (node.paintRefs && node.paintRefs.length > 0) return {};
+  if (node.fills && node.fills.length > 0) {
+    const nextFills = [...node.fills];
+    const solidIndex = nextFills.findIndex(
+      (entry) => entry.type === 'solid' && entry.visible !== false,
+    );
+    if (solidIndex >= 0) {
+      const current = nextFills[solidIndex]!;
+      nextFills[solidIndex] = { ...current, type: 'solid', color: fill };
+    } else {
+      nextFills.push({
+        type: 'solid',
+        color: fill,
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      });
+    }
+    return { fill, fills: nextFills };
+  }
+  return { fill };
+}
+
+function captureRestore(node: TextNode): Pick<TextEffectState, 'restoreFill' | 'restoreFills'> {
+  return {
+    ...(node.fill ? { restoreFill: { ...node.fill } } : {}),
+    ...(node.fills ? { restoreFills: cloneFills(node.fills) } : {}),
+  };
+}
+
+function restoreFillFromPreset(
+  node: TextNode,
+  stored: TextEffectState | undefined,
+): Partial<TextNode> {
+  if (!stored || (node.paintRefs && node.paintRefs.length > 0)) return {};
+  if (!fillStillMatchesPreset(node, SFX_FILL)) return {};
+  return {
+    ...(stored.restoreFill ? { fill: stored.restoreFill } : {}),
+    ...(stored.restoreFills ? { fills: stored.restoreFills } : {}),
+  };
+}
+
+function withoutTextEffect(node: TextNode): TextNode {
+  const { textEffect: _discarded, ...rest } = node;
+  return rest as TextNode;
+}
+
 /** Apply a preset to a text node without touching content or geometry. */
 export function applyTextEffectPreset(node: TextNode, preset: TextEffectPreset): TextNode {
-  return { ...node, ...preset.patch };
+  const { fill, strokes, effects, ...typography } = preset.patch;
+  let next: TextNode = { ...node, ...typography };
+
+  if (strokes) {
+    next = { ...next, strokes: cloneStrokesWithFreshIds(strokes) };
+  }
+
+  if (preset.id === 'body-reset') {
+    return {
+      ...withoutTextEffect(next),
+      effects: (node.effects ?? []).filter((effect) => effect.id !== SFX_IMPACT_SHADOW_ID),
+    };
+  }
+
+  if (preset.id === 'sfx-impact' && fill) {
+    const restore =
+      node.textEffect?.preset === 'sfx-impact' ? node.textEffect : captureRestore(node);
+    const shadow = sfxShadow();
+    const incoming = clonePresetEffects(effects ?? [shadow]).map((effect) =>
+      effect.id === SFX_IMPACT_SHADOW_ID ? shadow : effect,
+    );
+    return {
+      ...next,
+      ...applyPresetFill(node, fill),
+      effects: upsertEffects(node.effects, incoming),
+      textEffect: {
+        preset: 'sfx-impact',
+        restoreFill: restore.restoreFill,
+        restoreFills: restore.restoreFills,
+      },
+    };
+  }
+
+  if (effects) {
+    next = { ...next, effects: upsertEffects(node.effects, clonePresetEffects(effects)) };
+  }
+  if (fill) {
+    next = { ...next, ...applyPresetFill(node, fill) };
+  }
+  return next;
+}
+
+/** Remove SFX outline and shadow, restoring the fill captured when the preset was applied. */
+export function clearTextEffectPreset(node: TextNode): TextNode {
+  const restored = restoreFillFromPreset(node, node.textEffect);
+  return {
+    ...withoutTextEffect(node),
+    strokes: [],
+    effects: (node.effects ?? []).filter((effect) => effect.id !== SFX_IMPACT_SHADOW_ID),
+    ...restored,
+  };
 }
 
 /** The patch that removes only the outline a preset added. */

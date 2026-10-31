@@ -127,4 +127,44 @@ describe('applyPaintProperties', () => {
     const updated = applyPaintProperties(target, extractPaintProperties(source));
     expect(updated.fills).not.toBe(source.fills);
   });
+
+  it('strips lettering restore keys from copied effects', () => {
+    const source = textNode({
+      effects: [
+        {
+          type: 'dropShadow',
+          id: 'sfx-impact-shadow',
+          x: 5,
+          y: 7,
+          blur: 0,
+          spread: 0,
+          color: { space: 'rgb', r: 48, g: 16, b: 48, a: 255 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+          sfxRestoreFill: { space: 'rgb', r: 16, g: 21, b: 31, a: 255 },
+        } as never,
+      ],
+    });
+    const props = extractPaintProperties(source);
+    expect(props.effects?.[0]).not.toHaveProperty('sfxRestoreFill');
+    const updated = applyPaintProperties(textNode({ effects: [] }), {
+      effects: [
+        {
+          type: 'dropShadow',
+          id: 'sfx-impact-shadow',
+          x: 5,
+          y: 7,
+          blur: 0,
+          spread: 0,
+          color: { space: 'rgb', r: 48, g: 16, b: 48, a: 255 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+          sfxRestoreFill: { space: 'rgb', r: 1, g: 2, b: 3, a: 255 },
+        } as never,
+      ],
+    });
+    expect((updated as { effects?: unknown[] }).effects?.[0]).not.toHaveProperty('sfxRestoreFill');
+  });
 });

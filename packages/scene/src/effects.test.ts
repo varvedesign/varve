@@ -157,6 +157,19 @@ describe('normalizeEffectParams', () => {
     expect(normalized.id).toBe('fx-1');
   });
 
+  it('strips lettering restore keys leaked onto drop shadows', () => {
+    const normalized = normalizeEffectParams(
+      shadow({
+        id: 'sfx-impact-shadow',
+        sfxRestoreFill: { space: 'rgb', r: 16, g: 21, b: 31, a: 255 },
+        sfxRestoreFills: [],
+      }),
+    );
+    expect(normalized).not.toHaveProperty('sfxRestoreFill');
+    expect(normalized).not.toHaveProperty('sfxRestoreFills');
+    expect(normalized.id).toBe('sfx-impact-shadow');
+  });
+
   it('clamps NaN blur to zero instead of producing a NaN canvas', () => {
     const normalized = normalizeEffectParams(shadow({ blur: Number.NaN }));
     if (normalized.type === 'dropShadow') expect(normalized.blur).toBe(0);

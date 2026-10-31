@@ -12,6 +12,7 @@
  * Never generates <script>, event handlers, or javascript: URLs.
  */
 
+import { contrastRatio, relativeLuminance } from '@varve/shared';
 import { inlineEmailCss } from './email-css';
 import type {
   EmailDocumentIr,
@@ -549,7 +550,7 @@ function emitButton(
 
   // Button as table for Outlook compatibility
   const bgColor = node.styles['background-color'] ?? '#000000';
-  const textColor = node.styles.color ?? '#ffffff';
+  const textColor = buttonLabelColor(node);
   const padding = node.styles.padding ?? '12px 24px';
   const borderRadius = node.styles['border-radius'];
 
@@ -586,6 +587,75 @@ function buttonLabel(node: EmailIrNode): string {
   };
   for (const child of node.children) visit(child);
   return labels.join(' ').trim();
+}
+
+function parseCssRgb(value: string | undefined): readonly [number, number, number] | null {
+  if (!value) return null;
+  const hex = value.trim();
+  const short = /^#([0-9a-f]{3})$/i.exec(hex);
+  if (short) {
+    const digits = short[1]!;
+    return [
+      Number.parseInt(digits[0]! + digits[0]!, 16),
+      Number.parseInt(digits[1]! + digits[1]!, 16),
+      Number.parseInt(digits[2]! + digits[2]!, 16),
+    ];
+  }
+  const long = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (long) {
+    const digits = long[1]!;
+    return [
+      Number.parseInt(digits.slice(0, 2), 16),
+      Number.parseInt(digits.slice(2, 4), 16),
+      Number.parseInt(digits.slice(4, 6), 16),
+    ];
+  }
+  const rgb = /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i.exec(hex);
+  if (!rgb) return null;
+  return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+}
+
+function samePaint(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const left = parseCssRgb(a);
+  const right = parseCssRgb(b);
+  return Boolean(
+    left && right && left[0] === right[0] && left[1] === right[1] && left[2] === right[2],
+  );
+}
+
+/** White on dark fills, near-black on light fills. Never copy the button fill. */
+function contrastingOn(background: string | undefined): string {
+  const rgb = parseCssRgb(background);
+  if (!rgb) return '#ffffff';
+  const backgroundLum = relativeLuminance(rgb[0], rgb[1], rgb[2]);
+  const white = contrastRatio(1, backgroundLum);
+  const ink = contrastRatio(relativeLuminance(17, 17, 17), backgroundLum);
+  return white >= ink ? '#ffffff' : '#111111';
+}
+
+function buttonLabelColor(node: EmailIrNode): string {
+  const background = node.styles['background-color'];
+  const candidate = firstDescendantTextColor(node) ?? node.styles.color;
+  if (candidate && !samePaint(candidate, background)) return candidate;
+  return contrastingOn(background);
+}
+
+function firstDescendantTextColor(node: EmailIrNode): string | undefined {
+  const visit = (child: EmailIrNode): string | undefined => {
+    if (child.content?.text && child.styles.color) return child.styles.color;
+    for (const nested of child.children) {
+      const found = visit(nested);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  for (const child of node.children) {
+    const found = visit(child);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 function firstDescendantLink(node: EmailIrNode): EmailIrLink | undefined {

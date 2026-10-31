@@ -10,7 +10,20 @@
  * The clipboard is in-memory per session (like most design tools). It never
  * touches the OS clipboard, so it cannot collide with asset copy/paste.
  */
-import { cloneStrokesWithFreshIds, type SceneNode, type Stroke } from '@varve/scene';
+import { cloneStrokesWithFreshIds, type Effect, type SceneNode, type Stroke } from '@varve/scene';
+
+function withoutLetteringRestoreKeys(effect: Effect): Effect {
+  if (!('sfxRestoreFill' in effect) && !('sfxRestoreFills' in effect)) return effect;
+  const {
+    sfxRestoreFill: _restoreFill,
+    sfxRestoreFills: _restoreFills,
+    ...rest
+  } = effect as Effect & {
+    sfxRestoreFill?: unknown;
+    sfxRestoreFills?: unknown;
+  };
+  return rest as Effect;
+}
 
 /** The in-memory style clipboard. Session-scoped, never serialized. */
 let propertyClipboard: PaintProperties | null = null;
@@ -67,13 +80,19 @@ function clone<T>(value: T): T {
   return value;
 }
 
+function cloneEffects(effects: Effect[]): Effect[] {
+  return effects.map((effect) => clone(withoutLetteringRestoreKeys(effect)));
+}
+
 /** Pull the copyable visual properties off a node. */
 export function extractPaintProperties(node: SceneNode): PaintProperties {
   const props: PaintProperties = {};
   if (node.fills !== undefined) props.fills = clone(node.fills);
   if (node.fill !== undefined) props.fill = clone(node.fill);
   if ('strokes' in node && node.strokes !== undefined) props.strokes = clone(node.strokes);
-  if ('effects' in node && node.effects !== undefined) props.effects = clone(node.effects);
+  if ('effects' in node && node.effects !== undefined) {
+    props.effects = cloneEffects(node.effects);
+  }
   if (node.opacity !== undefined) props.opacity = node.opacity;
   if (node.blendMode !== undefined) props.blendMode = node.blendMode;
   if ('cornerRadius' in node && node.cornerRadius !== undefined) {
@@ -120,7 +139,9 @@ export function applyPaintProperties(
     const strokes = clone(props.strokes as Stroke[]);
     patch.strokes = cloneStrokesWithFreshIds(strokes);
   }
-  if (props.effects !== undefined && 'effects' in node) patch.effects = clone(props.effects);
+  if (props.effects !== undefined && 'effects' in node) {
+    patch.effects = cloneEffects(props.effects as Effect[]);
+  }
   if (props.opacity !== undefined) patch.opacity = props.opacity;
   if (props.blendMode !== undefined) patch.blendMode = props.blendMode;
   // Corner radius applies to any geometry-carrying node (shape/frame), not

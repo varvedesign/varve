@@ -13,9 +13,10 @@
  */
 import { act, render, waitFor } from '@testing-library/react';
 import { createMemoryPlatform, type Platform } from '@varve/platform';
-import { createDocument, DocumentCodec } from '@varve/scene';
-import { afterEach, describe, expect, it } from 'vitest';
+import { createDocument, DocumentCodec, makeGroupNode, makeShapeNode } from '@varve/scene';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, setToastHandler, useEditor } from '../../context';
+import { clearEncodeWarningState, encodeDocumentJson } from '../../persistence/encodeWarnings';
 
 type Editor = ReturnType<typeof useEditor>;
 
@@ -47,7 +48,10 @@ async function mount(): Promise<{
   };
 }
 
-afterEach(() => setToastHandler(null));
+afterEach(() => {
+  setToastHandler(null);
+  clearEncodeWarningState();
+});
 
 describe('openFile with an unreadable document', () => {
   it('keeps the current document and reports why', async () => {
@@ -99,5 +103,61 @@ describe('openFile with an unreadable document', () => {
 
     expect(read().state.document.name).toBe('Valid');
     expect(toasts).toHaveLength(0);
+  });
+
+  it('clears encode-warning memory after a successful open', async () => {
+    const { read, toasts } = await mount();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+    const group = makeGroupNode('clip', { children: ['content'] });
+    group.mask = { type: 'clip', sourceNodeId: 'missing', visible: true };
+    const broken = {
+      ...createDocument('Broken mask encode', true),
+      nodes: { clip: group, content },
+      rootChildren: ['clip'],
+    };
+    const encodeToasts = () => toasts.filter((toast) => /clip|mask/i.test(toast.message));
+
+    encodeDocumentJson(broken);
+    encodeDocumentJson(broken);
+    expect(encodeToasts()).toHaveLength(1);
+
+    act(() => {
+      read().openFile(
+        undefined,
+        'Valid.varve',
+        '/tmp/Valid.varve',
+        DocumentCodec.encode(createDocument('Valid')),
+      );
+    });
+
+    encodeDocumentJson(broken);
+    expect(encodeToasts()).toHaveLength(2);
+    warn.mockRestore();
+  });
+
+  it('clears encode-warning memory after File > New', async () => {
+    const { read, toasts } = await mount();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+    const group = makeGroupNode('clip', { children: ['content'] });
+    group.mask = { type: 'clip', sourceNodeId: 'missing', visible: true };
+    const broken = {
+      ...createDocument('Broken mask encode', true),
+      nodes: { clip: group, content },
+      rootChildren: ['clip'],
+    };
+    const encodeToasts = () => toasts.filter((toast) => /clip|mask/i.test(toast.message));
+
+    encodeDocumentJson(broken);
+    expect(encodeToasts()).toHaveLength(1);
+
+    act(() => {
+      read().newDocument();
+    });
+
+    encodeDocumentJson(broken);
+    expect(encodeToasts()).toHaveLength(2);
+    warn.mockRestore();
   });
 });

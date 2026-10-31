@@ -14,6 +14,11 @@ export { hasSelfIntersections, resolveSelfIntersections } from './self-intersect
 
 export type BooleanOpType = 'union' | 'subtract' | 'intersect' | 'exclude';
 
+/** Retry kernel failures with snap/perturb. Preview/drag should pass `{ retry: false }`. */
+export interface ClipperOptions {
+  retry?: boolean;
+}
+
 type Pair = [number, number];
 type Ring = Pair[];
 type Polygon = Ring[];
@@ -29,6 +34,8 @@ export interface RegionComponent {
 export interface ClipperRegion {
   components: RegionComponent[];
   fillRule: FillRule;
+  /** True when the kernel failed and the adapter returned a conservative fallback. */
+  degraded?: boolean;
 }
 
 function isFinitePoint(point: Point2D): boolean {
@@ -197,30 +204,131 @@ export function clipRegions(
   regions: ClipperRegion[],
   operation: BooleanOpType,
   tolerance: number,
+  options?: ClipperOptions,
 ): ClipperRegion {
   const geometries = regions.map(regionToGeometry).filter((geometry) => geometry.length > 0);
-  const fillRule: FillRule = 'evenodd';
-  if (!geometries.length) return { components: [], fillRule };
+  if (!geometries.length) return { components: [], fillRule: 'evenodd' };
 
-  let result: MultiPolygon;
+  const attempted = runClipperWithRetry(operation, geometries, tolerance, options?.retry !== false);
+  return {
+    ...multiPolygonToRegion(attempted.geometry, attempted.fillRule, tolerance),
+    ...(attempted.degraded ? { degraded: true } : {}),
+  };
+}
+
+function clipperKernel(): typeof polygonClipping {
+  const namespace = polygonClipping as typeof polygonClipping & {
+    default?: typeof polygonClipping;
+  };
+  return namespace.default ?? namespace;
+}
+
+function runClipper(operation: BooleanOpType, geometries: MultiPolygon[]): MultiPolygon {
+  const kernel = clipperKernel();
   switch (operation) {
     case 'union':
-      result = polygonClipping.union(geometries[0]!, ...geometries.slice(1));
-      break;
+      return kernel.union(geometries[0]!, ...geometries.slice(1));
     case 'intersect':
-      result = polygonClipping.intersection(geometries[0]!, ...geometries.slice(1));
-      break;
+      return kernel.intersection(geometries[0]!, ...geometries.slice(1));
     case 'subtract':
-      result =
-        geometries.length === 1
-          ? geometries[0]!
-          : polygonClipping.difference(geometries[0]!, ...geometries.slice(1));
-      break;
+      return geometries.length === 1
+        ? geometries[0]!
+        : kernel.difference(geometries[0]!, ...geometries.slice(1));
     case 'exclude':
-      result = polygonClipping.xor(geometries[0]!, ...geometries.slice(1));
-      break;
+      return kernel.xor(geometries[0]!, ...geometries.slice(1));
   }
-  return multiPolygonToRegion(result, fillRule, tolerance);
+}
+
+function isClipperKernelFailure(error: unknown): boolean {
+  return error instanceof Error && /Unable to complete output ring/i.test(error.message);
+}
+
+function tryClipper(operation: BooleanOpType, geometries: MultiPolygon[]): MultiPolygon | null {
+  try {
+    return runClipper(operation, geometries);
+  } catch (error) {
+    if (!isClipperKernelFailure(error)) throw error;
+    return null;
+  }
+}
+
+function snapPair(point: Pair, quantum: number): Pair {
+  return [Math.round(point[0] / quantum) * quantum, Math.round(point[1] / quantum) * quantum];
+}
+
+function mapPairs(
+  geometries: MultiPolygon[],
+  mapPoint: (point: Pair, index: number) => Pair,
+): MultiPolygon[] {
+  let index = 0;
+  return geometries.map((multiPolygon) =>
+    multiPolygon.map((polygon) =>
+      polygon.map((ring) => {
+        const mapped: Ring = ring.map((point) => {
+          const next = mapPoint(point, index);
+          index += 1;
+          return next;
+        });
+        const first = mapped[0];
+        const last = mapped[mapped.length - 1];
+        if (first && last && (first[0] !== last[0] || first[1] !== last[1])) {
+          mapped.push([first[0], first[1]]);
+        }
+        return mapped;
+      }),
+    ),
+  );
+}
+
+function snapGeometries(geometries: MultiPolygon[], tolerance: number): MultiPolygon[] {
+  const quantum = Math.max(tolerance, 1e-9);
+  return mapPairs(geometries, (point) => snapPair(point, quantum));
+}
+
+function perturbGeometries(geometries: MultiPolygon[], tolerance: number): MultiPolygon[] {
+  const amount = Math.max(tolerance, 1e-9) * 1e-3;
+  return mapPairs(geometries, (point, index) => [
+    point[0] + amount * (index + 1),
+    point[1] + amount * (index + 1) * 0.37,
+  ]);
+}
+
+function runClipperWithRetry(
+  operation: BooleanOpType,
+  geometries: MultiPolygon[],
+  tolerance: number,
+  retry: boolean,
+): { geometry: MultiPolygon; fillRule: FillRule; degraded: boolean } {
+  const exact = tryClipper(operation, geometries);
+  if (exact) return { geometry: exact, fillRule: 'evenodd', degraded: false };
+
+  if (retry) {
+    const snapped = tryClipper(operation, snapGeometries(geometries, tolerance));
+    if (snapped) return { geometry: snapped, fillRule: 'evenodd', degraded: false };
+
+    const perturbed = tryClipper(operation, perturbGeometries(geometries, tolerance));
+    if (perturbed) return { geometry: perturbed, fillRule: 'evenodd', degraded: false };
+  }
+
+  return { ...fallbackClipperGeometry(operation, geometries), degraded: true };
+}
+
+function fallbackClipperGeometry(
+  operation: BooleanOpType,
+  geometries: MultiPolygon[],
+): { geometry: MultiPolygon; fillRule: FillRule } {
+  switch (operation) {
+    case 'union':
+      // Flattened overlapping islands must use nonzero so evenodd does not
+      // punch the overlap into a hole.
+      return { geometry: geometries.flat(), fillRule: 'nonzero' };
+    case 'exclude':
+      return { geometry: geometries.flat(), fillRule: 'evenodd' };
+    case 'subtract':
+      return { geometry: geometries[0] ?? [], fillRule: 'evenodd' };
+    case 'intersect':
+      return { geometry: [], fillRule: 'evenodd' };
+  }
 }
 
 /** Compatibility helper for the former two-polygon kernel. */

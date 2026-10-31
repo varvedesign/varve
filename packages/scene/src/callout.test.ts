@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { deepCloneSubtree } from './clone';
+import { DocumentCodec } from './documentCodec';
 import {
   addCalloutTail,
   addNode,
+  calloutOuterContourForRender,
   createCallout,
   createDocument,
   detachCalloutRecipe,
@@ -20,7 +22,11 @@ import {
   updateCalloutTailEndpoint,
   wrapTextInCallout,
 } from './index';
-import type { GroupNode } from './types';
+import type { Fill, GroupNode, ShapeNode } from './types';
+
+function solidPaint(color: { space: 'rgb'; r: number; g: number; b: number; a: number }): Fill {
+  return { type: 'solid', color, opacity: 1, blendMode: 'normal', visible: true };
+}
 
 describe('comic callouts', () => {
   it('creates ordinary body, tail, and editable text children', () => {
@@ -46,6 +52,52 @@ describe('comic callouts', () => {
     expect(tail.points[0]!.y).toBe(97);
     expect(tail.points[2]!.y).toBe(97);
     expect(result.document.nodes[result.textId]?.kind).toBe('text');
+  });
+
+  it('still unions a pointed tail after save and load when stroke ids are per node', () => {
+    const created = createCallout(createDocument('contour-ids', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hello',
+    });
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    expect(calloutOuterContourForRender(created.document, group)).not.toBeNull();
+
+    const decoded = DocumentCodec.decode(DocumentCodec.encode(created.document));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const reopened = decoded.document.nodes[created.groupId] as GroupNode;
+    expect(calloutOuterContourForRender(decoded.document, reopened)).not.toBeNull();
+  });
+
+  it('still unions a pointed tail when body and tail stroke ids differ', () => {
+    const created = createCallout(createDocument('contour-ignore-ids', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hello',
+    });
+    const tailId = created.tailNodeIds[0]!;
+    const tail = created.document.nodes[tailId];
+    if (tail?.kind !== 'path') throw new Error('missing tail');
+    const mismatched = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [tailId]: {
+          ...tail,
+          strokes: tail.strokes.map((stroke, index) => ({
+            ...stroke,
+            id: `stroke-${tailId}-${index}`,
+          })),
+        },
+      },
+    };
+    const group = mismatched.nodes[created.groupId] as GroupNode;
+    expect(calloutOuterContourForRender(mismatched, group)).not.toBeNull();
   });
 
   it('wraps existing text without duplicating its source node', () => {
@@ -504,6 +556,9 @@ describe('shaped balloons (burst and cloud)', () => {
     expect(body?.kind).toBe('shape');
     if (body?.kind !== 'shape') throw new Error('no body');
     expect(body.strokes).toEqual([]);
+    expect(body.fill.a).toBe(0);
+    expect(outline.fill.a).toBeGreaterThan(0);
+    expect(outline.strokes.length).toBeGreaterThan(0);
     // Tails paint before the outline so their base is hidden by the balloon.
     expect(group.children?.[0]).toBe(result.tailNodeIds[0]);
     expect(group.children?.[1]).toBe(outlineId);
@@ -575,6 +630,188 @@ describe('shaped balloons (burst and cloud)', () => {
       ...(speechGroup.callout?.tailNodeIds ?? []),
       created.textId,
     ]);
+  });
+
+  it('keeps a custom balloon fill when switching between rect and shaped kinds', () => {
+    const pink = { space: 'rgb' as const, r: 255, g: 64, b: 160, a: 255 };
+    const created = createCallout(createDocument('recolor-kind', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const recoloured = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.bodyId]: {
+          ...(created.document.nodes[created.bodyId] as ShapeNode),
+          fill: pink,
+        },
+      },
+    };
+    const burst = updateCalloutKind(recoloured, created.groupId, 'burst');
+    const burstGroup = burst.nodes[created.groupId] as GroupNode;
+    const burstBody = burst.nodes[created.bodyId] as ShapeNode;
+    const burstOutline = burst.nodes[burstGroup.callout?.outlineNodeId ?? ''];
+    expect(burstBody.fill.a).toBe(0);
+    expect(burstOutline?.kind).toBe('shape');
+    if (burstOutline?.kind !== 'shape') return;
+    expect(burstOutline.fill).toMatchObject(pink);
+
+    const cloud = updateCalloutKind(burst, created.groupId, 'cloud');
+    const cloudGroup = cloud.nodes[created.groupId] as GroupNode;
+    const cloudOutline = cloud.nodes[cloudGroup.callout?.outlineNodeId ?? ''];
+    expect(cloudGroup.callout?.outlineNodeId).toBe(burstGroup.callout?.outlineNodeId);
+    expect(cloudOutline?.kind).toBe('shape');
+    if (cloudOutline?.kind !== 'shape') return;
+    expect(cloudOutline.fill).toMatchObject(pink);
+    expect((cloud.nodes[created.bodyId] as ShapeNode).fill.a).toBe(0);
+
+    const speech = updateCalloutKind(cloud, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId] as ShapeNode;
+    expect(speechBody.fill).toMatchObject(pink);
+    expect((speech.nodes[created.groupId] as GroupNode).callout?.outlineNodeId).toBeUndefined();
+  });
+
+  it('keeps Inspector fills when switching kind both ways', () => {
+    const pink = { space: 'rgb' as const, r: 255, g: 64, b: 160, a: 255 };
+    const created = createCallout(createDocument('fills-kind', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const recoloured = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.bodyId]: {
+          ...(created.document.nodes[created.bodyId] as ShapeNode),
+          fill: pink,
+          fills: [solidPaint(pink)],
+        },
+      },
+    };
+    const burst = updateCalloutKind(recoloured, created.groupId, 'burst');
+    const burstGroup = burst.nodes[created.groupId] as GroupNode;
+    const burstBody = burst.nodes[created.bodyId] as ShapeNode;
+    const burstOutline = burst.nodes[burstGroup.callout?.outlineNodeId ?? ''];
+    expect(burstBody.fills).toEqual([]);
+    expect(burstBody.fill.a).toBe(0);
+    expect(burstGroup.callout?.fillLayout).toBe('outline');
+    expect(burstOutline?.kind).toBe('shape');
+    if (burstOutline?.kind !== 'shape') return;
+    expect(burstOutline.fills?.[0]).toMatchObject({ type: 'solid', color: pink });
+    expect(burstOutline.fill).toMatchObject(pink);
+
+    const speech = updateCalloutKind(burst, created.groupId, 'speech');
+    const speechGroup = speech.nodes[created.groupId] as GroupNode;
+    const speechBody = speech.nodes[created.bodyId] as ShapeNode;
+    expect(speechBody.fills?.[0]).toMatchObject({ type: 'solid', color: pink });
+    expect(speechBody.fill).toMatchObject(pink);
+    expect(speechGroup.callout?.fillLayout).toBeUndefined();
+    expect(speechGroup.callout?.outlineNodeId).toBeUndefined();
+  });
+
+  it('keeps a legacy shaped custom body colour after decode and kind switch', () => {
+    const red = { space: 'rgb' as const, r: 200, g: 0, b: 0, a: 255 };
+    const created = createCallout(createDocument('legacy-body-colour', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    const body = created.document.nodes[created.bodyId] as ShapeNode;
+    const { fillLayout: _fillLayout, ...legacyRecipe } = group.callout!;
+    const legacy = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.groupId]: { ...group, callout: legacyRecipe },
+        [created.bodyId]: { ...body, fill: red, fills: [] },
+      },
+    };
+    const decoded = DocumentCodec.decode(DocumentCodec.encode(legacy));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const speech = updateCalloutKind(decoded.document, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId];
+    expect(speechBody?.kind).toBe('shape');
+    if (speechBody?.kind !== 'shape') return;
+    expect(speechBody.fill).toMatchObject(red);
+  });
+
+  it('falls back to default paint when a shaped callout has no outline', () => {
+    const created = createCallout(createDocument('missing-outline', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    const outlineId = group.callout?.outlineNodeId;
+    expect(outlineId).toBeDefined();
+    const { outlineNodeId: _outlineNodeId, ...recipe } = group.callout!;
+    const nodes = { ...created.document.nodes };
+    if (outlineId) delete nodes[outlineId];
+    const stripped = {
+      ...created.document,
+      nodes: {
+        ...nodes,
+        [created.groupId]: { ...group, callout: recipe },
+      },
+    };
+    const speech = updateCalloutKind(stripped, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId];
+    expect(speechBody?.kind).toBe('shape');
+    if (speechBody?.kind !== 'shape') return;
+    expect(speechBody.fill).toMatchObject({ r: 255, g: 255, b: 255, a: 255 });
+    expect(speechBody.fills?.[0]).toMatchObject({
+      type: 'solid',
+      color: { r: 255, g: 255, b: 255, a: 255 },
+    });
+  });
+
+  it('moves paintRefs with the silhouette when switching kind both ways', () => {
+    const created = createCallout(createDocument('paintrefs-kind', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const referenced = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.bodyId]: {
+          ...(created.document.nodes[created.bodyId] as ShapeNode),
+          paintRefs: ['paint-balloon'],
+        },
+      },
+    };
+    const burst = updateCalloutKind(referenced, created.groupId, 'burst');
+    const burstGroup = burst.nodes[created.groupId] as GroupNode;
+    const burstBody = burst.nodes[created.bodyId] as ShapeNode;
+    const burstOutline = burst.nodes[burstGroup.callout?.outlineNodeId ?? ''];
+    expect(burstBody.paintRefs).toBeUndefined();
+    expect(burstBody.fills).toEqual([]);
+    expect(burstOutline?.kind).toBe('shape');
+    if (burstOutline?.kind !== 'shape') return;
+    expect(burstOutline.paintRefs).toEqual(['paint-balloon']);
+
+    const speech = updateCalloutKind(burst, created.groupId, 'speech');
+    const speechBody = speech.nodes[created.bodyId] as ShapeNode;
+    expect(speechBody.paintRefs).toEqual(['paint-balloon']);
+    expect((speech.nodes[created.groupId] as GroupNode).callout?.outlineNodeId).toBeUndefined();
   });
 
   it('clone remaps the outline reference into the duplicate', () => {

@@ -6,7 +6,13 @@
 // the visible result and history can restore the original structure exactly.
 
 import { type Affine, identity, multiplyAffine, tryInvertAffine } from '@varve/shared';
-import { booleanAnchorForNode, booleanOp, placeBooleanResult } from './boolean/integration';
+import {
+  booleanAnchorForNode,
+  booleanOp,
+  isDegradedBooleanShape,
+  markDegradedBooleanShape,
+  placeBooleanResult,
+} from './boolean/integration';
 import { nodeWorldTransform } from './coordinateService';
 import type { Document } from './document';
 import { addNode, removeNode, reparentNode } from './document-nodes';
@@ -27,14 +33,27 @@ const MAX_LIVE_BOOLEAN_DEPTH = 32;
  * edit, transform, reorder, or operation change produces a new Document and
  * therefore a fresh cache entry.
  */
-const resolvedGeometryCache = new WeakMap<Document, Map<NodeId, ShapeNode | null>>();
+type ResolvedLiveBoolean = { shape: ShapeNode; degraded: boolean };
 
-function resolvedGeometryFor(document: Document): Map<NodeId, ShapeNode | null> {
+const resolvedGeometryCache = new WeakMap<Document, Map<string, ResolvedLiveBoolean | null>>();
+
+function resolvedGeometryFor(document: Document): Map<string, ResolvedLiveBoolean | null> {
   const existing = resolvedGeometryCache.get(document);
   if (existing) return existing;
-  const cache = new Map<NodeId, ShapeNode | null>();
+  const cache = new Map<string, ResolvedLiveBoolean | null>();
   resolvedGeometryCache.set(document, cache);
   return cache;
+}
+
+function liveBooleanCacheKey(nodeId: NodeId, retry: boolean): string {
+  return retry ? `${nodeId}:r` : `${nodeId}:p`;
+}
+
+function isEmptyBooleanShape(node: ShapeNode): boolean {
+  if (node.shape.kind !== 'path') return false;
+  const points = node.shape.points ?? [];
+  const contours = node.shape.contours ?? [];
+  return points.length === 0 && contours.every((contour) => contour.length === 0);
 }
 
 function isSupportedOperation(operation: string): operation is LiveBooleanOperation {
@@ -75,50 +94,61 @@ export function resolveLiveBooleanShape(
   document: Document,
   nodeId: NodeId,
   ancestors: readonly NodeId[] = [],
+  options?: { retry?: boolean },
 ): ShapeNode | null {
   const node = document.nodes[nodeId];
   if (!node || !isLiveBooleanNode(node) || !isSupportedOperation(node.boolean.operation))
     return null;
   if (ancestors.includes(nodeId) || ancestors.length >= MAX_LIVE_BOOLEAN_DEPTH) return null;
 
+  const retry = options?.retry === true;
   const cache = resolvedGeometryFor(document);
-  if (cache.has(nodeId)) return cache.get(nodeId) ?? null;
+  const key = liveBooleanCacheKey(nodeId, retry);
+  if (cache.has(key)) return cache.get(key)?.shape ?? null;
 
   const operands: ShapeNode[] = [];
+  let nestedDegraded = false;
   for (const childId of node.children) {
     const child = document.nodes[childId];
     if (!child || child.visible === false || child.locked) {
-      cache.set(nodeId, null);
+      cache.set(key, null);
       return null;
     }
     if (child.kind === 'shape') {
       if (!isBooleanOperand(child)) {
-        cache.set(nodeId, null);
+        cache.set(key, null);
         return null;
       }
       operands.push({ ...child, transform: nodeWorldTransform(document, childId) });
       continue;
     }
     if (isLiveBooleanNode(child)) {
-      const resolvedChild = resolveLiveBooleanShape(document, childId, [...ancestors, nodeId]);
+      const resolvedChild = resolveLiveBooleanShape(
+        document,
+        childId,
+        [...ancestors, nodeId],
+        options,
+      );
       if (!resolvedChild) {
-        cache.set(nodeId, null);
+        cache.set(key, null);
         return null;
       }
+      const childEntry = resolvedGeometryFor(document).get(liveBooleanCacheKey(childId, retry));
+      if (childEntry?.degraded) nestedDegraded = true;
       operands.push(resolvedChild);
       continue;
     }
     // Filled Boolean geometry is defined for closed filled shapes. Unsupported
     // children remain editable in Layers but make the live result unavailable.
-    cache.set(nodeId, null);
+    cache.set(key, null);
     return null;
   }
   if (operands.length < 2) {
-    cache.set(nodeId, null);
+    cache.set(key, null);
     return null;
   }
 
-  const resolved = booleanOp(node.boolean.operation, operands);
+  const resolved = booleanOp(node.boolean.operation, operands, { retry });
   const shape = {
     ...resolved,
     id: node.id,
@@ -126,7 +156,9 @@ export function resolveLiveBooleanShape(
     visible: node.visible,
     locked: node.locked,
   };
-  cache.set(nodeId, shape);
+  const degraded = isDegradedBooleanShape(resolved) || nestedDegraded;
+  if (degraded) markDegradedBooleanShape(shape);
+  cache.set(key, { shape, degraded });
   return shape;
 }
 
@@ -169,16 +201,60 @@ export function createLiveBooleanDoc(
   return { doc, nodeId: id };
 }
 
+export type ExpandLiveBooleanResult =
+  | { ok: true; doc: Document; nodeId: NodeId }
+  | { ok: false; reason: string };
+
 /** Expand a live Boolean atomically into its resolved editable compound path. */
 export function expandLiveBooleanDoc(
   document: Document,
   nodeId: NodeId,
-): { doc: Document; nodeId: NodeId } | null {
-  const resolved = resolveLiveBooleanShape(document, nodeId);
+): ExpandLiveBooleanResult | null {
+  const node = document.nodes[nodeId];
+  if (!node || !isLiveBooleanNode(node)) return null;
+  const resolved = resolveLiveBooleanShape(document, nodeId, [], { retry: true });
   if (!resolved) return null;
+  const cached = resolvedGeometryFor(document).get(liveBooleanCacheKey(nodeId, true));
+  const degraded = cached?.degraded === true || isDegradedBooleanShape(resolved);
+  if (degraded || isEmptyBooleanShape(resolved)) {
+    return {
+      ok: false,
+      reason: degraded
+        ? 'Boolean geometry could not be completed; the original shapes were kept.'
+        : 'Boolean result is empty; the original shapes were kept.',
+    };
+  }
   const anchor = booleanAnchorForNode(document, nodeId);
   const withoutLiveGroup = removeNode(document, nodeId);
-  return placeBooleanResult(withoutLiveGroup, resolved, anchor);
+  const placed = placeBooleanResult(withoutLiveGroup, resolved, anchor);
+  return { ok: true, doc: placed.doc, nodeId: placed.nodeId };
+}
+
+/**
+ * Destructive Boolean apply. Degraded clipper fallbacks keep the original
+ * operands instead of baking a conservative result.
+ */
+export function applyBooleanOpDoc(
+  document: Document,
+  operation: LiveBooleanOperation,
+  operandNodes: ShapeNode[],
+  operandIds: readonly NodeId[],
+  anchor: { parentId: NodeId | null; index: number },
+): ExpandLiveBooleanResult {
+  if (operandNodes.length === 0) {
+    return { ok: false, reason: 'No valid nodes for boolean operation' };
+  }
+  const result = booleanOp(operation, operandNodes);
+  if (isDegradedBooleanShape(result)) {
+    return {
+      ok: false,
+      reason: 'Boolean geometry could not be completed; the original shapes were kept.',
+    };
+  }
+  let next = document;
+  for (const id of operandIds) next = removeNode(next, id);
+  const placed = placeBooleanResult(next, result, anchor);
+  return { ok: true, doc: placed.doc, nodeId: placed.nodeId };
 }
 
 /** Change operation without altering source operands or their transforms. */

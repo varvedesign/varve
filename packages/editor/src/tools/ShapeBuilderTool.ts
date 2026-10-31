@@ -223,6 +223,7 @@ export class ShapeBuilderTool implements Tool {
     );
     if (!result.ok) {
       ctx.announce(result.reason);
+      ctx.showToast?.({ message: result.reason, type: 'warning' });
       return;
     }
     if (!ctx.updateDocument) {
