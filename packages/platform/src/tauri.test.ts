@@ -149,7 +149,7 @@ describe('createTauriPlatform', () => {
 
   it('saves binary files as ArrayBuffer IPC payloads instead of number arrays', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
-      if (cmd === 'plugin:dialog|save') return '/tmp/icon.svg';
+      if (cmd === 'pick_save_path') return '/tmp/icon.svg';
       return null;
     });
     globalWithTauri.__TAURI__ = {
@@ -166,8 +166,8 @@ describe('createTauriPlatform', () => {
     );
 
     expect(path).toBe('/tmp/icon.svg');
-    const saveCall = invoke.mock.calls.find(([cmd]) => cmd === 'plugin:dialog|save');
-    if (!saveCall) throw new Error('Expected plugin:dialog|save invoke');
+    const saveCall = invoke.mock.calls.find(([cmd]) => cmd === 'pick_save_path');
+    if (!saveCall) throw new Error('Expected pick_save_path invoke');
     const saveArgs = saveCall[1] as { options?: Record<string, unknown> };
     // Tauri 2 dialog plugin requires { options: { defaultPath, filters } }
     expect(saveArgs.options).toBeDefined();
@@ -179,9 +179,9 @@ describe('createTauriPlatform', () => {
     expect(Array.from(new Uint8Array(payload.data as ArrayBuffer))).toEqual([60, 115, 118, 103]);
   });
 
-  it('wraps plugin:dialog|open arguments in options key', async () => {
+  it('wraps pick_open_path arguments in options key', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
-      if (cmd === 'plugin:dialog|open') return '/tmp/test.strata';
+      if (cmd === 'pick_open_path') return '/tmp/test.strata';
       if (cmd === 'home_read_text_file_approved') return '{"nodes":{}}';
       return null;
     });
@@ -199,8 +199,8 @@ describe('createTauriPlatform', () => {
     expect(invoke).toHaveBeenCalledWith('home_read_text_file_approved', {
       path: '/tmp/test.strata',
     });
-    const openCall = invoke.mock.calls.find(([cmd]) => cmd === 'plugin:dialog|open');
-    if (!openCall) throw new Error('Expected plugin:dialog|open invoke');
+    const openCall = invoke.mock.calls.find(([cmd]) => cmd === 'pick_open_path');
+    if (!openCall) throw new Error('Expected pick_open_path invoke');
     const openArgs = openCall[1] as { options?: Record<string, unknown> };
     expect(openArgs.options).toBeDefined();
     expect((openArgs.options as Record<string, unknown>).multiple).toBe(false);
@@ -211,7 +211,7 @@ describe('createTauriPlatform', () => {
     'C:\\Users\\designer\\Designs\\Migrated save β.varve',
   ])('retains the native selected path and basename: %s', async (path) => {
     const invoke = vi.fn(async (cmd: string) => {
-      if (cmd === 'plugin:dialog|open') return path;
+      if (cmd === 'pick_open_path') return path;
       if (cmd === 'home_read_text_file_approved') return '{"nodes":{}}';
       return null;
     });
@@ -228,7 +228,7 @@ describe('createTauriPlatform', () => {
     globalWithTauri.__TAURI__ = { core: { invoke } };
     expect(await createTauriPlatform().openDocumentFromDisk()).toBeNull();
     expect(invoke).toHaveBeenCalledTimes(1);
-    expect(invoke).toHaveBeenCalledWith('plugin:dialog|open', expect.any(Object));
+    expect(invoke).toHaveBeenCalledWith('pick_open_path', expect.any(Object));
   });
 
   it.each([
@@ -237,7 +237,7 @@ describe('createTauriPlatform', () => {
   ])('imports the native selected path: %s', async (path, kind) => {
     const contents = kind === 'image' ? '<svg />' : '{"nodes":{}}';
     const invoke = vi.fn(async (cmd: string) => {
-      if (cmd === 'plugin:dialog|open') return path;
+      if (cmd === 'pick_open_path') return path;
       if (cmd === 'home_read_text_file_approved') return contents;
       return null;
     });
@@ -262,9 +262,9 @@ describe('createTauriPlatform', () => {
     expect(invoke).toHaveBeenCalledTimes(1);
   });
 
-  it('wraps plugin:dialog|save arguments in options key for document save', async () => {
+  it('wraps pick_save_path arguments in options key for document save', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
-      if (cmd === 'plugin:dialog|save') return '/tmp/test.strata';
+      if (cmd === 'pick_save_path') return '/tmp/test.strata';
       return null;
     });
     globalWithTauri.__TAURI__ = {
@@ -273,8 +273,8 @@ describe('createTauriPlatform', () => {
     };
     const platform = createTauriPlatform();
     await platform.saveDocumentToDisk('test', '{"nodes":{}}');
-    const saveCall = invoke.mock.calls.find(([cmd]) => cmd === 'plugin:dialog|save');
-    if (!saveCall) throw new Error('Expected plugin:dialog|save invoke');
+    const saveCall = invoke.mock.calls.find(([cmd]) => cmd === 'pick_save_path');
+    if (!saveCall) throw new Error('Expected pick_save_path invoke');
     const saveArgs = saveCall[1] as { options?: Record<string, unknown> };
     expect(saveArgs.options).toBeDefined();
     // New saves default to the canonical .varve extension.
@@ -289,7 +289,7 @@ describe('createTauriPlatform', () => {
 
   it('chooses one export folder and writes safe relative files beneath it', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
-      if (cmd === 'plugin:dialog|open') return '/tmp/exports';
+      if (cmd === 'pick_open_path') return '/tmp/exports';
       if (cmd === 'write_binary_file_to_folder') return '/tmp/exports/icons/logo.svg';
       return null;
     });
@@ -307,7 +307,7 @@ describe('createTauriPlatform', () => {
     );
 
     expect(path).toBe('/tmp/exports/icons/logo.svg');
-    expect(invoke).toHaveBeenCalledWith('plugin:dialog|open', {
+    expect(invoke).toHaveBeenCalledWith('pick_open_path', {
       options: { directory: true, multiple: false },
     });
     expect(invoke).toHaveBeenCalledWith('write_binary_file_to_folder', {

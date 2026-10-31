@@ -55,6 +55,7 @@ export class TauriUpdateProvider implements UpdateProvider {
   }
 
   async check(channel: UpdateChannel): Promise<UpdateInfo | null> {
+    if (!(await invoke<boolean>('policy_can_check_updates'))) return null;
     const context = await this.getPackagingContext();
     // The build embeds one feed endpoint at build time (tauri.update.channel.json
     // in release CI). A stable build must never resolve the beta/nightly feed,
@@ -87,6 +88,11 @@ export class TauriUpdateProvider implements UpdateProvider {
     if (!this.nativeUpdate || this.nativeUpdate.version !== update.version) {
       throw { code: 'busy', message: 'The native update handle is no longer available.' };
     }
+    const artifactUrl = updateDownloadUrl(this.nativeUpdate);
+    if (!artifactUrl) {
+      throw { code: 'unsupported-build', message: 'The update manifest has no download URL.' };
+    }
+    await invoke('policy_authorize_network_request', { url: artifactUrl });
     let downloadedBytes = 0;
     const onEvent = (event: DownloadEvent) => {
       if (event.event === 'Started') {
@@ -136,4 +142,17 @@ function targetFromMetadata(update: TauriUpdate): string {
   if (!platforms || typeof platforms !== 'object') return 'unknown';
   const target = Object.keys(platforms as Record<string, unknown>)[0];
   return target ?? 'unknown';
+}
+
+function updateDownloadUrl(update: TauriUpdate): string | null {
+  const platforms = update.rawJson.platforms;
+  if (!platforms || typeof platforms !== 'object') return null;
+  const entry = Object.values(platforms as Record<string, unknown>).find(
+    (value): value is { url: string } =>
+      typeof value === 'object' &&
+      value !== null &&
+      'url' in value &&
+      typeof value.url === 'string',
+  );
+  return entry?.url ?? null;
 }

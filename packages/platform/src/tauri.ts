@@ -2,16 +2,17 @@
  * @varve/platform — Tauri 2 desktop Platform implementation.
  *
  * Persists to the native SQLite store (crates/varve-sync) over Tauri IPC, and
- * uses the official `tauri-plugin-dialog` + `tauri-plugin-opener` for native
- * file pickers and "reveal in file manager". Thumbnails are kept in an
- * in-memory LRU for this phase (cheap to regenerate from the persisted
- * document JSON); durable thumbnail caching is a follow-up.
+ * uses Rust-side `pick_open_path` / `pick_save_path` (which record the
+ * native dialog result before JS sees it) plus `tauri-plugin-opener` for
+ * "reveal in file manager". Thumbnails are kept in an in-memory LRU for
+ * this phase (cheap to regenerate from the persisted document JSON);
+ * durable thumbnail caching is a follow-up.
  *
  * Research basis:
  *  - Varve ADR-0001 (native engine on desktop, no WASM ceiling) — persistence
  *    likewise belongs to the native process, not the webview.
- *  - Tauri 2 plugin model: `window.__TAURI__.core.invoke('plugin:dialog|open')`
- *    works with `withGlobalTauri: true` without bundling the JS plugin.
+ *  - File-scope registry: dialog, drop, CLI, app-owned dirs, and persisted
+ *    recents are the only frontend-supplied paths the desktop commands accept.
  */
 
 import type { NativeClipboardItem, Platform, PrinterInfo, PrintJobResult } from './platform';
@@ -625,7 +626,7 @@ export function createTauriPlatform(): Platform {
     async openDocumentFromDisk() {
       return withFocusRestore(async () => {
         const c = core();
-        const picked = (await c.invoke('plugin:dialog|open', {
+        const picked = (await c.invoke('pick_open_path', {
           options: {
             multiple: false,
             filters: [{ name: 'Varve document', extensions: ['varve', 'strata'] }],
@@ -655,7 +656,7 @@ export function createTauriPlatform(): Platform {
     async importDocumentFromDisk(extensions) {
       return withFocusRestore(async () => {
         const c = core();
-        const picked = (await c.invoke('plugin:dialog|open', {
+        const picked = (await c.invoke('pick_open_path', {
           options: {
             multiple: false,
             filters: [{ name: 'Import', extensions: extensions.map((e) => e.replace(/^\./, '')) }],
@@ -699,7 +700,7 @@ export function createTauriPlatform(): Platform {
         // (SQLite KV) — never serialized into the document.
         const lastDir = await loadLastSaveDirectory();
         const defaultPath = lastDir ? joinPath(lastDir, suggested) : suggested;
-        const path = (await c.invoke('plugin:dialog|save', {
+        const path = (await c.invoke('pick_save_path', {
           options: {
             defaultPath,
             // New saves produce the canonical format only. Legacy .strata
@@ -762,7 +763,7 @@ export function createTauriPlatform(): Platform {
         const ext = extension.replace(/^\./, '');
         const suggested = name.endsWith(`.${ext}`) ? name : `${name}.${ext}`;
         try {
-          const path = (await c.invoke('plugin:dialog|save', {
+          const path = (await c.invoke('pick_save_path', {
             options: {
               defaultPath: suggested,
               filters: [{ name: mimeType, extensions: [ext] }],
@@ -780,7 +781,7 @@ export function createTauriPlatform(): Platform {
     },
     async chooseExportFolder() {
       return withFocusRestore(async () => {
-        const selected = (await core().invoke('plugin:dialog|open', {
+        const selected = (await core().invoke('pick_open_path', {
           options: { directory: true, multiple: false },
         })) as string | null;
         return selected;

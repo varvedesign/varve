@@ -9,7 +9,8 @@
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
@@ -37,6 +38,8 @@ assert.match(workspace, /"serialize-javascript": 7\.1\.3/);
 assert.match(workspace, /"sharp": 0\.35\.5/);
 assert.match(workspace, /"svgo@4": 4\.1\.0/);
 assert.match(workspace, /"deepmerge-ts": 8\.0\.0/);
+assert.match(workspace, /"glob@>=9": 14\.0\.3/);
+assert.match(workspace, /"minimatch@>=9": 11\.0\.3/);
 assert.match(workspace, /"undici@6": 6\.29\.1/);
 assert.match(workspace, /"undici@7": 7\.30\.1/);
 assert.match(workspace, /"undici@8": 8\.12\.2/);
@@ -61,6 +64,43 @@ assert.match(lockfile, /undici@8\.12\.2:/);
 assert.doesNotMatch(lockfile, /undici@6\.29\.0/);
 assert.doesNotMatch(lockfile, /undici@7\.30\.0/);
 assert.doesNotMatch(lockfile, /undici@8\.11\.2/);
+assert.match(lockfile, /glob@>=9: 14\.0\.3/);
+assert.match(lockfile, /minimatch@>=9: 11\.0\.3/);
+assert.match(lockfile, /glob@14\.0\.3:/);
+assert.match(lockfile, /minimatch@11\.0\.3:/);
+assert.doesNotMatch(lockfile, /glob@10\.5\.0/);
+assert.doesNotMatch(lockfile, /glob@13\.0\.6/);
+assert.doesNotMatch(lockfile, /minimatch@10\.2\./);
+assert.doesNotMatch(lockfile, /minimatch@9\.0\.9/);
+
+const osvConfig = readFileSync(path.join(repoRoot, 'osv-scanner.toml'), 'utf8');
+assert.match(osvConfig, /name = "minimatch"\nversion = "3\.1\.5"/);
+assert.match(osvConfig, /name = "minimatch"\nversion = "5\.1\.9"/);
+assert.match(osvConfig, /effectiveUntil = 2026-12-30/);
+
+function pnpmRequire(dirPrefix, pkgPath) {
+  const store = path.join(repoRoot, 'node_modules', '.pnpm');
+  const dir = readdirSync(store).find((name) => name.startsWith(dirPrefix));
+  assert.ok(dir, `pnpm store is missing ${dirPrefix}`);
+  const consumer = path.join(store, dir, 'node_modules', pkgPath, 'package.json');
+  assert.ok(existsSync(consumer), `missing ${pkgPath} under ${dir}`);
+  return createRequire(consumer);
+}
+
+const globFromWdio = pnpmRequire('@wdio+config@', '@wdio/config')('glob');
+assert.equal(typeof globFromWdio.sync, 'function');
+assert.ok(
+  globFromWdio.sync('package.json', { cwd: repoRoot }).includes('package.json'),
+  '@wdio/config glob.sync must still resolve repo files after the 14.x override',
+);
+
+const mochaMinimatch = pnpmRequire('mocha@', 'mocha')('minimatch');
+assert.equal(typeof mochaMinimatch, 'function');
+assert.equal(mochaMinimatch('collect-files.js', '*.js', { windowsPathsNoEscape: true }), true);
+
+const tsMorphMinimatch = pnpmRequire('@ts-morph+common@', '@ts-morph/common')('minimatch');
+assert.equal(typeof tsMorphMinimatch, 'function');
+assert.equal(typeof tsMorphMinimatch.Minimatch, 'function');
 assert.match(lockfile, /onnxruntime-node@[\s\S]*?adm-zip: 0\.6\.1/);
 assert.match(lockfile, /extract-zip: 2\.0\.1\(patch_hash=[0-9a-f]{64}\)/);
 
