@@ -172,6 +172,16 @@ describe('balloon contour wrapping parity (shared geometry vs engine paint)', ()
     expect(engineLineTexts(text, 220)).toEqual(sharedLineTexts(text, 220, 180));
   });
 
+  it('keeps a spaced punctuation mark on the previous line', () => {
+    installMonospaceMeasurer();
+    const text = 'Wait \u2014 what?';
+    // 10px/char: "Wait " is 50px, so the mark does not fit a 50px chord.
+    const engine = engineLineTexts(text, 50);
+    const shared = sharedLineTexts(text, 50, 400);
+    expect(engine).toEqual(shared);
+    expect(engine.some((line) => line.trim() === '\u2014')).toBe(false);
+  });
+
   it('agrees across 30-160px and does not mid-word-break a word that fits the box', () => {
     // The w=200 cases above miss the crown: at 55-90px the shared layout
     // used to char-break "something" and orphan "." while the painter kept
@@ -184,6 +194,11 @@ describe('balloon contour wrapping parity (shared geometry vs engine paint)', ()
       'run.',
       'Wait for me at the station. If the lights go out, take the east stairs and do not look back.',
       'No, that is not what I meant at all.',
+      'Wait \u2014 what?',
+      'Hi ... there',
+      'a - b - c',
+      'Ok , fine .',
+      'x \u2014 y \u2014 z',
     ];
     const mismatches: string[] = [];
     const midWord: string[] = [];

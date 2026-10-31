@@ -394,6 +394,14 @@ function layoutParagraph(
       lineWidth += token.width;
       continue;
     }
+    // A punctuation-only token between spaces stays on the line that already
+    // has text. Wrapping it alone produced "Wait" / em dash / "what?" while
+    // the painter kept "Wait" plus the mark on one line.
+    if (PUNCT_ONLY_RE.test(token.text) && lineTokens.length > 0) {
+      lineTokens.push(token);
+      lineWidth += token.width;
+      continue;
+    }
     if (hardLimit <= 0 || token.width <= hardLimit) {
       // Fits the box. Wrap if this line already has ink, then keep the word
       // whole. Splitting against the crown invented "somethin" / "g".
