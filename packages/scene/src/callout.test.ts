@@ -552,6 +552,7 @@ describe('shaped balloons (burst and cloud)', () => {
     if (outline?.kind !== 'shape' || outline.shape.kind !== 'star') throw new Error('no star');
     expect(outline.shape.points).toBe(14);
     expect(outline.shape.outerRadius).toBeGreaterThan(outline.shape.innerRadius);
+    expect(outline.shape.kind).toBe('star');
     expect(body?.kind).toBe('shape');
     if (body?.kind !== 'shape') throw new Error('no body');
     expect(body.strokes).toEqual([]);
@@ -577,11 +578,12 @@ describe('shaped balloons (burst and cloud)', () => {
     const group = doc.nodes[created.groupId] as GroupNode;
     const outline = doc.nodes[group.callout!.outlineNodeId!];
     const body = doc.nodes[created.bodyId];
-    if (outline?.kind !== 'shape' || outline.shape.kind !== 'star') throw new Error('no star');
+    if (outline?.kind !== 'shape' || outline.shape.kind !== 'path')
+      throw new Error('no cloud path');
     if (body?.kind !== 'shape' || body.shape.kind !== 'rect') throw new Error('no body');
-    expect(outline.shape.points).toBe(12);
-    // The star's inner core follows the fitted text container.
-    expect(outline.shape.innerRadius).toBeCloseTo(Math.max(body.shape.w, body.shape.h) / 2, 1);
+    expect(outline.shape.closed).toBe(true);
+    expect(outline.shape.points.length).toBe(8);
+    expect(outline.shape.points.every((entry) => entry.handleIn && entry.handleOut)).toBe(true);
     const tail = doc.nodes[created.tailNodeIds[0]!];
     if (tail?.kind !== 'path') throw new Error('no tail');
     const tip = tail.points[1]!;
@@ -607,10 +609,14 @@ describe('shaped balloons (burst and cloud)', () => {
     const cloudGroup = cloud.nodes[created.groupId] as GroupNode;
     expect(cloudGroup.callout?.outlineNodeId).toBe(burstOutlineId);
     const cloudOutline = cloud.nodes[burstOutlineId!];
-    if (cloudOutline?.kind !== 'shape' || cloudOutline.shape.kind !== 'star') {
-      throw new Error('no star');
+    if (cloudOutline?.kind !== 'shape' || cloudOutline.shape.kind !== 'path') {
+      throw new Error('no cloud path');
     }
-    expect(cloudOutline.shape.points).toBe(12);
+    expect(cloudOutline.shape.closed).toBe(true);
+    expect(cloudOutline.shape.points.length).toBe(8);
+    expect(cloudOutline.shape.points.every((entry) => entry.handleIn && entry.handleOut)).toBe(
+      true,
+    );
 
     const speech = updateCalloutKind(cloud, created.groupId, 'speech');
     const speechGroup = speech.nodes[created.groupId] as GroupNode;
@@ -828,5 +834,140 @@ describe('shaped balloons (burst and cloud)', () => {
     const cloned = result.nodes[result.rootId] as GroupNode;
     expect(cloned.callout?.outlineNodeId).toBe(result.idMap.get(outlineId!));
     expect(result.nodes[cloned.callout!.outlineNodeId!]).toBeDefined();
+  });
+
+  it('keeps a shallow-angle tail from collapsing to a sliver', () => {
+    const created = createCallout(createDocument('sliver', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      tailEndpoint: { x: 170, y: 92 },
+    });
+    const tail = created.document.nodes[created.tailNodeIds[0]!];
+    if (tail?.kind !== 'path') throw new Error('no tail');
+    const ys = tail.points.map((point) => point.y);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThanOrEqual(10);
+  });
+
+  it('anchors a wrapped cloud tail below the outline, not the body box', () => {
+    const text = makeTextNode('cloud-wrap', 'Hello', {
+      transform: [1, 0, 0, 1, 0, 0],
+      w: 80,
+      h: 36,
+    });
+    const wrapped = wrapTextInCallout(addNode(createDocument('wrap-cloud', true), text), text.id, {
+      kind: 'cloud',
+    });
+    expect(wrapped).not.toBeNull();
+    const group = wrapped!.document.nodes[wrapped!.groupId] as GroupNode;
+    const outline = wrapped!.document.nodes[group.callout!.outlineNodeId!];
+    const tail = wrapped!.document.nodes[group.callout!.tailNodeIds[0]!];
+    if (outline?.kind !== 'shape' || outline.shape.kind !== 'path')
+      throw new Error('no cloud path');
+    if (tail?.kind !== 'path') throw new Error('no tail');
+    const outlineBottom = Math.max(
+      ...outline.shape.points.map((entry) => entry.y),
+      ...outline.shape.points.flatMap((entry) => [
+        entry.y + (entry.handleOut?.[1] ?? 0),
+        entry.y + (entry.handleIn?.[1] ?? 0),
+      ]),
+    );
+    expect(tail.points[1]!.y).toBeGreaterThan(outlineBottom);
+  });
+
+  it('honours tailLength for area text in the same document units as point text', () => {
+    const area = makeTextNode('area-tail', 'Hello there friends', {
+      transform: [1, 0, 0, 1, 20, 30],
+      w: 160,
+      h: 72,
+      textResizing: 'fixed',
+    });
+    const wrapped = wrapTextInCallout(addNode(createDocument('area-tail', true), area), area.id, {
+      kind: 'speech',
+      tailLength: 80,
+    });
+    expect(wrapped).not.toBeNull();
+    const group = wrapped!.document.nodes[wrapped!.groupId] as GroupNode;
+    const body = wrapped!.document.nodes[wrapped!.bodyId];
+    const tail = wrapped!.document.nodes[group.callout!.tailNodeIds[0]!];
+    if (body?.kind !== 'shape' || body.shape.kind !== 'rect') throw new Error('no body');
+    if (tail?.kind !== 'path') throw new Error('no tail');
+    const created = createCallout(createDocument('point-tail', true), {
+      x: 20,
+      y: 30,
+      w: body.shape.w,
+      h: body.shape.h,
+      tailLength: 80,
+      text: 'Hi',
+    });
+    const pointTail = created.document.nodes[created.tailNodeIds[0]!];
+    if (pointTail?.kind !== 'path') throw new Error('no point tail');
+    expect(tail.points[1]!.x).toBeCloseTo(pointTail.points[1]!.x, 5);
+    expect(tail.points[1]!.y).toBeCloseTo(pointTail.points[1]!.y, 5);
+    expect(tail.points[1]!.y).toBeGreaterThan(body.shape.h + 70);
+  });
+
+  it('defaults an omitted tail to max(32, 35 percent of height) and clamps short authored lengths', () => {
+    const tall = createCallout(createDocument('tail-default-tall', true), {
+      x: 0,
+      y: 0,
+      w: 120,
+      h: 200,
+      text: 'Hi',
+    });
+    const tallTail = tall.document.nodes[tall.tailNodeIds[0]!];
+    if (tallTail?.kind !== 'path') throw new Error('no tail');
+    expect(tallTail.points[1]!.y).toBeCloseTo(270, 5);
+
+    const short = createCallout(createDocument('tail-authored-short', true), {
+      x: 0,
+      y: 0,
+      w: 120,
+      h: 80,
+      tailLength: 10,
+      text: 'Hi',
+    });
+    const shortTail = short.document.nodes[short.tailNodeIds[0]!];
+    if (shortTail?.kind !== 'path') throw new Error('no tail');
+    expect(shortTail.points[1]!.y).toBeCloseTo(104, 5);
+  });
+
+  it('clamps shallow, zero-length, and interior tail tips without flipping x', () => {
+    const created = createCallout(createDocument('tail-edges', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      tailEndpoint: { x: 20, y: 87 },
+    });
+    const level = created.document.nodes[created.tailNodeIds[0]!];
+    if (level?.kind !== 'path') throw new Error('no tail');
+    expect(level.points[1]!.x).toBe(20);
+    expect(level.points[1]!.y).toBeGreaterThanOrEqual(97);
+
+    const interior = createCallout(createDocument('tail-inside', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      tailEndpoint: { x: 40, y: 80 },
+    });
+    const inward = interior.document.nodes[interior.tailNodeIds[0]!];
+    if (inward?.kind !== 'path') throw new Error('no tail');
+    expect(inward.points[1]!.x).toBe(40);
+    expect(inward.points[1]!.y).toBeGreaterThanOrEqual(97);
+
+    const up = createCallout(createDocument('tail-up', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      tailEndpoint: { x: 90, y: -24 },
+    });
+    const upward = up.document.nodes[up.tailNodeIds[0]!];
+    if (upward?.kind !== 'path') throw new Error('no tail');
+    expect(upward.points[1]!.x).toBe(90);
+    expect(upward.points[1]!.y).toBeLessThanOrEqual(-10);
   });
 });

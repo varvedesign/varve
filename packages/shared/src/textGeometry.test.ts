@@ -442,6 +442,53 @@ describe('contour (balloon) wrapping', () => {
     expect(tall.lines[0]!.width).toBeGreaterThan(150);
   });
 
+  it('does not mid-word-break a token that fits the ellipse equator', () => {
+    // Crown lines of an ellipse are narrower than the box. A word that
+    // overflows the crown but fits the equator must move whole; char-breaking
+    // it against the crown produced "some" / "thing" in comic balloons.
+    setTextAdvanceMeasurer(monospace(10));
+    const contour = resolveTextGeometry({
+      ...BASE,
+      text: 'something something something something',
+      w: 200,
+      h: 200,
+      textResizing: 'fixed',
+      textWrapShape: 'ellipse',
+    });
+    const words = contour.lines.flatMap((line) => line.text.trim().split(/\s+/).filter(Boolean));
+    expect(words.length).toBeGreaterThan(0);
+    expect(words.every((word) => word === 'something')).toBe(true);
+  });
+
+  it('keeps a box-fitting word whole instead of splitting it on a narrow crown', () => {
+    // The box is the hard cap. A 90px word in a 9-line ellipse has a crown
+    // near 86px and an equator near 188px; the word stays intact and may
+    // sit slightly past the crown rather than becoming "some" / "thing".
+    setTextAdvanceMeasurer(monospace(10));
+    const text = Array.from({ length: 12 }, () => 'something').join(' ');
+    const contour = resolveTextGeometry({
+      ...BASE,
+      text,
+      w: 200,
+      h: 400,
+      textResizing: 'fixed',
+      textWrapShape: 'ellipse',
+    });
+    const profile = ellipseLineWidthProfile({
+      width: 200,
+      lineCount: Math.max(1, contour.lines.length),
+    });
+    const widest = Math.max(...profile);
+    expect(contour.lines[0]?.text.trim().startsWith('something')).toBe(true);
+    const words = contour.lines.flatMap((line) => line.text.trim().split(/\s+/).filter(Boolean));
+    expect(words.every((word) => word === 'something')).toBe(true);
+    expect(contour.lines.some((line) => /^(some|thing)$/.test(line.text.trim()))).toBe(false);
+    const firstWordLine = contour.lines.find((line) => line.text.includes('something'));
+    expect(firstWordLine).toBeDefined();
+    expect(firstWordLine!.width).toBeLessThanOrEqual(widest + 0.001);
+    expect(firstWordLine!.width).toBeGreaterThan(80);
+  });
+
   it('ignores the contour for vertical writing so columns stay rectangular', () => {
     setTextAdvanceMeasurer(monospace(10));
     const vertical = resolveTextGeometry({

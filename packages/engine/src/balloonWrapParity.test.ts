@@ -98,6 +98,37 @@ describe('balloon contour wrapping (engine)', () => {
     expect(snapshot.identity.lineWidthsKey).toBe('40,120');
   });
 
+  it('keeps a box-fitting word whole on a narrower crown instead of splitting it', () => {
+    installMonospaceMeasurer();
+    const text = 'aaaaaaaa bbbb';
+    const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {
+      maxWidth: 120,
+      lineWidths: [40, 120],
+      lineHeight: LINE_HEIGHT,
+    });
+    const lines = snapshot.lines.map((line) =>
+      text.slice(line.sourceStart, line.sourceEnd).trimEnd(),
+    );
+    expect(lines[0]).toBe('aaaaaaaa');
+    expect(lines.some((line) => line === 'aaaa' || line === 'aaaaaaaa'.slice(0, 4))).toBe(false);
+    expect(sharedLineTexts(text, 120, 80)[0]?.trim()).toBe('aaaaaaaa');
+  });
+
+  it('does not measure the crown row against a later chord', () => {
+    // Stealing the equator width for a line that still paints at the crown
+    // sat "aaaa bbbb" (90px) on the 40px first row and poked outside.
+    const text = 'aaaa bbbb';
+    const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {
+      maxWidth: 120,
+      lineWidths: [40, 120],
+      lineHeight: LINE_HEIGHT,
+    });
+    const lines = snapshot.lines.map((line) =>
+      text.slice(line.sourceStart, line.sourceEnd).trimEnd(),
+    );
+    expect(lines).toEqual(['aaaa', 'bbbb']);
+  });
+
   it('stays rectangular when no profile is supplied', () => {
     const text = 'aaaa bbbb cccc dddd';
     const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {
@@ -139,5 +170,61 @@ describe('balloon contour wrapping parity (shared geometry vs engine paint)', ()
     const text =
       'Nein, das habe ich überhaupt nicht so gemeint — ich wollte nur sichergehen, dass wir uns verstehen.';
     expect(engineLineTexts(text, 220)).toEqual(sharedLineTexts(text, 220, 180));
+  });
+
+  it('keeps a spaced punctuation mark on the previous line', () => {
+    installMonospaceMeasurer();
+    const text = 'Wait \u2014 what?';
+    // 10px/char: "Wait " is 50px, so the mark does not fit a 50px chord.
+    const engine = engineLineTexts(text, 50);
+    const shared = sharedLineTexts(text, 50, 400);
+    expect(engine).toEqual(shared);
+    expect(engine.some((line) => line.trim() === '\u2014')).toBe(false);
+  });
+
+  it('agrees across 30-160px and does not mid-word-break a word that fits the box', () => {
+    // The w=200 cases above miss the crown: at 55-90px the shared layout
+    // used to char-break "something" and orphan "." while the painter kept
+    // the token. Sweep the same dialogue at every width in the range.
+    installMonospaceMeasurer();
+    const CHAR = 10;
+    const corpus = [
+      'something something something something',
+      'SNAP. WHATEVER.',
+      'run.',
+      'Wait for me at the station. If the lights go out, take the east stairs and do not look back.',
+      'No, that is not what I meant at all.',
+      'Wait \u2014 what?',
+      'Hi ... there',
+      'a - b - c',
+      'Ok , fine .',
+      'x \u2014 y \u2014 z',
+    ];
+    const mismatches: string[] = [];
+    const midWord: string[] = [];
+    for (const text of corpus) {
+      const fittingWords = text.split(/\s+/).filter(Boolean);
+      for (let width = 30; width <= 160; width += 1) {
+        const engine = engineLineTexts(text, width);
+        const shared = sharedLineTexts(text, width, 400);
+        if (engine.join('\n') !== shared.join('\n')) {
+          mismatches.push(
+            `${width}px ${JSON.stringify(text)} engine=${JSON.stringify(engine)} shared=${JSON.stringify(shared)}`,
+          );
+        }
+        const painted = [...engine, ...shared].flatMap((line) =>
+          line.trim().split(/\s+/).filter(Boolean),
+        );
+        for (const word of fittingWords) {
+          if (word.length * CHAR > width) continue;
+          if (painted.includes(word)) continue;
+          midWord.push(`${width}px split ${JSON.stringify(word)} lines=${JSON.stringify(engine)}`);
+        }
+      }
+    }
+    expect(mismatches.slice(0, 8)).toEqual([]);
+    expect(midWord.slice(0, 8)).toEqual([]);
+    expect(mismatches).toHaveLength(0);
+    expect(midWord).toHaveLength(0);
   });
 });

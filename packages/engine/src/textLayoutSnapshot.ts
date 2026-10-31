@@ -20,7 +20,12 @@ import {
   verticalOrientationForCluster,
   type WritingMode,
 } from '@varve/shared/verticalText';
-import { type BreakUnit, graphemeBreakUnits, segmentBreakUnits } from './text/lineBreak';
+import {
+  type BreakUnit,
+  graphemeBreakUnits,
+  isPunctuationOnly,
+  segmentBreakUnits,
+} from './text/lineBreak';
 import type { ItemizedParagraph } from './text/paragraphs';
 import { itemizeParagraph, splitParagraphs } from './text/paragraphs';
 import { lineVisualRuns } from './text/visualOrder';
@@ -494,19 +499,55 @@ function buildLayoutUnits(
           sourceMap,
         );
         let pieceCursor = attachCursorOf(attach, pieces[0]!.start);
-        units.splice(
-          i,
-          1,
-          ...pieces.map((piece) => {
-            pieceCursor = nextAttachCursor(attach, pieceCursor, piece.start);
-            return makeLayoutUnit(piece, attach, pieceCursor);
-          }),
-        );
-        i += pieces.length - 1;
+        const graphemes = pieces.map((piece) => {
+          pieceCursor = nextAttachCursor(attach, pieceCursor, piece.start);
+          return makeLayoutUnit(piece, attach, pieceCursor);
+        });
+        const packed = packUnitsToWidth(graphemes, maxWidth);
+        units.splice(i, 1, ...packed);
+        i += packed.length - 1;
       }
     }
   }
   return units;
+}
+
+/**
+ * Merge grapheme pieces into the widest runs that still fit `maxWidth`.
+ * Closing punctuation stays on the last run so "run." does not wrap to ".".
+ */
+function packUnitsToWidth(pieces: readonly LayoutUnit[], maxWidth: number): LayoutUnit[] {
+  const packed: LayoutUnit[] = [];
+  let current: LayoutUnit | null = null;
+  for (const piece of pieces) {
+    if (!current) {
+      current = piece;
+      continue;
+    }
+    if (isPunctuationOnly(piece.unit.text) || current.width + piece.width <= maxWidth) {
+      current = mergeLayoutUnits(current, piece);
+      continue;
+    }
+    packed.push(current);
+    current = piece;
+  }
+  if (current) packed.push(current);
+  return packed.length > 0 ? packed : [...pieces];
+}
+
+function mergeLayoutUnits(left: LayoutUnit, right: LayoutUnit): LayoutUnit {
+  return {
+    unit: {
+      start: left.unit.start,
+      end: right.unit.end,
+      text: left.unit.text + right.unit.text,
+      isWhitespace: false,
+      isWord: left.unit.isWord || right.unit.isWord,
+      isBreakable: false,
+    },
+    records: [...left.records, ...right.records],
+    width: left.width + right.width,
+  };
 }
 
 function attachCursorOf(
@@ -584,25 +625,39 @@ function wrapLines(
   const lines: RawLine[] = [];
   let current: LayoutUnit[] = [];
   let currentWidth = 0;
+  let profileIndex = lineOffset;
+  const peekLimit = (index: number): number => {
+    if (!lineWidths || lineWidths.length === 0) return maxWidth;
+    const entry = lineWidths[Math.min(index, lineWidths.length - 1)];
+    if (!Number.isFinite(entry)) return maxWidth;
+    return Math.max(0, Math.min(maxWidth, entry as number));
+  };
   const flush = (): void => {
     if (current.length > 0) {
       lines.push({ units: current, width: currentWidth });
       current = [];
       currentWidth = 0;
+      profileIndex += 1;
     }
   };
-  const limitForLine = (lineIndex: number): number => {
-    if (!lineWidths || lineWidths.length === 0) return maxWidth;
-    const entry = lineWidths[Math.min(lineIndex + lineOffset, lineWidths.length - 1)];
-    if (!Number.isFinite(entry)) return maxWidth;
-    return Math.max(0, Math.min(maxWidth, entry as number));
-  };
   for (const unit of units) {
-    const limit = limitForLine(lines.length);
+    let limit = peekLimit(profileIndex);
     if (limit > 0 && unit.width > 0 && current.length > 0 && currentWidth + unit.width > limit) {
       if (!unit.unit.isWhitespace) {
-        // A word does not fit: wrap before it.
+        // Closing punctuation stays with the word; wrapping it alone made
+        // "WHATEVER" / "." and "run" / ".".
+        if (isPunctuationOnly(unit.unit.text)) {
+          current.push(unit);
+          currentWidth += unit.width;
+          continue;
+        }
+        // A word does not fit: wrap before it. A word that still overflows
+        // the new (crown) line is kept whole when it fits the box: the
+        // pre-split in `buildLayoutUnits` only fires above `maxWidth`.
+        // Do not steal the next chord's width for a row that still paints
+        // at this profile index: that sat equator-wide type on the crown.
         flush();
+        limit = peekLimit(profileIndex);
       }
     }
     current.push(unit);
