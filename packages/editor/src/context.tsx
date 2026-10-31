@@ -10854,7 +10854,11 @@ export function EditorProvider({
       },
 
       closeTab: (id, force = false) => {
-        const sess = state.sessions.find((s) => s.id === id);
+        // Read the guard from the live state: closeTab is called after async
+        // work (save-and-close), where this render's closure may predate the
+        // save that cleared the dirty flag. A stale read either keeps a saved
+        // document open or, with force, closes one that is still dirty.
+        const sess = stateRef.current.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
         if (id === stateRef.current.activeId) {
           interactionState.cancelCanvasInteraction(stateRef.current.activeId);

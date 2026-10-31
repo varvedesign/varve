@@ -19,6 +19,7 @@
 
 import { Button, CloseButton, Dialog, IconButton, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useEditor } from './context';
 
 export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () => void }) {
@@ -55,13 +56,26 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
   }
 
   async function saveAndClose(id: string) {
-    if (id !== activeId) switchTab(id);
+    // Saving reads the active session synchronously from the editor state, so
+    // a background-tab save must flush the switch to that tab first. Without
+    // this the save targets the previously active document and the requested
+    // tab is closed anyway (photocraft #1098/#1100 class).
+    if (id !== activeId) flushSync(() => switchTab(id));
     const ok = await save();
-    if (ok) {
-      closeTab(id, true);
+    if (!ok) {
+      showToast?.({ message: 'Save failed — the document stays open', type: 'error' });
+      return;
+    }
+    // The save can report success while an edit that landed during the write
+    // kept the session dirty (revision race) or while a download fallback
+    // wrote no persistent file. Only the guarded close may decide.
+    if (closeTab(id)) {
       setConfirmCloseId(null);
     } else {
-      showToast?.({ message: 'Save failed — the document stays open', type: 'error' });
+      showToast?.({
+        message: 'The document still has unsaved changes — it stays open',
+        type: 'error',
+      });
     }
   }
 
