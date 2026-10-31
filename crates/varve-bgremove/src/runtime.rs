@@ -18,7 +18,22 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
+use ort::environment::Environment;
+
 static NATIVE_AI_READY: OnceLock<bool> = OnceLock::new();
+static ENVIRONMENT: OnceLock<Environment> = OnceLock::new();
+
+/// Process-wide ONNX Runtime environment created by [`init_native_runtime`].
+///
+/// `ort` 2.0.0-rc.15 made `Environment::current` crate-private and requires
+/// every `Session::builder` to take an explicit `&Environment`. Callers must
+/// go through this handle instead of asking `ort` for a global current env.
+pub fn environment() -> Result<Environment, String> {
+    ENVIRONMENT
+        .get()
+        .cloned()
+        .ok_or_else(|| "ONNX Runtime environment is not initialized".to_string())
+}
 
 /// Attempt to initialize the ONNX Runtime environment from an explicit
 /// dylib path (e.g. a bundled Tauri resource). Must be called before the
@@ -58,21 +73,22 @@ pub fn init_native_runtime(dylib_path: &Path) -> Result<(), String> {
             ));
         }
     };
-    let result = builder.commit();
-
-    // `commit()` returns false if an environment was already configured
-    // elsewhere (e.g. a previous call, or `ort` lazily creating a default
-    // one). Either way, `Session::builder()` will work from here on — the
-    // question `native_ai_ready()` answers is "did *our* dylib take"; a
-    // `false` here after we're first to call it would indicate a bug, not
-    // a recoverable runtime condition, so it's still worth recording as
-    // not-ready to avoid over-claiming.
-    let _ = NATIVE_AI_READY.set(result);
-    if result {
-        Ok(())
-    } else {
-        Err("ONNX Runtime environment was already configured before this call".to_string())
+    // rc.15 replaced `EnvironmentBuilder::commit() -> bool` with
+    // `build() -> Result<Environment>`. A second environment in the process
+    // is now a hard error instead of a silent `false`.
+    let env = match builder.build() {
+        Ok(env) => env,
+        Err(e) => {
+            let _ = NATIVE_AI_READY.set(false);
+            return Err(format!("Failed to build ONNX Runtime environment: {e}"));
+        }
+    };
+    if ENVIRONMENT.set(env).is_err() {
+        let _ = NATIVE_AI_READY.set(false);
+        return Err("ONNX Runtime environment was already configured before this call".to_string());
     }
+    let _ = NATIVE_AI_READY.set(true);
+    Ok(())
 }
 
 /// Whether native inference is actually usable right now — i.e.
@@ -101,9 +117,9 @@ mod tests {
     #[test]
     fn init_with_nonexistent_path_fails_cleanly() {
         let bogus = Path::new("/nonexistent/path/to/libonnxruntime.so");
-        // Only meaningful if nothing has committed an environment yet in
+        // Only meaningful if nothing has built an environment yet in
         // this test binary; otherwise ort::init_from itself may still
-        // reject the bad path before reaching commit(). Either branch
+        // reject the bad path before reaching build(). Either branch
         // must return Err, never panic.
         let result = init_native_runtime(bogus);
         assert!(result.is_err() || !native_ai_ready());
