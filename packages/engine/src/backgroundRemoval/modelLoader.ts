@@ -2,6 +2,10 @@ import { assertAiFeaturesEnabled, getAiFeaturesEnabled } from '../inference/aiFe
 import { getModelStorage, type StagedModelWrite } from '../inference/core/ModelStorage';
 import { repairSam2EncoderGraph } from '../inference/models/sam2GraphRepair';
 import { getUpscaleModel } from '../upscaleModels';
+import {
+  browserBlockedModelDownloadMessage,
+  isBrowserBlockedSegmentationModel,
+} from './browserModelHost';
 import { fetchWithTimeout } from './fetchWithTimeout';
 import { getManifestEntry, verifyModelChecksum } from './modelManifest';
 import {
@@ -1018,6 +1022,10 @@ class ModelLoader {
         this.saveState();
         this.notify();
         return;
+      }
+
+      if (isBrowserEnv() && isBrowserBlockedSegmentationModel(modelId)) {
+        throw new Error(browserBlockedModelDownloadMessage(modelId));
       }
 
       if (!isBrowserEnv()) {

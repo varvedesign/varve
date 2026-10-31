@@ -138,6 +138,8 @@ export {
   getModelInfo,
   getModelLoader,
   getModelLoaderReady,
+  HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
+  isBrowserBlockedSegmentationModel,
   isWasmModelSafe,
   MODEL_INFO_MAP,
   maskArrayToDataUrl,

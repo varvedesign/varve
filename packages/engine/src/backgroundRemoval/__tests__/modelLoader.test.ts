@@ -847,6 +847,17 @@ describe('ModelLoader', () => {
     expect(mockDeletePartial).not.toHaveBeenCalled();
   });
 
+  it('refuses BiRefNet Lite downloads in the browser', async () => {
+    const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
+    resetModelLoader();
+    const loader = await getModelLoaderReady();
+    await expect(loader.downloadModel('birefnet-general-lite')).rejects.toThrow(
+      /High quality is available in the desktop app/,
+    );
+    expect(loader.getState()).toBe('error');
+    expect(mockSave).not.toHaveBeenCalled();
+  });
+
   it('resumes interrupted download from partial bytes with Range header', async () => {
     const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
     resetModelLoader();

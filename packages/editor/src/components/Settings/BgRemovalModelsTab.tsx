@@ -8,10 +8,13 @@
 import {
   deriveAcquisition,
   getModelLoaderReady,
+  HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
+  isBrowserBlockedSegmentationModel,
   listAllModels,
   type RemovalMethod,
   workerModelIdForMethod,
 } from '@varve/engine';
+import { isTauriRuntime } from '@varve/platform';
 import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
@@ -26,6 +29,7 @@ interface InstalledModelRow {
   installed: boolean;
   source: 'bundled' | 'downloaded' | 'none';
   downloadable: boolean;
+  desktopOnly?: boolean;
   description?: string;
   precision?: 'fp32' | 'int8';
   isQuantized: boolean;
@@ -79,6 +83,7 @@ async function buildRows(
     }
 
     const installed = await loader.isModelAvailable(model.id);
+    const desktopOnly = !isTauriRuntime() && isBrowserBlockedSegmentationModel(model.id);
     results.push({
       id: model.id,
       name: model.name,
@@ -90,7 +95,8 @@ async function buildRows(
         : (await loader.hasDownloadedBlob?.(model.id))
           ? 'downloaded'
           : 'none',
-      downloadable: deriveAcquisition(model).kind === 'remote',
+      downloadable: !desktopOnly && deriveAcquisition(model).kind === 'remote',
+      desktopOnly,
       description: model.description,
       precision: model.precision as 'fp32' | 'int8' | undefined,
       isQuantized: model.precision === 'int8',
@@ -316,7 +322,9 @@ export function BgRemovalModelsTab() {
                       )
                     )}
                     {!row.installed && !row.downloadable && (
-                      <span className="bg-models-list__meta">Unavailable</span>
+                      <span className="bg-models-list__meta">
+                        {row.desktopOnly ? HIGH_QUALITY_DESKTOP_ONLY_MESSAGE : 'Unavailable'}
+                      </span>
                     )}
                   </div>
                 </li>

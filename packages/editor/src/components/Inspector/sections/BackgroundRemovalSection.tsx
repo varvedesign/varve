@@ -20,6 +20,7 @@ import {
   getEnvironmentCapabilities,
   getModelInfo,
   getModelLoaderReady,
+  HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
   isWasmModelSafe,
   MOBILE_SAM_DECODER_ID,
   MOBILE_SAM_ENCODER_ID,
@@ -376,6 +377,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   }, [node?.id]);
   const [aiAvailable, setAiAvailable] = useState(false);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [wasmModelSafe, setWasmModelSafe] = useState(true);
 
   const showingOriginal = Boolean(node && state.showOriginalBgNodeId === node.id);
@@ -766,6 +768,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       // kernels; `aiAvailable` separately suppresses WASM warnings when the
       // native provider can run the model.
       setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL);
+      setIsDesktop(caps.isTauri);
     });
   }, []);
 
@@ -806,6 +809,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     // could otherwise let a stale "available" reading from a previously
     // selected method through, silently attempting removal with no model.
     if (method !== 'quick' && requiredModelId) {
+      if (!isDesktop && method === 'ai-quality') {
+        announce(HIGH_QUALITY_DESKTOP_ONLY_MESSAGE);
+        return;
+      }
       const loader = await getModelLoaderReady();
       const stillAvailable = await loader.isModelAvailable(requiredModelId);
       setAiAvailable(stillAvailable);
@@ -852,6 +859,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   };
 
   const handleDownload = (modelId = requiredModelId) => {
+    if (!isDesktop && (modelId === 'birefnet-general-lite' || method === 'ai-quality')) {
+      announce(HIGH_QUALITY_DESKTOP_ONLY_MESSAGE);
+      return;
+    }
     // Show a warning before downloading AI Quality on environments without GPU
     if (method === 'ai-quality' && !hasGpuAccel && !aiAvailable) {
       announce(
@@ -1367,12 +1378,22 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                         value: 'ai-balanced',
                         label: `Auto — general photos (AI Balanced)${!aiAvailable ? ' (download required)' : ''}`,
                       },
-                      {
-                        value: 'ai-quality',
-                        label: `High quality — fine details (AI High Quality)${
-                          !aiAvailable ? ' (download required)' : ''
-                        }${!wasmModelSafe && !hasGpuAccel && !aiAvailable ? ' — may need GPU' : ''}`,
-                      },
+                      ...(isDesktop || method === 'ai-quality'
+                        ? [
+                            {
+                              value: 'ai-quality',
+                              label: isDesktop
+                                ? `High quality — fine details (AI High Quality)${
+                                    !aiAvailable ? ' (download required)' : ''
+                                  }${
+                                    !wasmModelSafe && !hasGpuAccel && !aiAvailable
+                                      ? ' — may need GPU'
+                                      : ''
+                                  }`
+                                : HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
+                            },
+                          ]
+                        : []),
                       {
                         value: 'portrait',
                         label: `Portrait matting — people photos (MODNet)${
@@ -1386,11 +1407,16 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             />
           </FieldRow>
           {!aiEnabled && <p className="insp-hint">{AI_DISABLED_HINT}</p>}
+          {aiEnabled && !isDesktop && (
+            <p className="insp-hint" data-testid="bg-high-quality-desktop-only">
+              {HIGH_QUALITY_DESKTOP_ONLY_MESSAGE}
+            </p>
+          )}
           <span id="bg-method-desc" className="sr-only">
             Fast uses a local heuristic. Auto uses IS-Net General Use when installed and falls back
-            to bundled U²-Net Light. High quality uses BiRefNet Lite where the available provider is
-            safe. Portrait uses MODNet, a portrait-specific matting model, and never runs as a
-            fallback for other modes.
+            to bundled U²-Net Light. High quality uses BiRefNet Lite in the desktop app. Portrait
+            uses MODNet, a portrait-specific matting model, and never runs as a fallback for other
+            modes.
           </span>
 
           <section className="insp-nested-panel" aria-label={`${methodGuidance.title} guidance`}>
@@ -1448,23 +1474,26 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             </p>
           )}
 
-          {method !== 'quick' && !aiAvailable && modelState !== 'downloading' && (
-            <div className="insp-actions">
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={() => handleDownload()}
-                aria-label="Download AI model for background removal"
-              >
-                Download AI Model
-              </Button>
-              <p className="insp-hint">
-                Requires a one-time download stored on this device. Manage models in Settings,
-                Offline Models.
-              </p>
-            </div>
-          )}
+          {method !== 'quick' &&
+            !aiAvailable &&
+            modelState !== 'downloading' &&
+            (isDesktop || method !== 'ai-quality') && (
+              <div className="insp-actions">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleDownload()}
+                  aria-label="Download AI model for background removal"
+                >
+                  Download AI Model
+                </Button>
+                <p className="insp-hint">
+                  Requires a one-time download stored on this device. Manage models in Settings,
+                  Offline Models.
+                </p>
+              </div>
+            )}
 
           {method === 'ai-balanced' && aiAvailable && !enhancedBalancedAvailable && (
             <div className="insp-actions">

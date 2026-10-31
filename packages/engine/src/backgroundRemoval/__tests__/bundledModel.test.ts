@@ -39,6 +39,13 @@ describe('bundled model integrity', () => {
     expect(full?.sha256).toBe('58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c');
   });
 
+  it('AVAILABLE_MODELS pins the same BiRefNet Full SHA-256 as the manifest', async () => {
+    const { AVAILABLE_MODELS } = await import('../types');
+    expect(AVAILABLE_MODELS.find((model) => model.id === 'birefnet-general')?.checksum).toBe(
+      '58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c',
+    );
+  });
+
   it('yunet-face-detect SHA-256 matches manifest.json', () => {
     const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as {
       models: Array<{ id: string; filename: string; sha256: string | null; bundled: boolean }>;

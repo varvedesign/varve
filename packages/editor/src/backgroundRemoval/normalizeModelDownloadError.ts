@@ -214,6 +214,31 @@ export function normalizeModelDownloadError(value: unknown): NormalizedModelDown
   }
 
   if (
+    text.includes('high quality is available in the desktop app') ||
+    text.includes('cannot be downloaded in the browser')
+  ) {
+    return {
+      category: 'native-unavailable',
+      userMessage: text.includes('high quality')
+        ? 'High quality is available in the desktop app'
+        : "This model can't be downloaded in the browser",
+      detail: 'Use the desktop app to download this model. The browser cannot reach that host.',
+      retryable: false,
+      technicalMessage: technical,
+    };
+  }
+
+  if (text.includes('cors') || text.includes('access-control-allow-origin')) {
+    return {
+      category: 'network',
+      userMessage: "This model can't be downloaded in the browser",
+      detail: 'High quality is available in the desktop app.',
+      retryable: false,
+      technicalMessage: technical,
+    };
+  }
+
+  if (
     text.includes('network') ||
     text.includes('offline') ||
     text.includes('fetch') ||

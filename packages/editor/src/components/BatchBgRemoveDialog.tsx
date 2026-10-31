@@ -11,6 +11,7 @@ import {
   getEnvironmentCapabilities,
   getImageCache,
   getModelLoaderReady,
+  HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
   isWasmModelSafe,
   removeBackground,
   workerModelIdForMethod,
@@ -128,6 +129,7 @@ export function BatchBgRemoveDialog({
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [wasmModelSafe, setWasmModelSafe] = useState(true);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   const submittedNodesRef = useRef(nodes);
   submittedNodesRef.current = nodes;
@@ -157,6 +159,7 @@ export function BatchBgRemoveDialog({
     if (open) {
       getEnvironmentCapabilities().then((caps) => {
         setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL || caps.isTauri);
+        setIsDesktop(caps.isTauri);
       });
     }
   }, [open]);
@@ -457,7 +460,7 @@ export function BatchBgRemoveDialog({
                     aria-label="Background removal method"
                   >
                     {(aiEnabled
-                      ? METHOD_OPTIONS
+                      ? METHOD_OPTIONS.filter((opt) => isDesktop || opt.value !== 'ai-quality')
                       : METHOD_OPTIONS.filter((opt) => opt.value === 'quick')
                     ).map((opt) => (
                       <label
@@ -493,6 +496,9 @@ export function BatchBgRemoveDialog({
                     ))}
                   </div>
                   {!aiEnabled && <p className="batch-bg-remove__hint">{AI_DISABLED_HINT}</p>}
+                  {aiEnabled && !isDesktop && (
+                    <p className="batch-bg-remove__hint">{HIGH_QUALITY_DESKTOP_ONLY_MESSAGE}</p>
+                  )}
                 </section>
 
                 {aiEnabled && method !== 'quick' && !aiAvailable && (

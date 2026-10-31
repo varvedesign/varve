@@ -1027,3 +1027,16 @@ describe('BackgroundRemovalSection - Error normalization', () => {
     });
   });
 });
+
+describe('BackgroundRemovalSection - web High quality availability', () => {
+  it('tells the user High quality is desktop-only and hides that method', async () => {
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('bg-high-quality-desktop-only').textContent).toMatch(
+        /high quality is available in the desktop app/i,
+      );
+    });
+    fireEvent.click(screen.getByLabelText('Background removal method'));
+    expect(screen.queryByRole('option', { name: /high quality — fine details/i })).toBeNull();
+  });
+});

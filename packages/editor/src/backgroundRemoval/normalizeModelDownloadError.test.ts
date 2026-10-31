@@ -77,4 +77,17 @@ describe('normalizeModelDownloadError', () => {
     const n = normalizeModelDownloadError(new DOMException('aborted', 'AbortError'));
     expect(n.category).toBe('cancelled');
   });
+
+  it('classifies browser GitHub-host refusals as desktop-only, not a network outage', () => {
+    const n = normalizeModelDownloadError('High quality is available in the desktop app');
+    expect(n.category).toBe('native-unavailable');
+    expect(n.retryable).toBe(false);
+    expect(n.userMessage).toBe('High quality is available in the desktop app');
+  });
+
+  it('classifies CORS failures as a browser-host limit', () => {
+    const n = normalizeModelDownloadError(new TypeError('Failed to fetch: CORS'));
+    expect(n.userMessage).toMatch(/can't be downloaded in the browser/i);
+    expect(n.retryable).toBe(false);
+  });
 });

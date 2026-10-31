@@ -11,7 +11,7 @@ import { resolveWebModelForOptions } from '../modelSelection';
 import { getSegmentationModelSpec, packModelInput } from '../modelSpec';
 import { configureOrtRuntime } from '../ortRuntimeAssets';
 import { downscaleImageData } from '../previewDownscale';
-import { computeLetterboxTransform, reconstructModelMask } from '../reconstructMask';
+import { computeSquareInputTransform, reconstructSquareInputMask } from '../squareInputResize';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerModelId } from '../types';
 import { DEFAULT_PREVIEW_MAX_DIMENSION, workerModelIdForMethod } from '../types';
 import type { RemovalProvider } from './types';
@@ -79,7 +79,7 @@ async function createOrtSession(
   return { session, executionProvider: 'wasm' };
 }
 
-function letterboxImageDataToModelInput(
+function resizeImageDataToModelInput(
   src: ImageData,
   targetW: number,
   targetH: number,
@@ -89,7 +89,8 @@ function letterboxImageDataToModelInput(
   canvas.width = targetW;
   canvas.height = targetH;
   const ctx = canvas.getContext('2d')!;
-  if (typeof ctx.fillRect === 'function') {
+  const transform = computeSquareInputTransform(src.width, src.height, targetW, targetH);
+  if (transform.mode === 'letterbox' && typeof ctx.fillRect === 'function') {
     ctx.fillStyle = `rgb(${paddingRgb[0]} ${paddingRgb[1]} ${paddingRgb[2]})`;
     ctx.fillRect(0, 0, targetW, targetH);
   }
@@ -97,7 +98,6 @@ function letterboxImageDataToModelInput(
   tempCanvas.width = src.width;
   tempCanvas.height = src.height;
   tempCanvas.getContext('2d')?.putImageData(src, 0, 0);
-  const transform = computeLetterboxTransform(src.width, src.height, targetW, targetH);
   ctx.drawImage(
     tempCanvas,
     transform.offsetX,
@@ -139,12 +139,7 @@ async function removeBackgroundDirectOnnx(
   const previewMax = options.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION;
   const sourceImage = previewMax > 0 ? downscaleImageData(imageData, previewMax) : imageData;
 
-  const resized = letterboxImageDataToModelInput(
-    sourceImage,
-    inputSize,
-    inputSize,
-    spec.paddingRgb,
-  );
+  const resized = resizeImageDataToModelInput(sourceImage, inputSize, inputSize, spec.paddingRgb);
   const floatData = packModelInput(resized, spec);
   const inputTensor = new ort.Tensor('float32', floatData, [1, 3, inputSize, inputSize]);
 
@@ -163,13 +158,13 @@ async function removeBackgroundDirectOnnx(
     const maskHeight = outputTensor.dims[2] ?? inputSize;
 
     const mask = normalizeSegmentationOutput(outputData, spec.applySigmoid);
-    const outputTransform = computeLetterboxTransform(
-      sourceImage.width,
-      sourceImage.height,
+    const previewMask = reconstructSquareInputMask(
+      mask,
       maskWidth,
       maskHeight,
+      sourceImage.width,
+      sourceImage.height,
     );
-    const previewMask = reconstructModelMask(mask, maskWidth, maskHeight, outputTransform).alpha;
     const upscaledMask =
       sourceImage.width === imageData.width && sourceImage.height === imageData.height
         ? previewMask

@@ -16,7 +16,7 @@ Inspector / Selection Quick Bar
   → model loader + unified manifest
   → Worker ONNX | native Tauri ONNX | direct ONNX | explicit cloud provider
   → model-specific preprocessing + inference
-  → output activation, normalization, letterbox-aware reconstruction
+  → output activation, normalization, stretch or letterbox reconstruction
   → soft mask cleanup / optional decontamination / optional matting refinement
   → source-resolution alpha mask
   → document raster-mask commit + undo
@@ -68,8 +68,13 @@ is a compatibility boundary that must stay covered by manifest-sync tests.
 BiRefNet Lite and Full use the rembg ONNX exports currently pinned in the
 manifest. The declared contract is 1024×1024 RGB float input, ImageNet
 normalisation, and sigmoid output interpretation followed by soft-mask
-reconstruction. The manifest checksum is integrity evidence, not reference
-quality evidence.
+reconstruction. Square-input models (u2netp, IS-Net, BiRefNet) stretch-resize
+to the model square and map the mask back with the inverse stretch, matching
+rembg. Letterbox padding is kept only when the source aspect is over 2.5:1.
+The browser build does not download BiRefNet Lite or Full (GitHub Releases
+block CORS); High quality is offered in the desktop app, which streams those
+files through Rust. The manifest checksum is integrity evidence, not
+reference quality evidence.
 
 Adding a model should require a manifest entry, a model-spec contract only when
 pre/postprocessing differs, a compatible weight artifact, and corpus coverage.

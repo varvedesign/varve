@@ -46,20 +46,40 @@ fixtures. Ground truth settles the question — native IoU on the tall fixture i
 mask (IoU 0.23). The native pipeline is correct; the mirror is only an
 approximation at large downscale ratios.
 
-### Preprocessing divergence (letterbox vs reference stretch)
+### Preprocessing (letterbox vs rembg stretch)
 
-rembg stretches to the input square; Varve letterboxes (aspect-preserving with
-mean-colour padding, matching the pinned manifest preprocessing contract).
+The 2026-08-13 synthetic corpus treated Varve's letterbox (aspect-preserving
+pad to the model square) as "by design" because near-square fixtures stayed
+within 0.02 MAE of rembg's stretch, and only 4:1 / 1:4 synthetics diverged.
 
-| Aspect ratio class | rembg vs Varve MAE |
-|---|---:|
-| near-square / ≤2:1 (10 fixtures, both models) | ≤ 0.02 |
-| 4:1 panorama / 1:4 tall | 0.23–0.73 |
+Real photographs measured 2026-10-31 show that letterbox is a correctness
+bug for ordinary photo ratios, not just panoramas. Same checkpoint, rembg
+stretch as the reference:
 
-At extreme aspect ratios the two preprocessing policies see genuinely different
-inputs, so mask divergence is expected and by design. Varve's letterbox is the
-right choice for a design app (panoramas and tall crops must not be squashed);
-the reference's stretch is not a correctness target for those fixtures.
+| Model | Sample | Letterbox IoU | Stretch IoU |
+|---|---|---:|---:|
+| isnet-general-use | lowlight | 0.046 | 0.985 |
+| isnet-general-use | busy | 0.254 | 0.678 |
+| isnet-general-use | logo | 0.727 | 0.975 |
+| u2netp (bundled Balanced) | edge | 0.505 | 0.956 |
+| u2netp | glass | 0.76 | 0.98 |
+| u2netp | busy | 0.32 | 0.726 |
+
+Padding colour and output min-max stretching did not recover the letterbox
+cases. The low-light IS-Net letterbox mask became a whole-frame
+semi-transparent haze.
+
+Current contract (browser worker and native `varve-bgremove`):
+
+1. Square-input models (u2netp, u2netp-int8, IS-Net, BiRefNet Lite/Full)
+   stretch-resize to the model square and restore the mask with the inverse
+   stretch, matching rembg and the original IS-Net code.
+2. Letterbox (mean-colour pad) stays only when the source aspect is over
+   about 2.5:1, so panoramas and tall crops are not squashed.
+3. MODNet keeps its own aspect-preserving 512-edge / div-32 preprocessor.
+
+The earlier synthetic "by design" reading is superseded for typical photo
+ratios. Extreme-aspect letterbox remains an intentional exception.
 
 ### Postprocessing divergence (min-max stretch vs rembg clamp) — FIXED
 

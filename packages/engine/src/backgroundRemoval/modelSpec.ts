@@ -25,8 +25,9 @@ function isU2NetLightFamily(modelId: WorkerModelId): boolean {
 export function getSegmentationModelSpec(modelId: WorkerModelId): SegmentationModelSpec {
   if (modelId === 'modnet-portrait') {
     // MODNet uses the aspect-preserving 512-edge/div-32 preprocessor in
-    // modnetPortrait.ts, not a square letterbox. The worker branches before
-    // this function for that model; calling it here is a programming error.
+    // modnetPortrait.ts, not the square stretch/letterbox path. The worker
+    // branches before this function for that model; calling it here is a
+    // programming error.
     throw new Error('MODNet portrait preprocessing is handled by the dedicated portrait path');
   }
   if (modelId === 'isnet-general-use') {
@@ -35,6 +36,7 @@ export function getSegmentationModelSpec(modelId: WorkerModelId): SegmentationMo
       mean: [0.5, 0.5, 0.5],
       std: [1, 1, 1],
       applySigmoid: false,
+      // Used only when the source aspect is over 2.5:1 (letterbox fallback).
       paddingRgb: [128, 128, 128],
     };
   }
@@ -46,6 +48,7 @@ export function getSegmentationModelSpec(modelId: WorkerModelId): SegmentationMo
     std: IMAGENET_STD,
     applySigmoid: !u2netLight,
     // Mean-colour padding maps close to zero after ImageNet normalization.
+    // Used only when the source aspect is over 2.5:1 (letterbox fallback).
     paddingRgb: [124, 116, 104],
   };
 }

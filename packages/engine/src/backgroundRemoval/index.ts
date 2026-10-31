@@ -18,6 +18,12 @@ import { DEFAULT_PREVIEW_MAX_DIMENSION } from './types';
 
 export type { AdaptiveSelection, AdaptiveSelectionOptions } from './adaptiveSelection';
 export { selectAdaptiveModel } from './adaptiveSelection';
+export {
+  browserBlockedModelDownloadMessage,
+  HIGH_QUALITY_DESKTOP_ONLY_MESSAGE,
+  isBrowserBlockedSegmentationModel,
+  isGithubReleaseAssetUrl,
+} from './browserModelHost';
 export type { CategoryProfile, ImageCategoryFeatures } from './categoryTuning';
 export {
   extractCategoryFeatures,
@@ -125,6 +131,14 @@ export {
 } from './reconstructMask';
 export type { HairMattingOptions, MattingMethod } from './refineHairMatting';
 export { refineHairMatting, TRIMap } from './refineHairMatting';
+export type { SquareInputResizeMode, SquareInputTransform } from './squareInputResize';
+export {
+  computeSquareInputTransform,
+  computeStretchTransform,
+  reconstructSquareInputMask,
+  SQUARE_INPUT_LETTERBOX_ASPECT,
+  squareInputResizeMode,
+} from './squareInputResize';
 export type { TrimapMattingOptions } from './trimapMatting';
 export { solveTrimapMatting, trimapFromMask } from './trimapMatting';
 export {

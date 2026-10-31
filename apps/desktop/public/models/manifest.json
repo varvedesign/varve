@@ -544,7 +544,7 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "Best quality, handles hair, fur, transparency, and fine detail. UNVERIFIED — no SHA-256 checksum published, tensor contract not inspected."
+      "notes": "Best quality, handles hair, fur, transparency, and fine detail. SHA-256 pinned from the rembg v0.0.0 BiRefNet-general-epoch_244.onnx artifact (also published on onnx-community/BiRefNet-ONNX)."
     },
     {
       "id": "upscale-realesr-general",
