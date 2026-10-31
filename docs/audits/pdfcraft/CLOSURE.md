@@ -463,9 +463,21 @@ editor was clean and then used an ordinary reload. Hypothesis: pagehide rewrites
 the planted marker to `'true'`, so the next editor correctly discards stale
 recovery points. Next probe records the post-reload marker and exact recovery
 key before mounting the next editor. No production change or weaker assertion
-is justified until that observation is made. The exact probe is now running
-through the lease (`sh_16b23b872001bG2LTj1hyvNSF6`); E2E typecheck and touched
-formatting passed before it launched. No duplicate browser run was started.
+is justified until that observation is made. The exact browser probe
+(`sh_16b23b872001bG2LTj1hyvNSF6`) passed E2E typecheck/touched formatting but
+hit the 600-second lease deadline behind another live certification, without
+launching a browser. It supplies no observed post-reload marker value.
+
+The same transition was then exercised directly through the real
+`ShutdownMarker` and `handlePageHideBoundary` modules, using Node's built-in
+TypeScript stripping and memory storage (no mocked marker implementation):
+planted `false` → clean pagehide `true` → next startup `true`. The attempted
+`pnpm exec tsx` probe could not run because root-level `tsx` is unavailable; no
+dependency was installed. This confirms the test setup's clean-exit transition,
+not a browser Restore/Save pass. The E2E now reloads the clean editor first,
+asserts its marker is `true`, then seeds the interrupted snapshot/`false` marker
+on Home before mounting the next editor. Exact stored-key and marker assertions
+remain; no production recovery behavior or dialog assertion was weakened.
 
 Fifth bounded source batch: all frozen bodies/discussions for #4002–#4010 were
 read. All five linked images and both pages of #4009's PDF were inspected;
@@ -480,6 +492,12 @@ ownership/repository-level secrets under the solo-maintainer policy. No live
 GitHub protection settings, signing execution or independent approval was
 verified, and no repository settings were changed. Current recorded source
 coverage is **49 / 448**, with **399 outstanding and ten candidates**.
+
+The fourth and fifth source batches are committed as `83a22e48c` and
+`19a01e602`; both normal five-file documentation checkpoints passed. Fifth-batch
+consistency checked 51 unique seven-column notes, all 49 completed review ids
+and the cutoff-3 disposition census. Docs audit, touched Biome and whitespace
+checks passed. Final integration certification remains outstanding.
 
 Distinct self-review passes checked the actual helper changes against cwd,
 linked-worktree and injected-adapter behavior, then standards and the affected
