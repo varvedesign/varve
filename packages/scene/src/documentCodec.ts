@@ -41,6 +41,12 @@ import {
   validateRasterMaskDocument,
 } from './masks';
 import { sanitizeMockupState } from './mockup/normalize';
+import {
+  findNonFiniteNumbers,
+  NonFiniteDocumentError,
+  type NonFiniteNumber,
+  repairNonFiniteNumbers,
+} from './nonFinite';
 import { resolveNodePaints } from './paint';
 import { validatePatternDefinitionDependencies } from './patternDefinitions';
 import { validatePhotoSourceBinding, validateRetouchProvenance } from './photoSource';
@@ -132,6 +138,19 @@ function warning(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** Warn about values the load boundary reset so the user knows the file changed. */
+function nonFiniteRepairWarning(repaired: NonFiniteNumber[]): DocumentCodecWarning {
+  const first = repaired[0];
+  const count = repaired.length;
+  const value = first ? (Number.isNaN(first.value) ? 'NaN' : String(first.value)) : 'non-finite';
+  return warning(
+    'document.non-finite-repaired',
+    `Reset ${count} non-finite numeric value${count === 1 ? '' : 's'} at load (first: ${first?.path ?? 'document'} = ${value}); saving would have written null`,
+    'warning',
+    first?.path,
+  );
 }
 
 function validateShape(raw: Record<string, unknown>): string | null {
@@ -1781,7 +1800,20 @@ export const DocumentCodec = {
     }
 
     const normalized = normalizeDocument(migration.document as unknown as Document);
+    // A JSON number literal can overflow binary64 (`1e999` parses to
+    // Infinity), and a legacy or crafted file can carry a non-finite value the
+    // current build never produces. Normalizers above already drop or clamp the
+    // fields they own; anything still non-finite here would serialize as `null`
+    // on the next save, so repair it at the boundary and report every reset
+    // path. Leaving it would make the document openable but silently lossy.
+    const nonFiniteRepair = repairNonFiniteNumbers(normalized.document);
+    if (nonFiniteRepair.repaired.length > 0) {
+      normalized.document = nonFiniteRepair.document;
+    }
     const warnings = [...normalized.warnings];
+    if (nonFiniteRepair.repaired.length > 0) {
+      warnings.unshift(nonFiniteRepairWarning(nonFiniteRepair.repaired));
+    }
     for (const legacyWarning of legacyWarnings) {
       if (
         !warnings.some(
@@ -1822,7 +1854,14 @@ export const DocumentCodec = {
       doc,
     )[0];
     if (patternGraphError) throw new Error(patternGraphError);
-    return serializeVersionedDocument(normalizeDocument(doc).document);
+    const normalized = normalizeDocument(doc).document;
+    // JSON.stringify writes Infinity/NaN as `null`, which silently loses the
+    // value. Normalization above drops or clamps the fields it owns; a value
+    // still non-finite here cannot be represented, so refuse and name the
+    // field instead of corrupting the file.
+    const nonFinite = findNonFiniteNumbers(normalized);
+    if (nonFinite.length > 0) throw new NonFiniteDocumentError(nonFinite);
+    return serializeVersionedDocument(normalized);
   },
 
   normalize: normalizeDocument,

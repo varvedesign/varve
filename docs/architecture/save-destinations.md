@@ -121,6 +121,27 @@ mid-write leaves the previous file intact. Serialization happens before the
 destination is touched. The Home mirror is secondary persistence — its
 failure never fails the user's filesystem save.
 
+### Non-finite document numbers
+
+A saved document must not contain `Infinity` or `NaN`. JSON has no literal for
+either: `JSON.parse('1e999')` overflows to `Infinity`, and `JSON.stringify`
+writes both as `null`. Left alone, one such value makes every later save
+silently replace it with `null` while still reporting success.
+
+- **Load repairs.** `DocumentCodec.decode` resets each non-finite number to `0`
+  at the document boundary, copies only the branches it changes, and emits a
+  `document.non-finite-repaired` warning naming the first reset field. The
+  repaired document saves and reopens as ordinary finite numbers.
+- **Save refuses.** `DocumentCodec.encode` throws `NonFiniteDocumentError`
+  naming the field(s) instead of writing `null`; the save flow maps that to the
+  `serialization-failed` category with an actionable message (undo the change
+  that produced the value, or reopen the file). The destination is never
+  touched and the session stays dirty.
+
+Load repair is the recovery path for files written by older builds, or crafted
+or imported JSON. Save refusal covers in-memory values produced after load by a
+bug or a foreign-format import. Neither path silently replaces a value.
+
 ## Platform contract
 
 `packages/platform/src/platform.ts` separates **choosing** from **writing**:

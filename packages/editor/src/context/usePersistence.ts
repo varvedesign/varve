@@ -32,6 +32,7 @@ import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
 // would make types.ts depend back on this module (import cycle).
 import type { EditorState, LoadDocumentMeta, SaveIssue, SessionFileMeta } from './types';
 import { getCanvasViewport } from './viewportOps';
+import { saveFailureIssue } from './saveIssues';
 
 export type { LoadDocumentMeta };
 
@@ -134,9 +135,12 @@ export function usePersistence(
         }
         return await performSave(platform, stateRef, recoveryRef, patch, revision);
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        patch({ saveState: 'error', saveIssue: issue('unknown-io', message) });
-        return { status: 'failed', issue: issue('unknown-io', message) };
+        // A non-finite document value is refused by the codec instead of being
+        // written as null; the mapped issue names the field and the recovery
+        // path. Other exceptions keep the I/O category they had before.
+        const failure = saveFailureIssue(e);
+        patch({ saveState: 'error', saveIssue: failure });
+        return { status: 'failed', issue: failure };
       }
     },
     [platform, stateRef, recoveryRef, patch],
@@ -168,6 +172,18 @@ export function usePersistence(
       try {
         const decoded = DocumentCodec.decode(json);
         if (!decoded.ok) throw new Error(decoded.error);
+        // A legacy or crafted file can carry a value JSON parsed as Infinity.
+        // The codec repaired it at the boundary; say so rather than letting the
+        // silently-changed value surprise the user on the next save.
+        const repaired = decoded.warnings.filter(
+          (entry) => entry.code === 'document.non-finite-repaired',
+        );
+        if (repaired.length > 0 && typeof console !== 'undefined') {
+          console.warn(
+            '[Strata] loadDocument: repaired non-finite document values:',
+            repaired.map((entry) => entry.message),
+          );
+        }
         const doc = decoded.document;
         const result = validateDocument(doc);
         if (!result.valid && typeof console !== 'undefined') {

@@ -15,6 +15,7 @@ import {
 import { DocumentCodec } from './documentCodec';
 import { gradientFill, imageFill } from './fills';
 import { addRasterMaskAsset } from './masks';
+import { NonFiniteDocumentError } from './nonFinite';
 import { setCellSceneContent } from './tableOps';
 import { makePaint, type Page, type RasterMaskAsset } from './types';
 import { createVariableStore } from './variables';
@@ -1206,5 +1207,67 @@ describe('unknown future node kinds', () => {
     expect(reopened.futureField).toEqual({ mode: 'v9' });
     expect(result.document.nodes.leaf).toBeDefined();
     expect(result.warnings.some((w) => w.code === 'document.orphan-child')).toBe(false);
+  });
+
+  it('repairs non-finite numbers that JSON overflowed to Infinity, and the repaired document saves and reopens', () => {
+    const doc = addNode(
+      createDocument('Non-finite', true),
+      makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+    );
+    const encoded = DocumentCodec.encode(doc);
+    // JSON.parse turns an overflowing exponent into Infinity: precisely the
+    // legacy/crafted-file state that used to save back as null.
+    const crafted = encoded
+      .replace(/"w":10\b/, '"w":1e999')
+      .replace(/"opacity":1\b/, '"opacity":-1e999');
+    const parsed = JSON.parse(crafted) as {
+      nodes: { shape: { opacity: number; shape: { w: number } } };
+    };
+    expect(parsed.nodes.shape.opacity).toBe(-Infinity);
+    expect(parsed.nodes.shape.shape.w).toBe(Infinity);
+
+    const decoded = DocumentCodec.decode(crafted);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const repairedNode = decoded.document.nodes.shape as unknown as {
+      opacity: number;
+      shape: { w: number };
+    };
+    expect(repairedNode.opacity).toBe(0);
+    expect(repairedNode.shape.w).toBe(0);
+    const repairWarning = decoded.warnings.find((w) => w.code === 'document.non-finite-repaired');
+    expect(repairWarning?.message).toContain('2 non-finite numeric values');
+    expect(repairWarning?.message).toContain('nodes.shape');
+
+    // The repaired document must save as real numbers and reopen unchanged.
+    const saved = DocumentCodec.encode(decoded.document);
+    expect(saved).not.toContain('1e999');
+    const reopened = DocumentCodec.decode(saved);
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) return;
+    const reopenedNode = reopened.document.nodes.shape as unknown as {
+      opacity: number;
+      shape: { w: number };
+    };
+    expect(reopenedNode.opacity).toBe(0);
+    expect(reopenedNode.shape.w).toBe(0);
+    expect(reopened.warnings.some((w) => w.code === 'document.non-finite-repaired')).toBe(false);
+  });
+
+  it('refuses to serialize a document holding a non-finite value and names the field', () => {
+    const doc = addNode(
+      createDocument('Non-finite save', true),
+      makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+    );
+    (doc.nodes.shape as unknown as { opacity: number }).opacity = Number.POSITIVE_INFINITY;
+
+    expect(() => DocumentCodec.encode(doc)).toThrow(NonFiniteDocumentError);
+    try {
+      DocumentCodec.encode(doc);
+    } catch (error) {
+      expect(error).toBeInstanceOf(NonFiniteDocumentError);
+      expect((error as Error).message).toContain('nodes.shape.opacity = Infinity');
+      expect((error as Error).message).toContain('saving would replace it with null');
+    }
   });
 });

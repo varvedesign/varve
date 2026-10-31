@@ -67,6 +67,13 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **A document with an invalid number no longer corrupts itself on save** — A
+  JSON number that overflows (`1e999` parses as `Infinity`) or any in-memory
+  `NaN`/`Infinity` used to be written back as `null`, so the value disappeared
+  on the next save while the save reported success. Loading now resets such
+  values to `0` and reports which fields changed; saving refuses instead of
+  writing `null` and names the field with a recovery path (undo the change, or
+  reopen the file). The destination is never touched.
 - **SVG import is linear again** — Importing a large file took time proportional to the square of
   its element count: the converter copied the entire node map once per element, and the append
   copied it again. A 4 000-element file went from 14.6 s to 0.26 s, and 8 000 elements from 34 s to
