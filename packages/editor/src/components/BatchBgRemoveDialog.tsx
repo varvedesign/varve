@@ -13,8 +13,10 @@ import {
   getModelLoaderReady,
   isWasmModelSafe,
   removeBackground,
+  WEB_DESKTOP_ONLY_MODELS_HINT,
   workerModelIdForMethod,
 } from '@varve/engine';
+import { isTauriRuntime } from '@varve/platform';
 import type {
   BackgroundRemovalMethod,
   Document,
@@ -128,6 +130,7 @@ export function BatchBgRemoveDialog({
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [wasmModelSafe, setWasmModelSafe] = useState(true);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => isTauriRuntime());
 
   const submittedNodesRef = useRef(nodes);
   submittedNodesRef.current = nodes;
@@ -157,6 +160,7 @@ export function BatchBgRemoveDialog({
     if (open) {
       getEnvironmentCapabilities().then((caps) => {
         setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL || caps.isTauri);
+        setIsDesktop(caps.isTauri);
       });
     }
   }, [open]);
@@ -457,7 +461,7 @@ export function BatchBgRemoveDialog({
                     aria-label="Background removal method"
                   >
                     {(aiEnabled
-                      ? METHOD_OPTIONS
+                      ? METHOD_OPTIONS.filter((opt) => isDesktop || opt.value !== 'ai-quality')
                       : METHOD_OPTIONS.filter((opt) => opt.value === 'quick')
                     ).map((opt) => (
                       <label
@@ -493,6 +497,9 @@ export function BatchBgRemoveDialog({
                     ))}
                   </div>
                   {!aiEnabled && <p className="batch-bg-remove__hint">{AI_DISABLED_HINT}</p>}
+                  {aiEnabled && !isDesktop && (
+                    <p className="batch-bg-remove__hint">{WEB_DESKTOP_ONLY_MODELS_HINT}</p>
+                  )}
                 </section>
 
                 {aiEnabled && method !== 'quick' && !aiAvailable && (

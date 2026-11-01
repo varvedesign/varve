@@ -23,7 +23,7 @@ import {
 } from './modnetPortrait';
 import { configureOrtRuntime } from './ortRuntimeAssets';
 import { downscaleImageData } from './previewDownscale';
-import { computeLetterboxTransform, reconstructModelMask } from './reconstructMask';
+import { computeSquareInputTransform, reconstructSquareInputMask } from './squareInputResize';
 import type { BackgroundRemovalResult, WorkerModelId } from './types';
 
 interface WorkerCommand {
@@ -273,14 +273,16 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
 
       const resizedCanvas = new OffscreenCanvas(inputSize, inputSize);
       const resizedCtx = resizedCanvas.getContext('2d')!;
-      const inputTransform = computeLetterboxTransform(
+      const inputTransform = computeSquareInputTransform(
         sourceImage.width,
         sourceImage.height,
         inputSize,
         inputSize,
       );
-      resizedCtx.fillStyle = `rgb(${spec.paddingRgb[0]} ${spec.paddingRgb[1]} ${spec.paddingRgb[2]})`;
-      resizedCtx.fillRect(0, 0, inputSize, inputSize);
+      if (inputTransform.mode === 'letterbox') {
+        resizedCtx.fillStyle = `rgb(${spec.paddingRgb[0]} ${spec.paddingRgb[1]} ${spec.paddingRgb[2]})`;
+        resizedCtx.fillRect(0, 0, inputSize, inputSize);
+      }
 
       const imageBitmap = await createImageBitmap(sourceImage);
       resizedCtx.drawImage(
@@ -321,13 +323,13 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
 
       // Cap upsample to previewMax as defense-in-depth; the engine entry already
       // caps imageData to this dimension before dispatch.
-      const outputTransform = computeLetterboxTransform(
-        sourceImage.width,
-        sourceImage.height,
+      previewMask = reconstructSquareInputMask(
+        mask,
         maskW,
         maskH,
+        sourceImage.width,
+        sourceImage.height,
       );
-      previewMask = reconstructModelMask(mask, maskW, maskH, outputTransform).alpha;
     }
 
     const upsampleW = imageData.width;

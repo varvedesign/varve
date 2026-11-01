@@ -53,6 +53,11 @@ vi.mock('@varve/engine', async (importOriginal) => {
   };
 });
 
+vi.mock('@varve/platform', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/platform')>();
+  return { ...actual, isTauriRuntime: () => true };
+});
+
 vi.mock('../BackgroundRemoval/ModelDownloadDialog', () => ({
   ModelDownloadDialog: ({ modelId, onComplete }: { modelId: string; onComplete: () => void }) => (
     <div data-testid="download-dialog">

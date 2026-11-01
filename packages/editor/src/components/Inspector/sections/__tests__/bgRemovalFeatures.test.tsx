@@ -1027,3 +1027,19 @@ describe('BackgroundRemovalSection - Error normalization', () => {
     });
   });
 });
+
+describe('BackgroundRemovalSection - web GitHub-hosted model availability', () => {
+  it('hides High quality and Upgrade Balanced, and names the desktop-only limit', async () => {
+    mockExportIsModelAvailable.mockImplementation(async (id: string) => id !== 'isnet-general-use');
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('bg-desktop-only-model').textContent).toMatch(
+        /high quality and the is-net upgrade can only be downloaded in the desktop app/i,
+      );
+    });
+    fireEvent.click(screen.getByLabelText('Background removal method'));
+    expect(screen.queryByRole('option', { name: /high quality: fine details/i })).toBeNull();
+    fireEvent.click(await screen.findByRole('option', { name: /general photos/i }));
+    expect(screen.queryByRole('button', { name: /upgrade balanced/i })).toBeNull();
+  });
+});
