@@ -47,13 +47,13 @@ options=('!strip' '!debug')
 # Arch-specific source arrays are required: a single `source=($CARCH)` plus
 # both sha256sums_* arrays fails makepkg 7.1 ("Integrity checks differ in
 # size from the source array"). This matches the dual-arch .SRCINFO.
-source_x86_64=("Varve-${pkgver}-linux-x86_64.AppImage::${_gh_release}/releases/download/v${pkgver}/Varve-${pkgver}-linux-x86_64.AppImage")
-source_aarch64=("Varve-${pkgver}-linux-aarch64.AppImage::${_gh_release}/releases/download/v${pkgver}/Varve-${pkgver}-linux-aarch64.AppImage")
+source_x86_64=("Varve-${pkgver}-x86_64.AppImage::${_gh_release}/releases/download/v${pkgver}/Varve-${pkgver}-x86_64.AppImage")
+source_aarch64=("Varve-${pkgver}-aarch64.AppImage::${_gh_release}/releases/download/v${pkgver}/Varve-${pkgver}-aarch64.AppImage")
 sha256sums_x86_64=('af2d3fbc1bed1a4ae85c64e1fdd72e455f18e2a87564454251b5d696ed6d6c56')
 sha256sums_aarch64=('114add3f863f8edaf203b95ef4ca051c1b29432ca650a9b4c301c4b0e6080419')
 noextract=(
-  "Varve-${pkgver}-linux-x86_64.AppImage"
-  "Varve-${pkgver}-linux-aarch64.AppImage"
+  "Varve-${pkgver}-x86_64.AppImage"
+  "Varve-${pkgver}-aarch64.AppImage"
 )
 
 # Install a directory tree with world-readable dirs (755), regular files 644,
@@ -82,10 +82,10 @@ _install_tree() {
 
 prepare() {
   cd "${srcdir}"
-  chmod +x "Varve-${pkgver}-linux-${CARCH}.AppImage"
+  chmod +x "Varve-${pkgver}-${CARCH}.AppImage"
   # --appimage-extract does not need FUSE, so this works in a clean chroot and
   # in CI containers where /dev/fuse is unavailable.
-  "./Varve-${pkgver}-linux-${CARCH}.AppImage" --appimage-extract >/dev/null
+  "./Varve-${pkgver}-${CARCH}.AppImage" --appimage-extract >/dev/null
 
   # World-readable extract: dirs 755, files 644, anything that already had
   # user-execute (binaries, AppRun.wrapped, most .so files) 755.

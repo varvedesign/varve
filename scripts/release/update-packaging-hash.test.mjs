@@ -14,6 +14,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { releaseArtifactFilename } from './artifact-names.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)));
 const scriptPath = join(root, 'update-packaging.sh');
@@ -180,24 +181,38 @@ sha256sums=('${SINGLE}')
   assert.match(srcinfo, new RegExp(`^\\tpkgver = ${pkgver.replaceAll('.', '\\.')}$`, 'm'));
   assert.match(
     srcinfo,
-    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-linux-x86_64\\.AppImage`),
+    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-x86_64\\.AppImage`),
   );
   assert.match(
     srcinfo,
-    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-linux-aarch64\\.AppImage`),
+    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-aarch64\\.AppImage`),
   );
   assert.match(
     srcinfo,
     new RegExp(
-      `source_x86_64 = Varve-${pkgver.replaceAll('.', '\\.')}-linux-x86_64\\.AppImage::.*/releases/download/v${pkgver.replaceAll('.', '\\.')}/`,
+      `source_x86_64 = Varve-${pkgver.replaceAll('.', '\\.')}-x86_64\\.AppImage::.*/releases/download/v${pkgver.replaceAll('.', '\\.')}/`,
     ),
   );
   assert.match(
     srcinfo,
     new RegExp(
-      `source_aarch64 = Varve-${pkgver.replaceAll('.', '\\.')}-linux-aarch64\\.AppImage::.*/releases/download/v${pkgver.replaceAll('.', '\\.')}/`,
+      `source_aarch64 = Varve-${pkgver.replaceAll('.', '\\.')}-aarch64\\.AppImage::.*/releases/download/v${pkgver.replaceAll('.', '\\.')}/`,
     ),
   );
+  // The AUR sources must use the names the release actually publishes
+  // (artifact-names.mjs), or makepkg 404s on the new release.
+  for (const arch of ['x86_64', 'aarch64']) {
+    const published = releaseArtifactFilename({
+      version: pkgver,
+      os: 'linux',
+      arch,
+      format: 'appimage',
+    });
+    assert.ok(srcinfo.includes(`noextract = ${published}`), `.SRCINFO must noextract ${published}`);
+    assert.ok(srcinfo.includes(`/v${pkgver}/${published}`), `.SRCINFO must download ${published}`);
+  }
+  assert.doesNotMatch(pkgbuild, /-linux-(x86_64|aarch64|\$\{CARCH\})\.AppImage/);
+  assert.doesNotMatch(srcinfo, /-linux-(x86_64|aarch64)\.AppImage/);
   assert.match(srcinfo, new RegExp(`^\\tsha256sums_x86_64 = ${x86}$`, 'm'));
   assert.match(srcinfo, new RegExp(`^\\tsha256sums_aarch64 = ${arm}$`, 'm'));
 }
