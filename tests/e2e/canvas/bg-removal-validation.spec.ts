@@ -142,7 +142,12 @@ test.describe('real-image validation corpus', () => {
       expect(result.ok, result.error).toBe(true);
       expect(result.confidence, 'confidence should be defined').toBeDefined();
       expect(result.confidence!, 'confidence should be > 0').toBeGreaterThan(0);
-      expect(result.foregroundRatio!, 'foreground ratio should be > 0').toBeGreaterThan(0);
+      // A fixture with minForegroundRatio 0 has no salient subject (the coastal
+      // landscape). rembg's u2netp keeps almost nothing there, so an empty mask
+      // is the correct result, not a failure.
+      if (fixture.expectedProperties.minForegroundRatio > 0) {
+        expect(result.foregroundRatio!, 'foreground ratio should be > 0').toBeGreaterThan(0);
+      }
       expect(result.foregroundRatio!, 'foreground ratio should be < 1').toBeLessThan(1);
     });
   }
