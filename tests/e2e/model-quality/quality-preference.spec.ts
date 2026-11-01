@@ -36,12 +36,11 @@ test.describe('Background-removal model workflow', () => {
 
   async function chooseMethod(
     page: import('@playwright/test').Page,
-    value: 'quick' | 'ai-balanced' | 'ai-quality',
+    value: 'quick' | 'ai-balanced',
   ) {
     const labels = {
       quick: /Fast — instant, simple backgrounds/,
       'ai-balanced': /Auto — general photos/,
-      'ai-quality': /High quality — fine details/,
     } as const;
     await methodSelect(page).click();
     await page.getByRole('option', { name: labels[value] }).click();
@@ -49,7 +48,7 @@ test.describe('Background-removal model workflow', () => {
 
   async function expectModelAvailabilityControl(
     page: import('@playwright/test').Page,
-    method: 'balanced' | 'quality',
+    method: 'balanced',
   ) {
     const download = page.getByRole('button', {
       name: /Download AI model for background removal/i,
@@ -83,14 +82,22 @@ test.describe('Background-removal model workflow', () => {
     await expectModelAvailabilityControl(page, 'balanced');
   });
 
-  test('switching to AI High Quality exposes the high-quality guidance', async ({ page }) => {
+  test('the browser build hides High quality and names the desktop-only models', async ({
+    page,
+  }) => {
+    // BiRefNet Lite (High quality) and the IS-Net upgrade are GitHub Release
+    // assets with no CORS headers, so the web build can only point to the
+    // desktop app (#219). This spec runs against the browser build.
     await openBackgroundRemoval(page);
 
-    await chooseMethod(page, 'ai-quality');
-    await expect(methodSelect(page)).toContainText('High quality — fine details');
-    await expect(page.getByRole('region', { name: 'High-quality cutout guidance' })).toBeVisible();
-    await expect(page.getByText(/BiRefNet Lite preserves/i)).toBeVisible();
-    await expectModelAvailabilityControl(page, 'quality');
+    await expect(page.getByTestId('bg-desktop-only-model')).toHaveText(
+      'High quality and the IS-Net upgrade can only be downloaded in the desktop app.',
+    );
+    await methodSelect(page).click();
+    await expect(page.getByRole('option', { name: /Auto — general photos/ })).toBeVisible();
+    await expect(page.getByRole('option', { name: /High quality/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(methodSelect(page)).toContainText('Fast — instant, simple backgrounds');
   });
 
   test('changing methods is keyboard accessible and returns to Fast mode', async ({ page }) => {
