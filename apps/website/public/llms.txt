@@ -12,9 +12,9 @@
 
 ## Release status
 
-- Status: public beta. The latest published application release is Varve 0.5.1 (2026-10-15).
+- Status: public beta. The latest published application release is Varve 0.6.0 (2026-11-01).
 - Installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon DMG), and Windows (x86_64 and ARM64 NSIS). Windows and macOS installers are not code-signed; the macOS DMG is not notarized.
-- Download: https://varve.studio/download and https://github.com/varvedesign/varve/releases/tag/v0.5.1. Verify the checksum before running an installer.
+- Download: https://varve.studio/download and https://github.com/varvedesign/varve/releases/tag/v0.6.0. Verify the checksum before running an installer.
 - Document format (`.varve`) is versioned. Keep backups. Newer documents are not backward-compatible with older app versions.
 - A separate `varve-models-v1` GitHub release holds on-device model artifacts, not an application installer.
 
@@ -32,7 +32,7 @@
 - Does Varve work offline? Yes for core editing. Network features (model downloads, font search, update checks, usage events) each need your say-so.
 - Is Varve open source? The source is publicly available under FSL-1.1-MIT, a source-available license that is not OSI-approved open source. After two years, each release converts to the MIT license.
 - Can I use Varve for professional print work? It exports PDF/X-1a and PDF/X-4 with CMYK, marks, and preflight, but it is public beta. Test before critical production use.
-- Has Varve shipped a release? Yes. The latest published application release is Varve 0.5.1 (2026-10-15).
+- Has Varve shipped a release? Yes. The latest published application release is Varve 0.6.0 (2026-11-01).
 
 ## Links
 

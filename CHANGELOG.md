@@ -10,268 +10,313 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
-## [Unreleased]
+## [0.6.0] - 2026-11-01
 
-### Fixed
-
-- **Admin AI-off policy now blocks webview inference.** A machine-wide `ai.enabled: off` policy used to paint the Settings switch Off while leftover `settings.ai.enabled: true` still let the browser ONNX path download and run models. The engine gate now honours the policy overlay, the same way native IPC already did.
-- **An unreadable organisation policy fails closed.** If the policy file exists but cannot be read or parsed, AI and network features stay off and the desktop shows a notice. Desktop webviews apply the policy at startup, before any model path can run, including auxiliary windows that do not wait for SettingsProvider.
-- **Quick background removal uses the source alpha on cutouts.** Chroma-key and k-means ignored source alpha, so leftover RGB in fully transparent pixels became a false subject or a second colour cluster. When a meaningful share of pixels is fully transparent, or much of the border is, the source alpha is the mask, including partial alpha on anti-aliased edges. A few rounded-corner transparent pixels still run segmentation. Fully transparent pixels (a=0) are background. An edge-touching cutout no longer loses half the subject to a k-means border seed.
-- **Color vectorize keeps distinct small hues.** Palette reduction used to absorb a small blue region into the surrounding red at 3, 4, 6, and 8 colours. Median-cut now keeps perceptually distant hues in Oklab when they cover a real share of the image, and never replaces a more common palette slot with a 1-pixel speck. When two slots tie, pixels are reassigned to the nearest colour first and the higher-chroma entry is kept, so a blended pink bucket does not replace the logo red.
-- **Inspector AI actions refuse the user switch, not only the panel hide.** Line art, OCR, denoise, frame interpolation, text detection, font detect, photo colorize, and DETR crop now check the master switch in the handler and show the standard Settings hint. Failures use the shared InferenceError user copy instead of raw engine text.
-- **Enhance dialog user-facing copy no longer uses em dashes.** Preview alts, comparison labels, and pixel-art / AI-scale hints use colons or periods. The AI preview hint is a full sentence.
-
-### Changed
-
-- **Contribution lanes**: docs and examples, translations, plugins in a
-  contributor's own repository, testing and device reports, and the nine MIT
-  OR Apache-2.0 libraries are open. App code stays maintainer-only. CLA terms
-  are replaced by DCO 1.1 sign-off under the licence of the files you change.
-
-### Security
-
-- **AI off loads no models.** Turning AI features off now refuses every
-  model download and session, including the three web workers that previously
-  skipped the check, and skips the startup probes that HEAD bundled model
-  files. AI-backed controls (Lens Blur, Object Selection, export and batch
-  cutout methods, Home visual search) hide and point to Settings. A missing
-  settings key still starts with AI on. A corrupt or unreadable settings blob
-  is treated as off and logged. Model files that stored their SHA-256 under a
-  field the downloader did not read are hash-verified again.
-- **Desktop file commands only accept user-picked paths.** Custom Tauri
-  commands that read or write a frontend-supplied path now check a Rust-side
-  allowlist. A path is admitted only after a native open/save/folder dialog
-  run from Rust, an OS drop onto the window, a file-association or CLI open,
-  a previously picked recent document that still exists, or an app-owned
-  data/config/state/temp directory. `file-scope.json` cannot be rewritten
-  through those commands, including on first launch when the file is
-  absent and the app-data directory is a symlink. Packaged resources, models, cache, and staging
-  stay out of the grant set so the webview cannot overwrite native code.
-  Sibling write access is granted only for an existing `.varve` / `.strata`
-  file whose parent is not a volume root, a UNC share root, the home
-  directory, or an ancestor of home. Export next to a project document
-  still works. Unpicked paths, relative paths, `..` traversal, and symlink
-  escapes are rejected, including `/etc/hosts`.
-- **Crash reports stay on the computer.** Settings no longer offer
-  "Automatically send" crash reports. The recovery dialog hides Send and
-  the sent receipt unless a build configures an ingestion endpoint. The
-  default build has none. An uploader without an explicit check, or with
-  an empty endpoint, counts as unconfigured. Existing automatic-consent
-  records migrate to denied.
-- Vulnerability reports now have stated response times, a `security.txt`
-  endpoint, an incident runbook, and CI scans (CodeQL, cargo-deny, gitleaks,
-  OSV-Scanner, and dependency review). Report privately to
-  security@varve.studio or through GitHub private vulnerability reporting.
+Varve remains in public beta. This release moves the document schema from
+2.33 to 2.34 to add optional text-frame backgrounds and borders. It also
+fixes comic lettering and email export bugs found in dogfooding, makes the AI
+setting turn off every on-device model, limits desktop file commands to paths
+you picked, and makes PDF import and export much more faithful. Varve 0.5.x
+opens 2.34 files with a newer-version warning and does not keep text-frame
+styling, so use 0.6.0 or later for files saved by this release.
 
 ### Added
 
-- **Machine-wide administrator policy**: Schools and offices can deploy a JSON policy to control update checks, AI, model downloads, network access, crash reporting, and locked settings. Invalid policy files enter restricted mode. See `docs/admin-policy.md`.
-
-- **Copy now pastes as vectors in other design apps** — An ordinary Copy also
-  puts a transparent SVG representation on the clipboard, so Inkscape, Krita,
+- **Text frame background and border.** Text can have its own optional
+  backing fill and border without changing the glyph fill or outline. Set the
+  border to zero to keep the background with no visible line. The style is
+  saved with the document (schema 2.34). Existing text keeps its prior
+  appearance: 2.33 files migrate without gaining a frame style.
+- **Machine-wide administrator policy.** Schools and offices can deploy a JSON
+  policy that controls update checks, AI, model downloads, network access,
+  crash reporting, and locked settings. A policy file that exists but cannot
+  be read or parsed puts the app in restricted mode with AI and network
+  features off. See `docs/admin-policy.md`.
+- **Copy pastes as vectors in other design apps.** An ordinary Copy also puts
+  a transparent SVG representation on the clipboard, so Inkscape, Krita,
   Illustrator, or Figma receive the selection as artwork instead of layer
-  names. In-app paste still uses the editable Varve payload, so nothing loses
-  fidelity; very large selections keep the editable payload only, and the
-  receiving application still needs to accept `image/svg+xml`.
-
-- **Text frame background and border** — Give text its own optional backing fill
-  and border without changing glyph fill or outline. The border can be set to
-  zero to keep the background with no visible line. The style is saved with
-  the document; existing text keeps its prior appearance.
-
-### Changed
-
-- **Shift constrains movement to 45° steps** — Holding Shift while dragging a
-  selection now projects the move onto the nearest 45° direction, so mostly
-  horizontal or vertical drags stay on the axis and deliberate diagonals keep
-  their angle. Snapping refines position along that direction instead of
-  pulling the object off it. The tablet Constrain control uses the same rule,
-  and page placement on the pasteboard follows it too.
-- **Enter confirms the New design dialog** — Pressing Enter after typing a
-  document name, a custom width or height, or a print/presentation size now
-  creates the document with the values you typed, instead of requiring the
-  mouse. Enter in the preset-name row still saves the preset, and Enter during
-  an IME composition is left to the input method.
-- **Linux AppImage**: ships bundled WebKitGTK and GTK so it launches on a
-  clean host without `libwebkit2gtk-4.1`. GPU/EGL/Mesa stay on the system so
-  newer Mesa stacks do not white-screen. GStreamer plugins are not bundled
-  (`bundleMediaFramework` stays false). The published filename is
-  `Varve-<version>-x86_64.AppImage` (no `linux` segment). The Tauri updater
-  platform key remains `linux-x86_64`, so installed 0.5.1 clients resolve the
-  new artifact URL from `stable.json`.
-- **AUR `varve-desktop-bin`**: package hashes and source URLs now match the
-  published 0.5.1 AppImages.
-
-### Added
-
-- **Ctrl+Enter starts editing the selected text** — With the Text tool active and
-  one text layer selected, Ctrl+Enter (Cmd+Enter on macOS) begins editing it, so
-  the keyboard path from "text selected" to "typing" no longer needs a
-  double-click. Plain Enter still renames the layer.
-
-### Fixed
-
-- **AI background removal accuracy on real photos.** Square-input
-  models (bundled Balanced / u2netp, IS-Net, BiRefNet) stretch-resize to the
-  model square instead of letterboxing. Letterbox padding stays only for
-  frames taller or wider than about 2.5:1. Accuracy improves a lot on real
-  photos, especially dark and fenced ones (IS-Net low-light IoU 0.046 to
-  0.985; u2netp edge 0.505 to 0.956).
-- **GitHub-hosted models on the web.** IS-Net and BiRefNet Lite/Full live
-  on GitHub Releases, which the browser cannot fetch (no CORS). The web UI
-  no longer offers those downloads. They can only be downloaded in the
-  desktop app, which streams them through Rust.
-- **BiRefNet Full integrity.** The catalogue now pins SHA-256
-  `58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c` from
-  the published rembg `BiRefNet-general-epoch_244.onnx` file.
-- **Native u2netp-int8 settings.** The INT8 Balanced variant now uses the
-  320 input and no extra sigmoid, matching the FP32 light model. Master
-  used size 1024 and applied sigmoid.
-- **SVG import is linear again** — Importing a large file took time proportional to the square of
-  its element count: the converter copied the entire node map once per element, and the append
-  copied it again. A 4 000-element file went from 14.6 s to 0.26 s, and 8 000 elements from 34 s to
-  0.28 s. Appends during import now go through `addNodeInPlace`, which requires the caller to own the
-  document while assembling it; `addNode` is unchanged for every other caller. A scaling test fails
-  if the quadratic behaviour returns.
-- **Hiding a fill now hides it** — Turning off a shape's last visible fill
-  removes it from the canvas and from its click target. Previously the shape
-  kept painting its original colour, because the render pipeline treated an
-  all-hidden fill stack as "no stack" and fell back to the node's legacy fill.
-- **One undo step per control gesture** — Dragging a slider or a colour picker, or holding an arrow
-  key, produced one undo entry per intermediate value, so a single `Ctrl+Z` stepped back one notch
-  instead of reverting the change and a drag could consume the whole history window. Mask density,
-  corner smoothing, the floating text bar's colour picker, and keyboard stepping in every colour
-  picker now commit one undo entry per gesture.
-- **Unsaved-work bookkeeping has one authority** — Some edits marked the document dirty for the tab
-  strip and save status but not for the close guard, so grouping layers (or any edit made through a
-  hook with its own setter) could close a tab or quit with no save prompt, and the crash-recovery
-  copy was then discarded on the resulting clean shutdown. Both flags now come from one place.
-- **Seeded system fonts are verified against the device** — Varve assumed a short list of common
-  system families (Arial, Helvetica, Meiryo, Noto Sans CJK, …) was installed. On a machine without
-  one, text was drawn in the fallback face while preflight, the Missing Fonts dialog, and the export
-  preflight all reported the typography as faithful. Those families are now measured against the
-  device, and a family it cannot resolve is reported as missing with a replacement path.
-- **Opening an unreadable file no longer replaces your work** — a document that
-  failed to decode was replaced by a blank one under the same file name, so the
-  next save could overwrite the real file. The open is now refused, the current
-  artboard is left untouched, and an error names the file and says nothing was
-  changed.
-- **Preflight findings are visible** — the badge counted issues, but the panel
-  opened inside the status bar and was clipped, so its contents could not be
-  seen. It is now a portal-backed popover above the bar.
-- **Overset text is reported** — an area text frame too small for its content
+  names. In-app paste still uses the editable Varve payload. Very large
+  selections keep the editable payload only, and the receiving application
+  still needs to accept `image/svg+xml`.
+- **Ruler guides snap to object geometry.** Dragging a guide out of a ruler,
+  or moving an existing one, snaps to visible edges, centers, and vector path
+  points on the active surface and keeps the exact coordinate. Hold Ctrl (Cmd
+  on macOS) to place a guide without snapping.
+- **Ctrl+Enter starts editing the selected text.** With the Text tool active
+  and one text layer selected, Ctrl+Enter (Cmd+Enter on macOS) begins editing
+  it without a double-click. Plain Enter still renames the layer.
+- **Overset text is reported.** An area text frame too small for its content
   now produces a preflight warning instead of clipping or bleeding silently.
   Frames that use contour or vertical layout are reported as not measured, so
-  the check never claims a document is clear when part of it was not inspected.
-- **Transparent PDF gradients** — a gradient that fades to transparent exported
-  as a hard-edged solid block. It now carries a luminosity soft mask built from
-  the alpha ramp, so the fade survives into the PDF. Opaque gradients are
-  unchanged and pay no extra objects.
-- **PDF gradients now render** — an RGB gradient fill exported to a PDF whose
-  sampled function declared four 0-255 outputs for a three-component stream.
-  Poppler rejected it with "function with wrong output size" and drew nothing,
-  so gradient-filled shapes came out blank. The function now matches its colour
-  space and PDF's 0-1 colour range. Gradient stops that fade to transparent are
-  still flattened to opaque in PDF; that remains open.
-- **Autosave failures are visible** — when crash-recovery autosave cannot write
-  a recovery copy, the status bar shows "Recovery paused" with the reason and
-  the advice to save to a file, and clears itself on the next successful cycle.
-  Previously the failure was only logged.
-- **Varve Library saves that fail no longer report Saved** — when the library
-  write itself fails, the document stays modified, keeps its recovery point and
-  says the work is still unsaved. Previously only the status line changed and
-  closing could discard the document.
-- **Offset Path miter limit** — the limit was compared against the edge length
-  instead of the join width, so long edges never clipped and acute spikes
-  survived a miter limit of 4. It now follows the SVG/PostScript definition.
-- **Offset Path** — rounded joins now round only the outside of a corner, so an
-  inward offset no longer scoops material out of every corner. Work is bounded
-  by a chord tolerance instead of the entered distance, so a very large offset
-  can no longer freeze the app, and an open path no longer bridges its ends.
-- **SVG text names a generic font family** — exported `font-family` values end
-  in `serif`, `sans-serif` or `monospace` and are quoted so viewers parse the
-  list, so a viewer without the design font keeps the right classification
-  instead of drawing the design in its default serif. Text without an explicit
-  family uses the engine default.
-- **Whole-document SVG export keeps gradients** — Export → SVG (whole document)
-  wrote gradient fills as one flat colour.
-- **AppImageHub launch**: 0.5.1 failed with
-  `libwebkit2gtk-4.1.so.0: cannot open shared object file` on a clean offline
-  VM. The AppImage now carries WebKitGTK in the payload.
-- **Text save integrity** — Save and close now include buffered text drafts, including the visible
-  value during IME composition, without ending the active edit session.
-- **PDF export fidelity** — PDF export preserves PDF-supported blend modes. PDF/X-1a now stops with
-  actionable guidance when artwork contains transparency or a blend mode it cannot represent;
-  PDF/X-4 retains live transparency and supported blend modes. Text outside WinAnsi is outlined
-  to preserve its glyphs; those outlines are not searchable as text.
-- **PDF styled text**: Native PDF export keeps authored text style instead of
-  flattening it away.
-- **PDF text transparency**: Standard PDF and PDF/X-4 exports preserve text
-  fill transparency with the node opacity.
-- **PDF stroke transparency** — Standard PDF and PDF/X-4 exports now preserve each stroke color's
-  alpha together with the node opacity. PDF/X-1a continues to stop when a stroke is translucent.
-- **PDF drop-shadow blending** — Authored drop shadows now retain PDF-supported blend modes and
-  combine effect opacity, shadow-colour alpha, and node opacity. PDF/X-1a stops when an effect uses
+  the check never claims a document is clear when part of it was not
+  inspected.
+- **Live effect previews can use a WASM kernel.** Inspector effect previews
+  load a bounded WASM raster kernel on demand and fall back to the existing
+  CPU renderer if it is slow to load or unavailable. Exported results are
+  unchanged.
+
+### Changed
+
+- **Send Feedback opens in your browser.** Help > Send Feedback used a
+  `mailto:` link that failed silently on machines without a mail client. It
+  now opens `https://varve.studio/feedback`. If the browser cannot be opened,
+  a message shows the address with a Copy button.
+- **No usage analytics in the desktop app.** The desktop Plausible adapter,
+  its Settings toggle, and its events are removed. Website analytics are
+  unchanged.
+- **Iconify icon search asks first.** Searching Iconify's online catalog now
+  needs a one-time consent, which you can grant or revoke in Settings >
+  Privacy. Until then no request is made.
+- **About links work.** Settings > About opens the changelog and the latest
+  release page, where the CycloneDX SBOMs are attached, instead of showing
+  disabled buttons.
+- **Shift constrains movement to 45° steps.** Holding Shift while dragging a
+  selection projects the move onto the nearest 45° direction, so mostly
+  horizontal or vertical drags stay on the axis and deliberate diagonals keep
+  their angle. Snapping refines position along that direction. The tablet
+  Constrain control and page placement on the pasteboard use the same rule.
+  Pressing Shift before a drag no longer drops the object from the selection.
+- **Enter confirms the New design dialog.** Pressing Enter after typing a
+  document name, a custom width or height, or a print or presentation size
+  creates the document with those values. Enter in the preset-name row still
+  saves the preset, and Enter during IME composition is left to the input
+  method.
+- **Text tool no longer opens the New text panel on its own.** Selecting the
+  Text tool used to open a popover that swallowed the next drag. Tool options
+  and the command still open it.
+- **Linux AppImage bundles WebKitGTK.** The AppImage ships WebKitGTK and GTK
+  so it launches on a clean host without `libwebkit2gtk-4.1`. This fixes the
+  0.5.1 launch failure (`libwebkit2gtk-4.1.so.0: cannot open shared object
+  file`) seen on AppImageHub. GPU, EGL, and Mesa stay on the system so newer
+  Mesa stacks do not white-screen. GStreamer plugins are not bundled. The
+  file is now named `Varve-<version>-x86_64.AppImage` (no `linux` segment).
+  The updater platform key is still `linux-x86_64`, so installed 0.5.1
+  clients find the new file.
+- **Contribution lanes.** Docs and examples, translations, plugins in a
+  contributor's own repository, testing and device reports, and the nine MIT
+  OR Apache-2.0 libraries are open to contributions. App code stays
+  maintainer-only. CLA terms are replaced by DCO 1.1 sign-off under the
+  licence of the files you change.
+
+### Fixed: comic lettering
+
+- **Clipped groups survive save and reload.** A group clipped by a legacy
+  `path` node was saved without its clip, so it came back unmasked with no
+  warning.
+- **Balloons keep their outlines and tails.** Pointed tails keep their merged
+  outline after reload. Burst and cloud bodies no longer paint over the
+  outline. SVG export includes balloon tails.
+- **Balloon shapes.** Cloud balloons use eight round scallops instead of
+  looking octagonal, and burst balloons stay a jagged star. Shallow-angle
+  tails no longer collapse to a sliver, and `createCallout` honours
+  `tailLength` for point and area text.
+- **Balloon text wraps like the canvas.** In ellipse balloons a word that fits
+  the box is no longer split mid-word, closing punctuation stays with its
+  word, and the saved layout matches what the canvas draws in the tested
+  widths. Hyphen and slash break points can still differ (see Known issues).
+- **Gradients inside transformed groups.** Gradient handles no longer move
+  twice as far as the group.
+- **Boolean operations.** Subtract and intersect no longer throw "Unable to
+  complete output ring". When the result would be degraded, the operation is
+  refused instead.
+- **Sound effect preset.** The preset now uses a thick dark outline, bright
+  fill, shadow, and angle instead of a thin white outline.
+
+### Fixed: email
+
+- **A design-canvas email is emitted once.** A normal Design Canvas document
+  exported the whole email twice in HTML and plain text.
+- **Button labels stay readable.** Button labels used the frame fill as their
+  text colour, so labels vanished into the button. Labels keep their own
+  colour, and a colour that matches the fill falls back to white or near
+  black for contrast.
+- **Email preflight.** The status-bar count in the Email workspace now counts
+  email compiler diagnostics instead of print bleed, and the overlap warning
+  suggests putting each text block in its own frame.
+
+### Fixed: AI and image tools
+
+- **AI background removal is more accurate on real photos.** Square-input
+  models (bundled Balanced u2netp, IS-Net, BiRefNet) stretch-resize to the
+  model square instead of letterboxing. Letterbox padding remains only for
+  frames wider or taller than about 2.5:1. In our test set IS-Net low-light
+  IoU went from 0.046 to 0.985 and u2netp edge IoU from 0.505 to 0.956.
+- **Quick background removal uses the source alpha on cutouts.** Chroma-key
+  and k-means ignored source alpha, so leftover colour in fully transparent
+  pixels became a false subject. When many pixels or much of the border are
+  fully transparent, the source alpha is now the mask, including partial
+  alpha on anti-aliased edges.
+- **Colour vectorize keeps distinct small hues.** Palette reduction no longer
+  absorbs a small region of a distinct colour into its surroundings at low
+  colour counts, and a 1-pixel speck never takes a palette slot from a common
+  colour.
+- **The administrator AI-off policy also blocks in-browser inference.**
+  Leftover per-user settings could still let the webview download and run
+  models while the policy showed AI as off.
+- **Inspector AI actions check the AI setting.** Line art, OCR, denoise, frame
+  interpolation, text detection, font detection, photo colorize, and DETR crop
+  refuse to run when AI is off and point to Settings. Errors use plain
+  messages instead of raw engine text.
+- **GitHub-hosted models on the web.** IS-Net and BiRefNet Lite and Full are
+  published on GitHub Releases, which browsers cannot fetch. The web version
+  no longer offers those downloads. The desktop app downloads them.
+- **Model settings and integrity.** BiRefNet Full is pinned to the SHA-256 of
+  the published rembg `BiRefNet-general-epoch_244.onnx` file. The native INT8
+  Balanced model now uses the 320 input and no extra sigmoid, matching the
+  FP32 model.
+- **Enhance dialog copy** uses colons and full sentences.
+
+### Fixed: editing, saving, and files
+
+- **Opening an unreadable file no longer replaces your work.** A document that
+  failed to decode used to be replaced by a blank one under the same file
+  name, so the next save could overwrite the real file. The open is now
+  refused, the current document is left untouched, and an error names the
+  file.
+- **Unreadable settings are kept.** A settings blob that cannot be parsed is
+  set aside instead of being overwritten by defaults on the next save. The app
+  does not yet show a notice or a recovery option for it.
+- **Unsaved-work tracking has one source.** Some edits, such as grouping
+  layers, marked the document modified for the tab strip but not for the
+  close guard, so a tab could close or the app could quit with no save prompt.
+- **Text save integrity.** Save and close include buffered text drafts,
+  including the visible value during IME composition, without ending the
+  edit session. Clicking another text layer while editing switches the edit
+  to it.
+- **One undo step per control gesture.** Dragging a slider or colour picker,
+  or holding an arrow key, now records one undo entry for the gesture instead
+  of one per intermediate value.
+- **Hiding a fill hides it.** Turning off a shape's last visible fill removes
+  it from the canvas and its click target.
+- **Seeded system fonts are checked on the device.** Common system families
+  such as Arial, Helvetica, Meiryo, and Noto Sans CJK were assumed to be
+  installed. They are now measured on the device, and a missing one is
+  reported with a replacement path instead of being reported as faithful.
+- **Autosave failures are visible.** When crash-recovery autosave cannot
+  write, the status bar shows "Recovery paused" with the reason. It clears on
+  the next successful save.
+- **Varve Library saves that fail no longer report Saved.** The document stays
+  modified and keeps its recovery point.
+- **Preflight findings are visible.** The preflight panel was clipped inside
+  the status bar. It is now a popover above the bar.
+- **Paste position.** Pasting onto the same page keeps the copied position.
+  Pasting onto a different page centers the selection instead of reusing the
+  source page's coordinates.
+- **Document names are shortened by whole characters** in the close and quit
+  dialog, so names with emoji or combining marks are not cut in half.
+- **Home thumbnails are sharp on HiDPI displays.** Covers are rendered at the
+  display's pixel density. Covers saved by older builds still show.
+- **Export names stay inside one folder segment.** A layer named
+  `Hero/Mobile` or `../secrets` no longer creates folders or escapes the
+  export folder. Only the naming template's own separators create folders.
+
+### Fixed: vector tools and SVG
+
+- **Offset Path.** Rounded joins round only the outside of a corner, the
+  miter limit follows the join width as SVG and PostScript define it, very
+  large offsets can no longer freeze the app, and open paths no longer bridge
+  their ends.
+- **SVG import is linear in element count.** A 4,000-element file went from
+  14.6 s to 0.26 s in our test, and a scaling test guards against a return of
+  the quadratic behaviour.
+- **SVG import keeps visibility and holes**, `use` instances keep fill
+  opacity, and dropped Inkscape live path effects are reported instead of
+  silently omitted.
+- **SVG export.** Text `font-family` lists end in a generic family (`serif`,
+  `sans-serif`, or `monospace`), whole-document SVG export keeps gradients
+  instead of flattening them to one colour, and SVG and XMP output never
+  contains characters XML 1.0 cannot represent.
+
+### Fixed: PDF export
+
+- **PDF gradients render.** RGB gradient fills exported with a function that
+  Poppler rejected, so gradient-filled shapes came out blank. Gradients that
+  fade to transparent now keep their fade through a soft mask.
+- **Transparency and blend modes.** Standard PDF and PDF/X-4 keep supported
+  blend modes, text fill transparency, stroke colour alpha, and drop-shadow
+  blending and opacity. PDF/X-1a stops with guidance when artwork uses
   transparency or a blend mode it cannot represent.
-- **SVG import**: `use` instances keep fill opacity, and dropped Inkscape
-  live path effects are reported instead of silently omitted.
+- **Text in PDF.** Native PDF export keeps authored text style. Text outside
+  WinAnsi is outlined to keep its glyphs, and Unicode glyphs survive font
+  subsetting. Outlined text is not searchable. When the chosen font cannot
+  draw a character, Export Results names the characters, font, and text
+  objects instead of exporting a blank box.
+
+### Fixed: PDF import
+
+- **PDF import reads real documents.** Compressed content streams (Flate,
+  ASCIIHex, ASCII85) are decoded and tokenized, text is placed with the text
+  matrix and page transform, and `/Rotate` and inherited page boxes are
+  applied.
+- **PDF text survives encoding.** Character codes resolve through
+  `/ToUnicode`, or the declared base encoding plus `/Differences`, so
+  accented and non-Latin text is no longer dropped. Word gaps in `TJ` arrays
+  are kept.
+- **Vertical writing stays vertical.** Vertical-mode runs (`Identity-V` or
+  `/WMode 1`) become Varve vertical text placed with the font's vertical
+  metrics, and continuous runs merge into one editable column.
+- **Each PDF page imports as its own Varve page**, up to 50, in `/Kids` order.
+- **Import does not invent content.** Invisible or clip-only text (such as an
+  OCR layer on a scan) and optional-content layers hidden by default are left
+  out and counted in Import Results. Encrypted PDFs are refused with an
+  explanation instead of importing as a blank page. An inline image followed
+  directly by a delimiter no longer swallows the rest of the page.
+- **Import reports what it skipped.** Images, form XObjects, curves, strokes,
+  gradients, CMYK and pattern paints, and unencoded composite-font runs are
+  counted and named in Import Results, and a page that could not be decoded
+  is reported as unread.
 
 ### Security
 
-- Desktop `zip` 9.0.4 (RUSTSEC-2026-0367 through 0369) via the vendored
-  updater crate pin.
-- Vite and TLS advisory patches from 2026-10-20.
+- **AI off loads no models.** Turning AI features off refuses every model
+  download and session, in the app, in web workers, and in the native desktop
+  commands, and skips the startup probes of bundled model files. AI-backed
+  controls (Lens Blur, Object Selection, export and batch cutout methods,
+  Home visual search) hide and point to Settings. Quick background removal
+  still works. Native model downloads only follow HTTPS redirects to an
+  allowlist of hosts. A missing settings key still starts with AI on. A
+  corrupt or unreadable settings blob is treated as off.
+- **Desktop file commands only accept paths you picked.** Desktop commands
+  that read or write a path from the interface check a native allowlist. A
+  path is allowed after a native open, save, or folder dialog, a drop onto
+  the window, a file-association or command-line open, a recent document
+  that still exists, or an app-owned data directory. Relative paths, `..`
+  traversal, and symlink escapes are rejected. Export next to a project
+  document still works.
+- **Crash reports stay on the computer.** Settings no longer offer
+  "Automatically send" crash reports, and existing automatic-consent records
+  migrate to denied. The recovery dialog hides Send unless a build configures
+  a report endpoint. The default build has none.
+- **OCR dictionaries are pinned.** Dictionaries download from a fixed commit
+  and are checked against a SHA-256 before use.
+- **Vulnerability reporting.** Reports now have stated response times, a
+  `security.txt` endpoint, an incident runbook, and CI scans (CodeQL,
+  cargo-deny, gitleaks, OSV-Scanner, and dependency review). Report privately
+  to security@varve.studio or through GitHub private vulnerability reporting.
+- **Dependency updates.** Desktop `zip` 9.0.4 (RUSTSEC-2026-0367 through
+  0369) and the 2026-10-20 Vite and TLS advisory patches.
 
-### Fixed
+### Known issues
 
-- **PDF import keeps vertical writing vertical.** A PDF set in a vertical
-  writing mode (`Identity-V`, or a CMap with `/WMode 1`) imported as one long
-  horizontal line, so a Japanese or Chinese column arrived as the wrong
-  document. Those runs now become Varve vertical text (`vertical-rl`), placed
-  with the font's own vertical metrics (`/W2`, then `/DW2`), and consecutive
-  runs that continue the pen position merge into one editable column instead of
-  one layer per character.
-- **PDF export names characters the chosen font cannot draw.** The canvas falls
-  back per glyph, but the PDF writer outlines the authored face, so a character
-  that face does not map exported as a blank box while the editor showed it
-  normally. The export now reads the coverage of the exact font binaries it
-  embeds and reports the affected characters, font and text objects in Export
-  Results, instead of leaving the difference to be discovered after delivery.
-- **PDF import no longer invents content the page does not show.** Text set in
-  an invisible or clip-only render mode (`3 Tr` / `7 Tr` — how a searchable OCR
-  layer is attached to a scan) is no longer imported as visible text, and
-  content inside an optional-content group that the document's default
-  configuration hides (a PDF layer, as layered CAD exports ship) is left out
-  rather than painted on top of the visible page. Both are counted in Import
-  Results, and hidden layers are named.
-- **Encrypted PDFs are reported instead of imported as a blank document.** A
-  password-protected or permission-restricted file is refused with an
-  explanation and the next step, instead of decoding ciphertext into an empty
-  page that looks like a successful import.
-- **An inline image no longer swallows the rest of the page** when its `EI`
-  terminator is followed directly by a delimiter (`EI/OC`) rather than white
-  space.
-- **PDF import now reads real documents.** Content streams are decoded
-  (zlib `FlateDecode`, ASCIIHex, ASCII85) and tokenized instead of being
-  pattern-matched, so a compressed PDF — which is nearly every PDF — imports
-  its text. Text position comes from the text matrix composed with the CTM and
-  is mapped into page space, so it lands where the page puts it instead of
-  mirrored from the bottom; `/Rotate` and inherited page boxes are applied.
-- **PDF text survives encoding.** Character codes resolve through the font's
-  `/ToUnicode` CMap, or the declared base encoding (WinAnsi/MacRoman) plus
-  `/Differences`, and string escapes and hex strings are parsed. Accented and
-  non-Latin text is no longer dropped or replaced.
-- **Word gaps in `TJ` arrays are preserved**, so words are no longer welded
-  together, and inline image bytes are skipped as opaque data rather than
-  re-read as page content.
-- **Each PDF page imports as its own Varve page**, bounded at 50, with page
-  order taken from the `/Kids` tree.
-- **PDF import reports what it did not import.** Images, form XObjects,
-  curves, strokes, gradients, CMYK and pattern paints, and composite-font runs
-  with no encoding are counted and named in Import Results; a page whose
-  content could not be decoded is reported as unread instead of appearing as
-  an empty page.
-
+- **Older apps and 2.34 files.** Varve 0.5.x opens a 2.34 file with a
+  newer-version warning. It does not show text-frame backgrounds or borders,
+  and they can be lost if 0.5.x saves the file. Keep a backup of important
+  documents before you upgrade.
+- **Opening files by path.** The new desktop file allowlist may refuse a path
+  that did not come from a dialog, drop, file association, command line, or
+  recent document. Open the file through File > Open if that happens.
+- **Comic lettering.** Hyphen and slash break points in balloon text can still
+  differ between the saved layout and the canvas. Fixed-size ellipse balloons
+  wrap early, auto-fit balloons can come out too tall or wide, stroked text
+  can render offset from its fill, and the tail base is fixed at the bottom
+  center.
+- **Exports and the browser version.** SVG export drops the paint of raster
+  layers. PDF export does not yet write a multi-page document as one PDF. The browser version
+  at `/try` opens `.varve` files only through File > Open, not by drag and
+  drop. Some other GitHub-hosted models (colorize, denoise, and anime
+  upscale) may also fail to download in the browser.
+- **macOS** builds are ad-hoc signed and not notarized. Use Open Anyway in
+  System Settings > Privacy & Security on first launch.
 
 ## [0.5.1] - 2026-10-15
 
