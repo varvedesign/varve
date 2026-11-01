@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { configureAiPolicyOverride, getAiFeaturesEnabled } from '@varve/engine';
 import { setThemePreference } from '@varve/ui/tokens';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableDrawDiagnostics, isDiagnosticsEnabled } from '../../canvas/drawDiagnostics';
@@ -28,6 +29,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  configureAiPolicyOverride('user');
   setCompositorDiagnostics(null);
 });
 
@@ -147,6 +149,7 @@ describe('SettingsDialog', () => {
     expect((await screen.findAllByText('Managed by your organisation')).length).toBeGreaterThan(0);
     expect(toggle.checked).toBe(false);
     expect(toggle.disabled).toBe(true);
+    expect(getAiFeaturesEnabled()).toBe(false);
   });
 
   it('closes on close button', () => {

@@ -337,9 +337,11 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleGenerateDepth = useCallback(async () => {
     if (!src) return;
-    const { checkAiFeaturesEnabled } = await import('../../../features/useAiFeaturesEnabled');
+    const { AI_DISABLED_HINT, checkAiFeaturesEnabled } = await import(
+      '../../../features/useAiFeaturesEnabled'
+    );
     if (!checkAiFeaturesEnabled(undefined, 'Depth Map generation')) {
-      announce?.('Depth Map generation requires AI features. Enable them in Settings.');
+      announce?.(AI_DISABLED_HINT);
       return;
     }
     // Guard on "a newer generate superseded me", not on "the source-generation

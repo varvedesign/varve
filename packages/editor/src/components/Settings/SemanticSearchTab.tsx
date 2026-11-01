@@ -11,7 +11,7 @@ import { DownloadManager, listAllModels, type ModelManifestEntry } from '@varve/
 import { IndexedDbSemanticEmbeddingStore } from '@varve/platform';
 import { Button, Icon, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { modelRequirementLabel } from '../../modelRequirements';
 
 interface SemanticModelRow {
@@ -180,7 +180,7 @@ export function SemanticSearchTab() {
   const handleRebuildIndex = useCallback(async () => {
     const { getAiFeaturesEnabled } = await import('../../features/useAiFeaturesEnabled');
     if (!getAiFeaturesEnabled()) {
-      alert('Semantic search requires AI features. Enable them in Settings.');
+      alert(`Semantic search: ${AI_DISABLED_HINT}`);
       return;
     }
     setRebuildBusy(true);

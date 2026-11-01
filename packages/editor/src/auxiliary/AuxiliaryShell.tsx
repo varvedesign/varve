@@ -18,6 +18,7 @@ import { Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SettingsProvider } from '../components/Settings/SettingsContext';
 import { EditorProvider } from '../context';
+import { beginOrganizationPolicyLoad } from '../settings/organizationPolicy';
 import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
 import { PanelHostProvider } from '../workspace/PanelHostContext';
 import '../workspace/bootstrap';
@@ -25,6 +26,10 @@ import { type PanelTypeId, tryGetPanelDefinition } from '../workspace/panelRegis
 import { AuxiliarySessionProvider, useAuxiliarySession } from './AuxiliaryProvider';
 import { renderAuxiliaryPanel } from './panelContentRegistry';
 import './AuxiliaryShell.css';
+
+// Apply admin policy before this window's first model path, even if a later
+// SettingsProvider effect is slow or this surface never mounts one.
+void beginOrganizationPolicyLoad();
 
 // ---------------------------------------------------------------------------
 // URL parameter parsing

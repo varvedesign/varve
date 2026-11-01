@@ -12,6 +12,9 @@ async function importTestImage(page: import('@playwright/test').Page) {
     .locator('#file-import-input')
     .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+  // Import dirties the untitled tab. Wait for the unsaved marker so the
+  // title chrome ("• Untitled 1") is the same in every golden.
+  await expect(page.locator('.editor-tabs__dirty-dot')).toBeVisible({ timeout: 10000 });
 }
 
 async function openDialog(page: import('@playwright/test').Page) {
@@ -37,7 +40,7 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   await expect(page.getByText(/Low source resolution/i)).toBeVisible({ timeout: 15000 });
   await expect(page.getByText(/Output:\s*32x32px/)).toBeVisible();
   await expect(
-    page.getByAltText('Enhanced preview — same crop and output size as original'),
+    page.getByAltText('Enhanced preview: same crop and output size as original'),
   ).toBeVisible({ timeout: 15000 });
   await expect(page.locator('.upscale-preview__image--upscaled')).toHaveCount(1);
   await expect
@@ -98,7 +101,7 @@ for (const theme of ['dark', 'high-contrast'] as const) {
 
     await expect(page.getByText(/Low source resolution/i)).toBeVisible({ timeout: 15000 });
     await expect(
-      page.getByAltText('Enhanced preview — same crop and output size as original'),
+      page.getByAltText('Enhanced preview: same crop and output size as original'),
     ).toBeVisible({ timeout: 15000 });
     await expect(page).toHaveScreenshot(`enhance-dialog-${theme}.png`, {
       maxDiffPixels: 200,
@@ -117,7 +120,7 @@ test('Enhance dialog pixel-art mode', async ({ page }) => {
   await expect(page.getByText(/Hard edges, no blur/i)).toBeVisible();
   await expect(page.getByLabel('Pixel-art algorithm')).toBeVisible();
   await expect(
-    page.getByAltText('Enhanced preview — same crop and output size as original'),
+    page.getByAltText('Enhanced preview: same crop and output size as original'),
   ).toBeVisible({ timeout: 15000 });
 
   await expect(page).toHaveScreenshot('enhance-dialog-pixel-art.png', {

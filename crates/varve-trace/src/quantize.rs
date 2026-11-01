@@ -15,6 +15,7 @@ pub struct QuantizedColor {
     pub count: usize,
 }
 
+#[derive(Clone)]
 struct OklabSample {
     r: u8,
     g: u8,
@@ -132,7 +133,7 @@ pub fn quantize_palette(
         return Vec::new();
     }
 
-    let mut buckets: Vec<Vec<OklabSample>> = vec![samples];
+    let mut buckets: Vec<Vec<OklabSample>> = vec![samples.clone()];
 
     while buckets.len() < max_colors {
         let mut split_index = None;
@@ -238,7 +239,151 @@ pub fn quantize_palette(
         .collect();
 
     palette.sort_by_key(|c| std::cmp::Reverse(c.count));
+    preserve_distinct_hues(&samples, palette, max_colors)
+}
+
+const DISTINCT_HUE_DIST_SQ: f64 = 0.018;
+const MIN_CHROMA: f64 = 0.04;
+const MIN_HUE_SHARE: f64 = 0.0025;
+const MIN_HUE_PIXELS: usize = 4;
+
+fn preserve_distinct_hues(
+    samples: &[OklabSample],
+    mut palette: Vec<QuantizedColor>,
+    max_colors: usize,
+) -> Vec<QuantizedColor> {
+    if palette.is_empty() || samples.is_empty() {
+        return palette;
+    }
+    let min_count = MIN_HUE_PIXELS.max(((samples.len() as f64) * MIN_HUE_SHARE).ceil() as usize);
+
+    fn nearest_dist(palette: &[QuantizedColor], r: u8, g: u8, b: u8) -> f64 {
+        let mut best = f64::INFINITY;
+        for color in palette {
+            let d = oklab_distance_sq(r, g, b, color.r, color.g, color.b);
+            if d < best {
+                best = d;
+            }
+        }
+        best
+    }
+
+    let mut unique: std::collections::BTreeMap<u32, (u8, u8, u8, usize, f64)> =
+        std::collections::BTreeMap::new();
+    for sample in samples {
+        let key = ((sample.r as u32) << 16) | ((sample.g as u32) << 8) | sample.b as u32;
+        unique
+            .entry(key)
+            .and_modify(|entry| entry.3 += 1)
+            .or_insert((sample.r, sample.g, sample.b, 1, sample.a.hypot(sample.b_)));
+    }
+
+    let mut outliers: Vec<(u8, u8, u8, usize)> = unique
+        .values()
+        .filter(|(_, _, _, count, _)| *count >= min_count)
+        .filter(|(_, _, _, _, chroma)| *chroma >= MIN_CHROMA)
+        .filter(|(r, g, b, _, _)| nearest_dist(&palette, *r, *g, *b) >= DISTINCT_HUE_DIST_SQ)
+        .map(|(r, g, b, count, _)| (*r, *g, *b, *count))
+        .collect();
+    outliers.sort_by(|a, b| {
+        b.3.cmp(&a.3)
+            .then(a.0.cmp(&b.0))
+            .then(a.1.cmp(&b.1))
+            .then(a.2.cmp(&b.2))
+    });
+
+    for (r, g, b, count) in outliers {
+        if nearest_dist(&palette, r, g, b) < DISTINCT_HUE_DIST_SQ {
+            continue;
+        }
+        let entry = QuantizedColor {
+            r,
+            g,
+            b,
+            a: 255,
+            count,
+        };
+        if palette.len() < max_colors {
+            palette.push(entry);
+            continue;
+        }
+        recount_palette(&unique, &mut palette);
+        let mut steal = None;
+        let mut survivor = None;
+        let mut steal_dist = f64::INFINITY;
+        for i in 0..palette.len() {
+            for j in (i + 1)..palette.len() {
+                let d = oklab_distance_sq(
+                    palette[i].r,
+                    palette[i].g,
+                    palette[i].b,
+                    palette[j].r,
+                    palette[j].g,
+                    palette[j].b,
+                );
+                if d < steal_dist {
+                    steal_dist = d;
+                    let (victim, keep) = steal_choice(&palette, i, j);
+                    steal = Some(victim);
+                    survivor = Some(keep);
+                }
+            }
+        }
+        if let (Some(i), Some(j)) = (steal, survivor) {
+            palette[j].count += palette[i].count;
+            palette[i] = entry;
+        }
+    }
+    palette.sort_by_key(|c| std::cmp::Reverse(c.count));
     palette
+}
+
+fn nearest_index(palette: &[QuantizedColor], r: u8, g: u8, b: u8) -> usize {
+    let mut best = 0;
+    let mut best_dist = f64::INFINITY;
+    for (i, color) in palette.iter().enumerate() {
+        let d = oklab_distance_sq(r, g, b, color.r, color.g, color.b);
+        if d < best_dist {
+            best_dist = d;
+            best = i;
+        }
+    }
+    best
+}
+
+fn recount_palette(
+    unique: &std::collections::BTreeMap<u32, (u8, u8, u8, usize, f64)>,
+    palette: &mut [QuantizedColor],
+) {
+    for color in palette.iter_mut() {
+        color.count = 0;
+    }
+    for (r, g, b, count, _) in unique.values() {
+        let i = nearest_index(palette, *r, *g, *b);
+        palette[i].count += *count;
+    }
+}
+
+fn srgb_chroma(r: u8, g: u8, b: u8) -> f64 {
+    let oklab = linear_srgb_to_oklab([srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)]);
+    oklab[1].hypot(oklab[2])
+}
+
+/// Evict the less common of a pair; on a count tie keep the higher-chroma colour.
+fn steal_choice(palette: &[QuantizedColor], i: usize, j: usize) -> (usize, usize) {
+    let count_i = palette[i].count;
+    let count_j = palette[j].count;
+    if count_i < count_j {
+        (i, j)
+    } else if count_j < count_i {
+        (j, i)
+    } else if srgb_chroma(palette[i].r, palette[i].g, palette[i].b)
+        < srgb_chroma(palette[j].r, palette[j].g, palette[j].b)
+    {
+        (i, j)
+    } else {
+        (j, i)
+    }
 }
 
 #[cfg(test)]
@@ -382,5 +527,141 @@ mod tests {
                 oklab[0]
             );
         }
+    }
+
+    fn red_field_with_blue_triangle() -> Vec<u8> {
+        let mut pixels = Vec::new();
+        for y in 0..16 {
+            for x in 0..16 {
+                if x <= y && y < 3 {
+                    pixels.extend_from_slice(&rgba_pixel(20, 40, 220, 255));
+                } else {
+                    pixels.extend_from_slice(&rgba_pixel(210, 36, 36, 255));
+                }
+            }
+        }
+        pixels
+    }
+
+    #[test]
+    fn keeps_small_blue_triangle_at_common_palette_sizes() {
+        let pixels = red_field_with_blue_triangle();
+        for max_colors in [3_u8, 4, 6, 8] {
+            let palette = quantize_palette(&pixels, 16, 16, max_colors, 1, false);
+            let has_blue = palette.iter().any(|c| c.b > 150 && c.r < 80);
+            assert!(
+                has_blue,
+                "max_colors={max_colors} dropped the small blue triangle: {palette:?}"
+            );
+        }
+    }
+
+    fn photo_like_field() -> Vec<u8> {
+        let mut pixels = Vec::new();
+        for y in 0..80 {
+            for x in 0..80 {
+                if y == 0 && x < 2 {
+                    pixels.extend_from_slice(&rgba_pixel(33, 13, 2, 255));
+                } else if x == 2 && y == 0 {
+                    pixels.extend_from_slice(&rgba_pixel(251, 219, 192, 255));
+                } else if x >= 70 && y >= 70 {
+                    pixels.extend_from_slice(&rgba_pixel(191, 156, 137, 255));
+                } else {
+                    pixels.extend_from_slice(&rgba_pixel(33, 108, 118, 255));
+                }
+            }
+        }
+        pixels
+    }
+
+    fn logo_red_with_hole_and_blue() -> Vec<u8> {
+        let mut pixels = Vec::new();
+        for y in 0..64 {
+            for x in 0..64 {
+                let blue = x <= y && y < 6;
+                let hole = (24..40).contains(&x) && (24..40).contains(&y);
+                if blue {
+                    pixels.extend_from_slice(&rgba_pixel(20, 40, 220, 255));
+                } else if hole {
+                    pixels.extend_from_slice(&rgba_pixel(255, 255, 255, 255));
+                } else {
+                    pixels.extend_from_slice(&rgba_pixel(203, 42, 54, 255));
+                }
+            }
+        }
+        pixels
+    }
+
+    #[test]
+    fn photo_and_logo_keep_dominant_colours_at_3_and_4() {
+        let photo = photo_like_field();
+        for max_colors in [3_u8, 4] {
+            let palette = quantize_palette(&photo, 80, 80, max_colors, 1, false);
+            let teal_count: usize = palette
+                .iter()
+                .filter(|c| c.r < 80 && c.g > 70 && c.b > 70)
+                .map(|c| c.count)
+                .sum();
+            assert!(
+                teal_count > 5000 && palette[0].r < 80,
+                "max_colors={max_colors} dropped the photo teal: {palette:?}"
+            );
+            let distinct_noise = palette
+                .iter()
+                .any(|c| c.count < 16 && !(c.r < 80 && c.g > 70 && c.b > 70));
+            assert!(
+                !distinct_noise,
+                "max_colors={max_colors} kept 1-px noise: {palette:?}"
+            );
+        }
+
+        let logo = logo_red_with_hole_and_blue();
+        for max_colors in [3_u8, 4] {
+            let palette = quantize_palette(&logo, 64, 64, max_colors, 1, false);
+            let red = palette.iter().find(|c| c.r > 160 && c.g < 80 && c.b < 80);
+            assert!(
+                red.is_some_and(|c| c.count > 2000),
+                "max_colors={max_colors} dropped the logo red: {palette:?}"
+            );
+            assert!(
+                palette.iter().any(|c| c.b > 150 && c.r < 80),
+                "max_colors={max_colors} dropped the logo blue: {palette:?}"
+            );
+        }
+    }
+
+    fn logo_red_tied_with_blended_pink() -> Vec<u8> {
+        let mut pixels = Vec::new();
+        for y in 0..128 {
+            for x in 0..128 {
+                let blue = x <= y && y < 12;
+                let radius = (x as f64 - 64.0).hypot(y as f64 - 64.0);
+                if blue {
+                    pixels.extend_from_slice(&rgba_pixel(20, 40, 220, 255));
+                } else if radius < 40.0 {
+                    pixels.extend_from_slice(&rgba_pixel(203, 42, 54, 255));
+                } else if radius < 48.0 {
+                    pixels.extend_from_slice(&rgba_pixel(234, 129, 129, 255));
+                } else {
+                    pixels.extend_from_slice(&rgba_pixel(255, 255, 255, 255));
+                }
+            }
+        }
+        pixels
+    }
+
+    #[test]
+    fn logo_red_survives_tied_blended_pink_at_3_colours() {
+        let pixels = logo_red_tied_with_blended_pink();
+        let palette = quantize_palette(&pixels, 128, 128, 3, 1, false);
+        let red = palette.iter().find(|c| c.r > 160 && c.g < 80 && c.b < 80);
+        assert!(
+            red.is_some_and(|c| c.count > 2000),
+            "k=3 evicted the logo red for a tied pink bucket: {palette:?}"
+        );
+        assert!(
+            palette.iter().any(|c| c.b > 150 && c.r < 80),
+            "k=3 dropped the logo blue: {palette:?}"
+        );
     }
 }

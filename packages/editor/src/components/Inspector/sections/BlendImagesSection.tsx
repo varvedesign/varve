@@ -20,6 +20,11 @@ import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import {
+  AI_DISABLED_HINT,
+  formatAiUserError,
+  useAiFeaturesEnabled,
+} from '../../../features/useAiFeaturesEnabled';
 import { pickSoleOutputTensor } from '../../../inferenceOutputs';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
@@ -55,6 +60,7 @@ function loadImageToImageData(src: string): Promise<ImageData> {
 
 export function FrameInterpolationSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, updateDoc, announce } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const node = nodes[0];
   const abortRef = useRef<AbortController | null>(null);
   const downloadAbortRef = useRef<AbortController | null>(null);
@@ -106,6 +112,10 @@ export function FrameInterpolationSection({ nodes }: { nodes: SceneNode[] }) {
   }, [isImage]);
 
   const handleDownload = useCallback(async () => {
+    if (!aiEnabled) {
+      setBlend((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     setBlend((prev) => ({ ...prev, status: 'downloading', errorMessage: null }));
     setDownloadProgress(0);
     const controller = new AbortController();
@@ -126,12 +136,12 @@ export function FrameInterpolationSection({ nodes }: { nodes: SceneNode[] }) {
         setBlend((prev) => ({ ...prev, status: 'idle' }));
         return;
       }
-      const message = err instanceof Error ? err.message : 'Download failed';
+      const message = formatAiUserError(err, 'Download failed');
       setBlend((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     } finally {
       downloadAbortRef.current = null;
     }
-  }, [announce]);
+  }, [aiEnabled, announce]);
 
   const handleCancelDownload = useCallback(() => {
     downloadAbortRef.current?.abort();
@@ -192,6 +202,10 @@ export function FrameInterpolationSection({ nodes }: { nodes: SceneNode[] }) {
   );
 
   const handleGenerate = useCallback(async () => {
+    if (!aiEnabled) {
+      setBlend((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -210,12 +224,16 @@ export function FrameInterpolationSection({ nodes }: { nodes: SceneNode[] }) {
       announce('Frame interpolation preview ready');
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Frame interpolation failed';
+      const message = formatAiUserError(err, 'Frame interpolation failed');
       setBlend((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
-  }, [runBlend, announce]);
+  }, [aiEnabled, runBlend, announce]);
 
   const handleApply = useCallback(async () => {
+    if (!aiEnabled) {
+      setBlend((prev) => ({ ...prev, status: 'error', errorMessage: AI_DISABLED_HINT }));
+      return;
+    }
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -249,10 +267,10 @@ export function FrameInterpolationSection({ nodes }: { nodes: SceneNode[] }) {
       setBlend((prev) => ({ ...prev, status: 'idle', previewDataUrl: null }));
     } catch (err) {
       if (controller.signal.aborted) return;
-      const message = err instanceof Error ? err.message : 'Frame interpolation apply failed';
+      const message = formatAiUserError(err, 'Frame interpolation apply failed');
       setBlend((prev) => ({ ...prev, status: 'error', errorMessage: message }));
     }
-  }, [runBlend, state.document, state.selection, updateDoc, announce]);
+  }, [aiEnabled, runBlend, state.document, state.selection, updateDoc, announce]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();

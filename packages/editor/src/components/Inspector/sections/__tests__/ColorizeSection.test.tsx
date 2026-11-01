@@ -32,6 +32,10 @@ vi.mock('../../../../context', () => ({
 }));
 
 vi.mock('@varve/engine', () => ({
+  getAiFeaturesEnabled: () => true,
+  subscribeAiFeaturesEnabled: () => () => {},
+  isInferenceError: () => false,
+  toUserMessage: () => 'Something went wrong. Please try again.',
   colorizationPipeline: {
     resolveRuntime: vi.fn(),
     execute: vi.fn().mockRejectedValue(new Error('not mocked')),

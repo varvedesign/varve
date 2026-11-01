@@ -265,6 +265,10 @@ function TrimControls({
   }, [announce, padding, source, trimToSubject]);
 
   const handleDetectSubject = useCallback(async () => {
+    if (!aiEnabled) {
+      setDetectError(AI_DISABLED_HINT);
+      return;
+    }
     detectAbortRef.current?.abort();
     const controller = new AbortController();
     detectAbortRef.current = controller;
@@ -380,7 +384,7 @@ function TrimControls({
       }
       if (detectAbortRef.current === controller) detectAbortRef.current = null;
     }
-  }, [imageSrc]);
+  }, [aiEnabled, imageSrc]);
 
   const handleCancelDetection = useCallback(() => {
     detectAbortRef.current?.abort();

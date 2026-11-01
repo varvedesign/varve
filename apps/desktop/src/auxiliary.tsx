@@ -13,13 +13,16 @@ import '@varve/ui/tokens.css';
 import '@fontsource-variable/geist/index.css';
 import '@fontsource-variable/ibm-plex-sans/index.css';
 
-import { ErrorBoundary, restoreStoredFonts } from '@varve/editor';
+import { beginOrganizationPolicyLoad, ErrorBoundary, restoreStoredFonts } from '@varve/editor';
 import { AuxiliaryRoot } from '@varve/editor/auxiliary';
 import { initializeThemeLifecycle } from '@varve/ui/tokens';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { dismissBootFallback } from './startup/revealMainWindow';
 
+// Auxiliary windows do not wait on SettingsProvider. Apply admin policy
+// before this webview can touch a model path.
+void beginOrganizationPolicyLoad();
 initializeThemeLifecycle();
 
 async function bootstrapAuxiliary() {
