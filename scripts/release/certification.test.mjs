@@ -18,6 +18,7 @@ import {
   findExactIntegrationArtifact,
   findSuccessfulExactCheck,
   integrationArtifactName,
+  setGithubRetryBaseMsForTests,
   validateAdoptedCandidateEvidence,
   validateLocalCandidateEvidence,
   verifyRemoteCertification,
@@ -325,7 +326,10 @@ try {
       body = { check_runs: [integrationCheck, { ...candidateCheck, head_sha: otherSha }] };
     } else if (endpoint.endsWith('/actions/jobs/300')) body = integrationJob;
     else if (endpoint.endsWith('/actions/runs/17')) body = integrationRun;
-    else body = { artifacts: [integrationArtifact] };
+    else {
+      const wanted = new URL(endpoint).searchParams.get('name');
+      body = { artifacts: [integrationArtifact].filter((item) => item.name === wanted) };
+    }
     return { ok: true, text: async () => JSON.stringify(body) };
   };
   const integrationOnly = await verifyRemoteCertification({
@@ -351,9 +355,16 @@ try {
 
 async function remoteResult(overrides = {}) {
   const calls = [];
+  let failuresLeft = overrides.failures ?? [];
   globalThis.fetch = async (url) => {
     const endpoint = String(url);
     calls.push(endpoint);
+    const failure = failuresLeft.find((item) => endpoint.includes(item.match));
+    if (failure) {
+      failuresLeft = failuresLeft.filter((item) => item !== failure);
+      if (failure.network) throw new TypeError('fetch failed');
+      return { ok: false, status: failure.status, text: async () => 'upstream error' };
+    }
     let body;
     if (endpoint.includes('/check-runs')) {
       const page = Number(new URL(endpoint).searchParams.get('page'));
@@ -365,9 +376,15 @@ async function remoteResult(overrides = {}) {
     else if (endpoint.endsWith('/actions/runs/17'))
       body = overrides.integrationRun ?? integrationRun;
     else if (endpoint.endsWith('/actions/runs/18')) body = overrides.candidateRun ?? candidateRun;
-    else if (endpoint.includes('/actions/artifacts'))
-      body = { artifacts: overrides.artifacts ?? [integrationArtifact, artifact] };
-    else throw new Error(`Unexpected certification API request: ${endpoint}`);
+    else if (endpoint.includes('/actions/artifacts')) {
+      // Mirror GitHub's exact-name filter so an unfiltered listing finds nothing.
+      const wanted = new URL(endpoint).searchParams.get('name');
+      body = {
+        artifacts: (overrides.artifacts ?? [integrationArtifact, artifact]).filter(
+          (item) => item.name === wanted,
+        ),
+      };
+    } else throw new Error(`Unexpected certification API request: ${endpoint}`);
     return { ok: true, text: async () => JSON.stringify(body) };
   };
   try {
@@ -388,6 +405,76 @@ assert.equal(certified.result.ok, true);
 assert.deepEqual(certified.result.integrationBinding, integrationBinding);
 assert.deepEqual(certified.result.candidateBinding, candidateBinding);
 assert.ok(certified.calls.some((url) => url.includes('filter=all&app_id=15368')));
+
+// Certification artifacts are looked up by exact name, never by listing every
+// repository artifact (that listing 500s for the workflow token on a repo with
+// tens of thousands of artifacts).
+const artifactCalls = certified.calls.filter((url) => url.includes('/actions/artifacts'));
+assert.deepEqual(
+  artifactCalls.map((url) => new URL(url).searchParams.get('name')),
+  [integrationArtifact.name, artifact.name],
+);
+for (const url of artifactCalls) {
+  const params = new URL(url).searchParams;
+  assert.equal(params.get('per_page'), '100');
+  assert.equal(params.get('page'), '1');
+  assert.ok(new URL(url).pathname.endsWith(`/repos/${repo}/actions/artifacts`));
+}
+
+// No binding means nothing to look up: do not query artifacts at all.
+const unbound = await remoteResult({ checks: [] });
+assert.equal(unbound.result.ok, false);
+assert.ok(!unbound.calls.some((url) => url.includes('/actions/artifacts')));
+
+// Transient GitHub 5xx and network errors are retried a bounded number of times.
+setGithubRetryBaseMsForTests(1);
+try {
+  const retried = await remoteResult({
+    failures: [
+      { match: '/actions/artifacts', status: 500 },
+      { match: '/actions/artifacts', network: true },
+      { match: '/check-runs', status: 502 },
+    ],
+  });
+  assert.equal(retried.result.ok, true, 'two transient failures then success must certify');
+  assert.equal(
+    retried.calls.filter((url) => url.includes(`name=${integrationArtifact.name}`)).length,
+    3,
+  );
+  assert.equal(retried.calls.filter((url) => url.includes('/check-runs')).length, 2);
+
+  await assert.rejects(
+    remoteResult({
+      failures: Array.from({ length: 3 }, () => ({ match: '/actions/artifacts', status: 500 })),
+    }),
+    /GitHub API 500 for \/repos\/.+\/actions\/artifacts\?name=/,
+    'give up after three 5xx responses',
+  );
+
+  const notFound = remoteResult({ failures: [{ match: '/actions/jobs/300', status: 404 }] });
+  await assert.rejects(notFound, /GitHub API 404/);
+} finally {
+  setGithubRetryBaseMsForTests(1_000);
+}
+// A 4xx is a real answer, not a transient failure: exactly one request.
+{
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    if (String(url).includes('/check-runs'))
+      return { ok: false, status: 403, text: async () => 'forbidden' };
+    throw new Error('unexpected request');
+  };
+  try {
+    await assert.rejects(
+      verifyRemoteCertification({ repo, commitSha: sha, policyHash, token: 'test-token' }),
+      /GitHub API 403/,
+    );
+    assert.equal(calls.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
 
 // GitHub normalises an API-created check-run's details_url to
 // https://github.com/<owner>/<repo>/runs/<check_run_id>, which carries no run id.
