@@ -90,7 +90,7 @@ assert.ok(
     linux.indexOf('sudo apt-get remove -y'),
 );
 assert.match(linux, /2\.21 true/);
-assert.match(linux, /2\.33 false/);
+assert.match(linux, /2\.34 false/);
 assert.match(linux, /tauri-driver --version 2\.1\.0 --locked/);
 const windowsStart = native.indexOf('Windows — silent install,'),
   macStart = native.indexOf('macOS — mount DMG');
