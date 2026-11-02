@@ -117,12 +117,12 @@ resolve_github_repo "$REPO_ROOT"
   assert.ok(srcinfo.includes(`\turl = ${url}`));
   assert.ok(
     srcinfo.includes(
-      `source_x86_64 = Varve-${pkgver}-linux-x86_64.AppImage::${releaseHost}/releases/download/v${pkgver}/`,
+      `source_x86_64 = Varve-${pkgver}-x86_64.AppImage::${releaseHost}/releases/download/v${pkgver}/`,
     ),
   );
   assert.ok(
     srcinfo.includes(
-      `source_aarch64 = Varve-${pkgver}-linux-aarch64.AppImage::${releaseHost}/releases/download/v${pkgver}/`,
+      `source_aarch64 = Varve-${pkgver}-aarch64.AppImage::${releaseHost}/releases/download/v${pkgver}/`,
     ),
   );
   assert.doesNotMatch(srcinfo, /varvedesign\/varve\/releases\/download/);

@@ -303,13 +303,14 @@ Varve is in **public beta**. The latest published application release is
 release and publication gates. v0.5.0 shipped on 2026-10-09 as the previous
 public-beta release. Published installers cover Linux, macOS
 (Apple Silicon), and Windows. This checkout
-targets source version `<!-- VARVE_VERSION -->0.5.1<!-- /VARVE_VERSION -->`.
+targets source version `<!-- VARVE_VERSION -->0.6.0<!-- /VARVE_VERSION -->`.
 Versioning follows [SemVer](https://semver.org/); release notes are kept in
 [CHANGELOG.md](CHANGELOG.md). Published v0.2.1 used document schema 2.21; this
-source tree writes schema 2.33, including a migration that removes the
-unwanted outline across existing pointed balloon tails. The app version and
-document schema are separate. A 2.33 file may not open safely in older app versions, so back up
-important documents and use v0.5.0 or later for files saved by this release.
+source tree writes schema 2.34, which adds optional text-frame backgrounds
+and borders; 2.33 files migrate without gaining a frame style. The app version
+and document schema are separate. Varve 0.5.x opens a 2.34 file with a
+newer-version warning and may not keep text-frame styling, so back up
+important documents and use v0.6.0 or later for files saved by this release.
 Documents with the legacy `.strata` extension remain openable through the
 migration pipeline.
 

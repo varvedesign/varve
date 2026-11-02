@@ -12,7 +12,7 @@ set of GitHub settings that cannot be represented in git.
 | Website | <https://varve.studio> |
 | Source repository | <https://github.com/varvedesign/varve> |
 | Application release shortcut | <https://github.com/varvedesign/varve/releases/latest> |
-| Current public status | Public beta; latest published application release is `v0.5.1` (published 2026-10-15) |
+| Current public status | Public beta; latest published application release is `v0.6.0` (published 2026-11-01) |
 | License wording | Source-available under FSL-1.1-MIT; not OSI-approved open source |
 
 The repository description should remain a short product definition rather
