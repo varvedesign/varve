@@ -50,7 +50,7 @@ export function findSuccessfulExactCheck(checkRuns, { name, commitSha }) {
 
 function findBoundArtifact(artifacts, baseName, { commitSha, binding }) {
   if (!binding?.runId || !binding.runAttempt) return null;
-  const expected = `${baseName}-run-${binding.runId}-attempt-${binding.runAttempt}`;
+  const expected = boundArtifactName(baseName, binding);
   const startedAt = Date.parse(binding.runStartedAt);
   if (!Number.isFinite(startedAt)) return null;
   return (
@@ -201,7 +201,28 @@ export function buildCandidateEvidence({
   };
 }
 
-async function githubJson(path, token) {
+const GITHUB_ATTEMPTS = 3;
+let githubRetryBaseMs = 1_000;
+
+/** Test hook: shorten the retry backoff so tests do not sleep for seconds. */
+export function setGithubRetryBaseMsForTests(ms) {
+  githubRetryBaseMs = ms;
+}
+
+class GithubHttpError extends Error {
+  constructor(status, path, body) {
+    super(`GitHub API ${status} for ${path}: ${body.slice(0, 500)}`);
+    this.status = status;
+  }
+}
+
+function isRetryable(error) {
+  // Retry GitHub 5xx and network or timeout failures only. A 4xx (auth,
+  // missing resource, rate limit) is a real answer and must surface at once.
+  return error instanceof GithubHttpError ? error.status >= 500 : true;
+}
+
+async function githubJsonOnce(path, token) {
   const response = await fetch(`https://api.github.com${path}`, {
     signal: AbortSignal.timeout(30_000),
     headers: {
@@ -211,26 +232,58 @@ async function githubJson(path, token) {
     },
   });
   const body = await response.text();
-  if (!response.ok)
-    throw new Error(`GitHub API ${response.status} for ${path}: ${body.slice(0, 500)}`);
+  if (!response.ok) throw new GithubHttpError(response.status, path, body);
   return JSON.parse(body);
 }
 
-async function listArtifacts(owner, name, token) {
+async function githubJson(path, token) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await githubJsonOnce(path, token);
+    } catch (error) {
+      if (attempt >= GITHUB_ATTEMPTS || !isRetryable(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, githubRetryBaseMs * 2 ** (attempt - 1)));
+    }
+  }
+}
+
+/**
+ * Fetch only the artifacts with this exact name. Listing every repository
+ * artifact (tens of thousands) made GitHub return 500 to the workflow token,
+ * and one name per run attempt keeps this to a single page in practice.
+ */
+async function listArtifactsNamed(owner, name, artifactName, token) {
   const artifacts = [];
-  // Candidate evidence may be older than the first page of artifacts. Keep
-  // pagination bounded, but do not make “latest 100” an accidental validity
-  // rule for a frozen release candidate.
-  for (let page = 1; page <= 100; page += 1) {
+  for (let page = 1; page <= 10; page += 1) {
     const data = await githubJson(
-      `/repos/${owner}/${name}/actions/artifacts?per_page=100&page=${page}`,
+      `/repos/${owner}/${name}/actions/artifacts?name=${encodeURIComponent(artifactName)}&per_page=100&page=${page}`,
       token,
     );
     const pageArtifacts = Array.isArray(data.artifacts) ? data.artifacts : [];
     artifacts.push(...pageArtifacts);
-    if (pageArtifacts.length < 100) break;
+    if (pageArtifacts.length < 100) return artifacts;
   }
-  return artifacts;
+  throw new Error(
+    `Artifact history for '${artifactName}' exceeds the certification pagination limit`,
+  );
+}
+
+function boundArtifactName(baseName, binding) {
+  if (!binding?.runId || !binding.runAttempt) return null;
+  return `${baseName}-run-${binding.runId}-attempt-${binding.runAttempt}`;
+}
+
+async function findRemoteBoundArtifact(
+  find,
+  baseName,
+  { owner, name, token, commitSha, policyHash, binding },
+) {
+  const artifactName = boundArtifactName(baseName, binding);
+  if (!artifactName) return null;
+  const artifacts = await listArtifactsNamed(owner, name, artifactName, token);
+  // Keep every trust check in findBoundArtifact; the name filter only narrows
+  // what GitHub returns.
+  return find(artifacts, { commitSha, policyHash, binding });
 }
 
 async function listChecks(owner, name, commitSha, token) {
@@ -362,14 +415,18 @@ export async function verifyRemoteCertification({
   const candidateBinding = requireCandidate
     ? await bindSuccessfulCheck(candidate, { repo, commitSha, token, kind: 'candidate' })
     : null;
-  const artifacts = await listArtifacts(owner, name, token);
-  const integrationArtifact = findExactIntegrationArtifact(artifacts, {
-    commitSha,
-    policyHash,
-    binding: integrationBinding,
-  });
+  const lookup = { owner, name, token, commitSha, policyHash };
+  const integrationArtifact = await findRemoteBoundArtifact(
+    findExactIntegrationArtifact,
+    integrationArtifactName(commitSha, policyHash),
+    { ...lookup, binding: integrationBinding },
+  );
   const artifact = requireCandidate
-    ? findExactCandidateArtifact(artifacts, { commitSha, policyHash, binding: candidateBinding })
+    ? await findRemoteBoundArtifact(
+        findExactCandidateArtifact,
+        candidateArtifactName(commitSha, policyHash),
+        { ...lookup, binding: candidateBinding },
+      )
     : null;
   const errors = [];
   if (!integration || !integrationBinding)
