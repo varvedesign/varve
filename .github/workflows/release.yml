@@ -1317,7 +1317,7 @@ jobs:
           CURRENT="$(realpath "${PACKAGES[0]}")"
           # Upgrade over the old installation, retaining the same native XDG profile.
           sudo apt-get install -y --no-install-recommends "$CURRENT"
-          node scripts/quality/run-bounded-command.mjs 540000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded Linux production qualification" -- dbus-run-session -- xvfb-run --auto-servernum bash release-qualification-tooling/scripts/release/production/linux-session.sh /usr/bin/varve-desktop "$QUALIFIED/current-document" "$PROFILE" '${{ needs.preflight.outputs.version }}' '${{ matrix.node_arch }}' "$QUALIFIED/old-document/Migrated save β.varve" 2.33 false
+          node scripts/quality/run-bounded-command.mjs 540000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded Linux production qualification" -- dbus-run-session -- xvfb-run --auto-servernum bash release-qualification-tooling/scripts/release/production/linux-session.sh /usr/bin/varve-desktop "$QUALIFIED/current-document" "$PROFILE" '${{ needs.preflight.outputs.version }}' '${{ matrix.node_arch }}' "$QUALIFIED/old-document/Migrated save β.varve" 2.34 false
           node --input-type=module -e 'import assert from "node:assert/strict";import{readFileSync}from"node:fs";const[a,b]=process.argv.slice(1).map(p=>JSON.parse(readFileSync(p)));assert.equal(a.appDataDirectory,b.appDataDirectory,"Actual Linux native profile changed during upgrade");' "$QUALIFIED/old-document/qualification.json" "$QUALIFIED/current-document/qualification.json"
           sudo apt-get remove -y "$(dpkg-deb -f "$CURRENT" Package)"
 
@@ -1584,7 +1584,7 @@ jobs:
           } else {
             Write-Host '  (expected unsigned for NSIS payloads — see docs/release/signing-decision-record.md)'
           }
-          node scripts/quality/run-bounded-command.mjs 540000 $PWD.Path node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded Windows production qualification" -- pwsh -NoProfile -File release-qualification-tooling/scripts/release/production/windows-session.ps1 -Exe $installed.FullName -InputPath (Join-Path $qualified 'old-document/Migrated save β.varve') -Out (Join-Path $qualified 'current-document') -Profile $profile -Version '${{ needs.preflight.outputs.version }}' -Schema 2.33 -Arch '${{ matrix.node_arch }}'
+          node scripts/quality/run-bounded-command.mjs 540000 $PWD.Path node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded Windows production qualification" -- pwsh -NoProfile -File release-qualification-tooling/scripts/release/production/windows-session.ps1 -Exe $installed.FullName -InputPath (Join-Path $qualified 'old-document/Migrated save β.varve') -Out (Join-Path $qualified 'current-document') -Profile $profile -Version '${{ needs.preflight.outputs.version }}' -Schema 2.34 -Arch '${{ matrix.node_arch }}'
           if ($LASTEXITCODE -ne 0) { throw 'Current production save/reopen/export/upgrade qualification failed' }
           $oldReceipt = Get-Content (Join-Path $qualified 'old-document/qualification.json') -Raw | ConvertFrom-Json
           $newReceipt = Get-Content (Join-Path $qualified 'current-document/qualification.json') -Raw | ConvertFrom-Json
@@ -1644,7 +1644,7 @@ jobs:
           fi
           rm -rf "${UPDATER_TMP}"
           trap - EXIT
-          node scripts/quality/run-bounded-command.mjs 720000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded macOS production qualification" -- bash release-qualification-tooling/scripts/release/production/macos-session.sh "$INSTALL" "$QUALIFIED/current-document" '${{ needs.preflight.outputs.version }}' "$QUALIFIED/old-document/functional/Migrated save β.varve" 2.33 false
+          node scripts/quality/run-bounded-command.mjs 720000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded macOS production qualification" -- bash release-qualification-tooling/scripts/release/production/macos-session.sh "$INSTALL" "$QUALIFIED/current-document" '${{ needs.preflight.outputs.version }}' "$QUALIFIED/old-document/functional/Migrated save β.varve" 2.34 false
           python3 release-qualification-tooling/scripts/release/production/macos-profile-snapshot.py --check-current "$QUALIFIED/current-document/profile-after-session.json"
           node --input-type=module -e 'import assert from "node:assert/strict";import{readFileSync}from"node:fs";const[a,b]=process.argv.slice(1).map(p=>JSON.parse(readFileSync(p)));assert.equal(a.appDataDirectory,b.appDataDirectory,"Native macOS profile changed during upgrade");' "$QUALIFIED/old-document/functional/qualification.json" "$QUALIFIED/current-document/functional/qualification.json"
           BIN="${APP}/Contents/MacOS/varve-desktop"
