@@ -2,7 +2,13 @@
 import type { Document, LayoutStyle } from '@varve/scene';
 import { createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { applyGridLayout, computeGridLayout, parseGridTracks } from '../computeGridLayout';
+import {
+  applyGridLayout,
+  computeGridLayout,
+  computeGridLayoutDetailed,
+  parseGridTracks,
+} from '../computeGridLayout';
+import { measureNodeSize } from '../measure';
 
 function makeDoc(overrides: Partial<Document> = {}): Document {
   const base = createDocument('test', true);
@@ -114,11 +120,161 @@ describe('parseGridTracks', () => {
     expect(parseGridTracks('repeat(3, 1fr)', 300, 0)).toEqual([100, 100, 100]);
     expect(parseGridTracks('repeat(2, 40px) 1fr', 200, 0)).toEqual([40, 40, 120]);
   });
+
+  it('rejects unsupported syntax instead of silently converting it to auto', () => {
+    expect(parseGridTracks('minmax(20px, 1fr)', 300, 0)).toEqual([]);
+    expect(parseGridTracks('25%', 300, 0)).toEqual([]);
+    expect(parseGridTracks('1fr ??? 2fr', 300, 0)).toEqual([]);
+  });
+
+  it('bounds repeat expansion and malformed gaps', () => {
+    expect(parseGridTracks('repeat(129, 1fr)', 300, 0)).toEqual([]);
+    expect(parseGridTracks('repeat(999999999999, 1fr)', 300, 0)).toEqual([]);
+    expect(parseGridTracks('1fr 1fr', 300, Number.NaN)).toEqual([]);
+    expect(parseGridTracks('1fr 1fr', 300, -1)).toEqual([]);
+  });
 });
 
 // ── computeGridLayout ────────────────────────────────────────────────────────
 
 describe('computeGridLayout', () => {
+  it('reports malformed persisted track identities without publishing replacement geometry', () => {
+    for (const id of ['', ' ', 'x'.repeat(257)]) {
+      const invalid = makeLayoutStyle({ gridColumnTracks: [{ id, size: '1fr' }] });
+      const result = computeGridLayoutDetailed(makeDoc(), 'parent', 300, 100, invalid, []);
+      expect(result).toEqual({ items: [], diagnostic: 'invalid-track-identities' });
+    }
+  });
+
+  it('resolves empty explicit tracks and exposes the same coordinates used by items', () => {
+    const style = makeLayoutStyle({
+      layoutSemanticsVersion: 2,
+      gridColumnTracks: [
+        { id: 'col-a', size: '100px' },
+        { id: 'col-b', size: '1fr' },
+      ],
+      gridRowTracks: [{ id: 'row-a', size: '50px' }],
+      columnGap: 10,
+      padding: [5, 0, 0, 20],
+    });
+    const empty = computeGridLayoutDetailed(makeDoc(), 'parent', 330, 100, style, []);
+    expect(empty.items).toEqual([]);
+    expect(empty.tracks?.columns).toEqual([
+      { id: 'col-a', index: 0, start: 20, size: 100, end: 120, implicit: false },
+      { id: 'col-b', index: 1, start: 130, size: 200, end: 330, implicit: false },
+    ]);
+    expect(empty.tracks?.rows).toEqual([
+      { id: 'row-a', index: 0, start: 5, size: 50, end: 55, implicit: false },
+    ]);
+    expect(empty.tracks?.placements).toEqual([]);
+
+    const doc = addNode(makeDoc(), 'a');
+    const occupied = computeGridLayoutDetailed(doc, 'parent', 330, 100, style, ['a']);
+    expect(occupied.tracks?.columns).toEqual(empty.tracks?.columns);
+    expect(occupied.tracks?.placements).toEqual([
+      { id: 'a', column: 0, row: 0, columnSpan: 1, rowSpan: 1 },
+    ]);
+    expect(occupied.items[0]).toMatchObject({ id: 'a', x: 20, y: 5, w: 100, h: 50 });
+  });
+
+  it('resolves intrinsic auto contributions before distributing fr space', () => {
+    const doc = addNode(
+      addNode(makeDoc(), 'a', {
+        shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 30 },
+        gridPlacement: { gridColumnStart: 1, gridColumnEnd: 2, gridRowStart: 1, gridRowEnd: 2 },
+      }),
+      'b',
+    );
+    doc.nodes.b!.gridPlacement = {
+      gridColumnStart: 2,
+      gridColumnEnd: 3,
+      gridRowStart: 1,
+      gridRowEnd: 2,
+    };
+    const style = makeLayoutStyle({
+      layoutSemanticsVersion: 2,
+      gridTemplateColumns: 'auto 1fr',
+      gridTemplateRows: '1fr',
+    });
+
+    const result = computeGridLayout(doc, 'parent', 300, 80, style, ['a', 'b']);
+    expect(result.map(({ x, w }) => [x, w])).toEqual([
+      [0, 100],
+      [100, 200],
+    ]);
+  });
+
+  it('preserves the current geometry when explicit placements collide or exceed limits', () => {
+    const collisionDoc = addNode(
+      addNode(makeDoc(), 'a', {
+        gridPlacement: { gridColumnStart: 1, gridColumnEnd: 2, gridRowStart: 1, gridRowEnd: 2 },
+      }),
+      'b',
+    );
+    collisionDoc.nodes.b!.gridPlacement = {
+      gridColumnStart: 1,
+      gridColumnEnd: 2,
+      gridRowStart: 1,
+      gridRowEnd: 2,
+    };
+    const style = makeLayoutStyle();
+    expect(computeGridLayout(collisionDoc, 'parent', 300, 200, style, ['a', 'b'])).toEqual([]);
+
+    const oversizedDoc = addNode(makeDoc(), 'a', {
+      gridPlacement: { gridColumnStart: 1, gridColumnEnd: 130, gridRowStart: 1, gridRowEnd: 2 },
+    });
+    expect(computeGridLayout(oversizedDoc, 'parent', 300, 200, style, ['a'])).toEqual([]);
+  });
+
+  it('reports why bounded grid placement was rejected without returning partial geometry', () => {
+    const collisionDoc = addNode(
+      addNode(makeDoc(), 'a', {
+        gridPlacement: { gridColumnStart: 1, gridColumnEnd: 2, gridRowStart: 1, gridRowEnd: 2 },
+      }),
+      'b',
+    );
+    collisionDoc.nodes.b!.gridPlacement = {
+      gridColumnStart: 1,
+      gridColumnEnd: 2,
+      gridRowStart: 1,
+      gridRowEnd: 2,
+    };
+    const colliding = computeGridLayoutDetailed(
+      collisionDoc,
+      'parent',
+      300,
+      200,
+      makeLayoutStyle(),
+      ['a', 'b'],
+    );
+    expect(colliding).toEqual({ items: [], diagnostic: 'colliding-cell-placements' });
+
+    const invalid = computeGridLayoutDetailed(
+      collisionDoc,
+      'parent',
+      300,
+      200,
+      makeLayoutStyle({ gridTemplateColumns: 'minmax(20px, 1fr)' }),
+      ['a'],
+    );
+    expect(invalid).toEqual({ items: [], diagnostic: 'invalid-track-template' });
+
+    const enormousTrack = `1${'0'.repeat(308)}px`;
+    const overflowDoc = addNode(addNode(makeDoc(), 'a'), 'b');
+    const overflow = computeGridLayoutDetailed(
+      overflowDoc,
+      'parent',
+      300,
+      200,
+      makeLayoutStyle({
+        layoutSemanticsVersion: 2,
+        gridTemplateColumns: `${enormousTrack} ${enormousTrack}`,
+      }),
+      ['a', 'b'],
+    );
+    expect(overflow).toEqual({ items: [], diagnostic: 'invalid-grid-bounds' });
+  });
+
   it('places items in a simple 2x2 grid', () => {
     const doc = addNode(addNode(makeDoc(), 'a'), 'b');
     const parentId = 'parent';
@@ -641,6 +797,34 @@ describe('applyGridLayout', () => {
       expect(result.shape.w).toBe(400);
       expect(result.shape.h).toBe(200);
     }
+  });
+
+  it('remeasures auto-height text after resolving its final grid column width', () => {
+    let doc = makeDoc();
+    doc = addNode(doc, 'copy', {
+      kind: 'text',
+      text: 'A sentence that wraps to several lines before the grid column grows.',
+      fontSize: 16,
+      fontFamily: 'Arial',
+      textResizing: 'autoHeight',
+      w: 60,
+      h: 80,
+      layoutSizingWidth: 'fill',
+      layoutSizingHeight: 'hug',
+    });
+    const text = doc.nodes.copy;
+    const style = makeLayoutStyle({
+      layoutSemanticsVersion: 2,
+      gridTemplateColumns: '1fr',
+      gridTemplateRows: 'auto',
+    });
+
+    const result = computeGridLayoutDetailed(doc, 'parent', 100, 300, style, ['copy']);
+
+    expect(result.diagnostic).toBeUndefined();
+    expect(result.items[0]?.w).toBe(100);
+    expect(result.items[0]?.h).toBeCloseTo(measureNodeSize({ ...text, w: 100 }).h);
+    expect(result.items[0]?.h).toBeLessThan(measureNodeSize(text).h);
   });
 
   it('returns doc unchanged when parent is not a frame', () => {

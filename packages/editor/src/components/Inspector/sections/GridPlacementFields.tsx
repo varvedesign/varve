@@ -1,4 +1,4 @@
-import type { GridItemPlacement, SceneNode } from '@varve/scene';
+import type { SceneNode } from '@varve/scene';
 import { getParent } from '@varve/scene';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
@@ -6,6 +6,38 @@ import { InspectorFieldGroup } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { commonValue, isMixed } from '../selection/selectionState';
 import './GridPlacementFields.css';
+
+type GridPlacementAxis = 'columns' | 'rows';
+
+function axisPlacement(
+  node: SceneNode,
+  parent: SceneNode | undefined,
+  axis: GridPlacementAxis,
+): { start?: number; end?: number; span?: number } {
+  const placement = node.gridPlacement;
+  if (!placement) return {};
+  const startKey = axis === 'columns' ? 'gridColumnStart' : 'gridRowStart';
+  const endKey = axis === 'columns' ? 'gridColumnEnd' : 'gridRowEnd';
+  const idKey = axis === 'columns' ? 'gridColumnStartTrackId' : 'gridRowStartTrackId';
+  const spanKey = axis === 'columns' ? 'gridColumnSpan' : 'gridRowSpan';
+  const tracks =
+    parent?.kind === 'frame'
+      ? axis === 'columns'
+        ? parent.layoutStyle?.gridColumnTracks
+        : parent.layoutStyle?.gridRowTracks
+      : undefined;
+  const identityIndex = placement[idKey]
+    ? (tracks?.findIndex((track) => track.id === placement[idKey]) ?? -1)
+    : -1;
+  const start = identityIndex >= 0 ? identityIndex + 1 : placement[startKey];
+  const span =
+    placement[spanKey] ??
+    (start != null && placement[endKey] != null
+      ? Math.max(1, placement[endKey]! - start)
+      : undefined);
+  const end = start != null && span != null ? start + span : placement[endKey];
+  return { start, end, span };
+}
 
 /**
  * Grid item placement is a child capability, not a property of every frame.
@@ -25,19 +57,60 @@ export function GridPlacementFields({ nodes }: { nodes: SceneNode[] }) {
   const hasAuthoredPlacement = nodes.some((node) => node.gridPlacement != null);
   if (!hasGridParent && !hasAuthoredPlacement) return null;
 
-  const gridColumnStart = commonValue(nodes, (node) => node.gridPlacement?.gridColumnStart);
-  const gridColumnEnd = commonValue(nodes, (node) => node.gridPlacement?.gridColumnEnd);
-  const gridRowStart = commonValue(nodes, (node) => node.gridPlacement?.gridRowStart);
-  const gridRowEnd = commonValue(nodes, (node) => node.gridPlacement?.gridRowEnd);
+  const gridColumnStart = commonValue(
+    nodes,
+    (node) => axisPlacement(node, parent, 'columns').start,
+  );
+  const gridColumnEnd = commonValue(nodes, (node) => axisPlacement(node, parent, 'columns').end);
+  const gridRowStart = commonValue(nodes, (node) => axisPlacement(node, parent, 'rows').start);
+  const gridRowEnd = commonValue(nodes, (node) => axisPlacement(node, parent, 'rows').end);
 
-  const patchGrid = (partial: Partial<GridItemPlacement>) => {
-    const base: GridItemPlacement = {
-      gridColumnStart: !isMixed(gridColumnStart) ? gridColumnStart : undefined,
-      gridColumnEnd: !isMixed(gridColumnEnd) ? gridColumnEnd : undefined,
-      gridRowStart: !isMixed(gridRowStart) ? gridRowStart : undefined,
-      gridRowEnd: !isMixed(gridRowEnd) ? gridRowEnd : undefined,
-    };
-    setSelectedGridPlacement({ ...base, ...partial });
+  const setAxisStart = (axis: GridPlacementAxis, value: number) => {
+    setSelectedGridPlacement((current, node) => {
+      const resolved = axisPlacement(node, parent, axis);
+      const start = value > 0 ? value : undefined;
+      const span = start == null ? undefined : (resolved.span ?? 1);
+      const tracks =
+        parent?.kind === 'frame'
+          ? axis === 'columns'
+            ? parent.layoutStyle?.gridColumnTracks
+            : parent.layoutStyle?.gridRowTracks
+          : undefined;
+      const trackId = start == null ? undefined : tracks?.[start - 1]?.id;
+      const keys =
+        axis === 'columns'
+          ? {
+              startKey: 'gridColumnStart',
+              endKey: 'gridColumnEnd',
+              idKey: 'gridColumnStartTrackId',
+              spanKey: 'gridColumnSpan',
+            }
+          : {
+              startKey: 'gridRowStart',
+              endKey: 'gridRowEnd',
+              idKey: 'gridRowStartTrackId',
+              spanKey: 'gridRowSpan',
+            };
+      return {
+        ...current,
+        [keys.startKey]: start,
+        [keys.endKey]: undefined,
+        [keys.idKey]: trackId,
+        [keys.spanKey]: span,
+      };
+    });
+  };
+
+  const setAxisEnd = (axis: GridPlacementAxis, value: number) => {
+    setSelectedGridPlacement((current, node) => {
+      const resolved = axisPlacement(node, parent, axis);
+      const start = resolved.start ?? 1;
+      const end = value > 0 ? Math.max(value, start + 1) : undefined;
+      const span = end == null ? undefined : end - start;
+      return axis === 'columns'
+        ? { ...current, gridColumnEnd: end, gridColumnSpan: span }
+        : { ...current, gridRowEnd: end, gridRowSpan: span };
+    });
   };
 
   const draftKey = nodes
@@ -61,7 +134,7 @@ export function GridPlacementFields({ nodes }: { nodes: SceneNode[] }) {
           min={0}
           labelWrap
           draftKey={`${draftKey}:grid-column-start`}
-          onChange={(value) => patchGrid({ gridColumnStart: value || undefined })}
+          onChange={(value) => setAxisStart('columns', value)}
         />
         <NumberField
           label="Column end"
@@ -70,7 +143,7 @@ export function GridPlacementFields({ nodes }: { nodes: SceneNode[] }) {
           min={0}
           labelWrap
           draftKey={`${draftKey}:grid-column-end`}
-          onChange={(value) => patchGrid({ gridColumnEnd: value || undefined })}
+          onChange={(value) => setAxisEnd('columns', value)}
         />
         <NumberField
           label="Row start"
@@ -79,7 +152,7 @@ export function GridPlacementFields({ nodes }: { nodes: SceneNode[] }) {
           min={0}
           labelWrap
           draftKey={`${draftKey}:grid-row-start`}
-          onChange={(value) => patchGrid({ gridRowStart: value || undefined })}
+          onChange={(value) => setAxisStart('rows', value)}
         />
         <NumberField
           label="Row end"
@@ -88,7 +161,7 @@ export function GridPlacementFields({ nodes }: { nodes: SceneNode[] }) {
           min={0}
           labelWrap
           draftKey={`${draftKey}:grid-row-end`}
-          onChange={(value) => patchGrid({ gridRowEnd: value || undefined })}
+          onChange={(value) => setAxisEnd('rows', value)}
         />
       </InspectorFieldGroup>
     </div>

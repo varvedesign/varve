@@ -123,6 +123,7 @@ export function cssDeclarationsForNode(
   doc: SceneDocument,
   opts?: CssExportOptions,
   parentLayout?: ParentLayout,
+  parentNode?: SceneNode,
 ): string[] {
   const colorFmt = opts?.colorFormat ?? 'hex';
   const unit = opts?.unit ?? 'px';
@@ -178,6 +179,48 @@ export function cssDeclarationsForNode(
   const heightSizing = node.layoutSizingHeight ?? node.layoutSizing;
 
   if (isFlowItem && parentLayout) {
+    if (parentLayout.mode === 'grid' && node.gridPlacement) {
+      const placement = node.gridPlacement;
+      const parentStyle = parentNode?.kind === 'frame' ? parentNode.layoutStyle : undefined;
+      const columnTrackIndex = placement.gridColumnStartTrackId
+        ? parentStyle?.gridColumnTracks?.findIndex(
+            (track) => track.id === placement.gridColumnStartTrackId,
+          )
+        : undefined;
+      const rowTrackIndex = placement.gridRowStartTrackId
+        ? parentStyle?.gridRowTracks?.findIndex(
+            (track) => track.id === placement.gridRowStartTrackId,
+          )
+        : undefined;
+      const columnStart =
+        columnTrackIndex != null && columnTrackIndex >= 0
+          ? columnTrackIndex + 1
+          : placement.gridColumnStart;
+      const rowStart =
+        rowTrackIndex != null && rowTrackIndex >= 0 ? rowTrackIndex + 1 : placement.gridRowStart;
+      if (columnStart != null) {
+        const span = placement.gridColumnSpan;
+        const end = placement.gridColumnEnd;
+        lines.push(
+          span != null
+            ? `grid-column: ${columnStart} / span ${span};`
+            : end != null
+              ? `grid-column: ${columnStart} / ${end};`
+              : `grid-column-start: ${columnStart};`,
+        );
+      }
+      if (rowStart != null) {
+        const span = placement.gridRowSpan;
+        const end = placement.gridRowEnd;
+        lines.push(
+          span != null
+            ? `grid-row: ${rowStart} / span ${span};`
+            : end != null
+              ? `grid-row: ${rowStart} / ${end};`
+              : `grid-row-start: ${rowStart};`,
+        );
+      }
+    }
     // Flow sizing: the container's gap/padding/alignment and the child's
     // authored grow/shrink decide the box, exactly as on the canvas.
     const mainIsWidth = parentLayout.direction === 'row';
@@ -324,8 +367,11 @@ export function cssDeclarationsForNode(
     lines.push('box-sizing: border-box;');
     if (l.mode === 'grid') {
       lines.push('display: grid;');
-      if (l.gridTemplateColumns) lines.push(`grid-template-columns: ${l.gridTemplateColumns};`);
-      if (l.gridTemplateRows) lines.push(`grid-template-rows: ${l.gridTemplateRows};`);
+      const columns =
+        l.gridColumnTracks?.map((track) => track.size).join(' ') || l.gridTemplateColumns;
+      const rows = l.gridRowTracks?.map((track) => track.size).join(' ') || l.gridTemplateRows;
+      if (columns) lines.push(`grid-template-columns: ${columns};`);
+      if (rows) lines.push(`grid-template-rows: ${rows};`);
       const rowGap = l.rowGap ?? l.gap;
       const columnGap = l.columnGap ?? l.gap;
       if (rowGap !== 0) lines.push(`row-gap: ${formatSize(Math.max(0, rowGap), unit, base)};`);
@@ -457,7 +503,7 @@ export function collectCssRules(
     const rule = {
       node: current,
       className,
-      declarations: cssDeclarationsForNode(current, ctx.doc, ctx.opts, parentLayout),
+      declarations: cssDeclarationsForNode(current, ctx.doc, ctx.opts, parentLayout, parent),
       children: [] as string[],
     };
     out.push(rule);
