@@ -120,7 +120,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
@@ -130,7 +130,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - name: Install pinned advisory scanner (verified)
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2
         with:
           tool: cargo-audit@0.22.2
           checksum: true
@@ -189,7 +189,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
@@ -277,13 +277,13 @@ jobs:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
       - name: Install just
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2
         with:
           tool: just@1.54.0
       - name: WASM check
         run: just wasm-check
       - name: Install wasm-pack (pinned, verified)
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2
         with:
           tool: wasm-pack@0.13.1
           checksum: true
@@ -324,7 +324,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
@@ -408,7 +408,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
@@ -568,7 +568,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
@@ -656,7 +656,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
@@ -750,7 +750,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
         with:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
