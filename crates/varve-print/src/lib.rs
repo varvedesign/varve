@@ -4568,6 +4568,54 @@ mod tests {
         );
     }
 
+    fn pdf_number(object: &Object) -> Option<f64> {
+        match object {
+            Object::Real(value) => Some(f64::from(*value)),
+            Object::Integer(value) => Some(*value as f64),
+            _ => None,
+        }
+    }
+
+    /// Type 0 function `/Range` arrays from an exported PDF.
+    ///
+    /// lopdf 0.47 serializes whole-number `Object::Real` values as `0.0`/`1.0`
+    /// so they round-trip as reals, not integers. Searching the saved bytes for
+    /// `/Range[0 1 0 1 0 1]` therefore fails even when the dictionary is
+    /// correct. Read the objects instead of the writer spelling.
+    fn type0_function_ranges(bytes: &[u8]) -> Vec<Vec<f64>> {
+        let doc = Document::load_mem(bytes).expect("parse exported PDF");
+        let mut ranges = Vec::new();
+        for object in doc.objects.values() {
+            let Object::Stream(stream) = object else {
+                continue;
+            };
+            let Ok(Object::Integer(0)) = stream.dict.get(b"FunctionType") else {
+                continue;
+            };
+            let Ok(Object::Array(values)) = stream.dict.get(b"Range") else {
+                continue;
+            };
+            ranges.push(
+                values
+                    .iter()
+                    .map(|value| {
+                        pdf_number(value).unwrap_or_else(|| {
+                            panic!("Type 0 function Range entries must be numbers, got {value:?}")
+                        })
+                    })
+                    .collect(),
+            );
+        }
+        ranges
+    }
+
+    fn is_unit_component_range(range: &[f64], components: usize) -> bool {
+        range.len() == components * 2
+            && range
+                .chunks_exact(2)
+                .all(|pair| pair[0] == 0.0 && pair[1] == 1.0)
+    }
+
     /// Regression: an RGB gradient exported a Type 0 function whose Range
     /// declared four 0..255 outputs. The output arity must equal the colour
     /// space's component count, and PDF colour components are 0..1. With the
@@ -4579,9 +4627,16 @@ mod tests {
         node.fills = Some(vec![gradient_fill(true)]);
         let bytes = export_pdf(&[node], &PdfOptions::default()).expect("export");
         let pdf = String::from_utf8_lossy(&bytes);
+        let ranges = type0_function_ranges(&bytes);
         assert!(
-            pdf.contains("/Range[0 1 0 1 0 1]"),
-            "RGB shading must declare three 0..1 outputs"
+            ranges.iter().any(|range| is_unit_component_range(range, 3)),
+            "RGB shading must declare three 0..1 outputs, got {ranges:?}"
+        );
+        assert!(
+            ranges
+                .iter()
+                .all(|range| range.iter().all(|value| *value != 255.0)),
+            "colour components are 0..1, not 0..255"
         );
         assert!(
             !pdf.contains("/Range[0 255"),
@@ -4598,10 +4653,10 @@ mod tests {
             ..PdfOptions::default()
         };
         let bytes = export_pdf(&[node], &opts).expect("export");
-        let pdf = String::from_utf8_lossy(&bytes);
+        let ranges = type0_function_ranges(&bytes);
         assert!(
-            pdf.contains("/Range[0 1 0 1 0 1 0 1]"),
-            "DeviceCMYK shading must declare four 0..1 outputs"
+            ranges.iter().any(|range| is_unit_component_range(range, 4)),
+            "DeviceCMYK shading must declare four 0..1 outputs, got {ranges:?}"
         );
     }
 
