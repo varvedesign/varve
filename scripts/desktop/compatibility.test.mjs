@@ -21,14 +21,15 @@ test('reports a missing native-utils export before WDIO starts', () => {
 
   assert.equal(report.ok, false);
   assert.match(report.issues[0], /installMockSyncOverride/);
-  assert.match(report.remediation, /2\.5\.0/);
+  assert.match(report.issues[0], /WEBKIT_WEBDRIVER_INSTALL_HINT/);
+  assert.match(report.remediation, /2\.8\.1/);
 });
 
 test('accepts a native-utils version that exports the required WDIO API', () => {
   const report = evaluateWdioCompatibility({
-    serviceVersion: '1.2.0',
-    nativeUtilsVersion: '2.5.0',
-    nativeUtilsExports: ['installMockSyncOverride'],
+    serviceVersion: '1.5.1',
+    nativeUtilsVersion: '2.8.1',
+    nativeUtilsExports: ['installMockSyncOverride', 'WEBKIT_WEBDRIVER_INSTALL_HINT'],
   });
 
   assert.deepEqual(report, { ok: true, issues: [], remediation: null });
@@ -112,10 +113,10 @@ test('preflight resolves package metadata through export maps', () => {
 test('repository pins the tested WDIO compatibility set', () => {
   const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
 
-  assert.equal(manifest.devDependencies['@wdio/tauri-service'], '1.3.0');
-  assert.equal(manifest.devDependencies['@wdio/tauri-plugin'], '1.3.0');
+  assert.equal(manifest.devDependencies['@wdio/tauri-service'], '1.5.1');
+  assert.equal(manifest.devDependencies['@wdio/tauri-plugin'], '1.5.1');
   const workspace = readFileSync('pnpm-workspace.yaml', 'utf8');
-  assert.match(workspace, /"@wdio\/native-utils": 2\.5\.0/);
+  assert.match(workspace, /"@wdio\/native-utils": 2\.8\.1/);
 });
 
 test('native test config uses the current Tauri capability namespace', () => {
