@@ -97,6 +97,10 @@ overrides:
   # GHSA-474x-hrwr-fgx4: quadratic CPU in stopNodes scanning. edgedriver
   # (WDIO) still resolves 5.10.1. Fixed in 5.12.0.
   "fast-xml-parser": 5.12.0
+  # plugin-react 6.2.1 otherwise lets packages/editor's @dnd-kit/core resolve
+  # a second react-dom 19.3.1 next to the app's 19.2.8, and Layers drag dies.
+  "react": 19.2.8
+  "react-dom": 19.2.8
 
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
 # esbuild (used by vitest + biome) ships/verifies its platform binary via
