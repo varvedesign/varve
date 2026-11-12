@@ -57,19 +57,19 @@ ignoreUntil = 2027-01-21
 reason = "Same extract-zip 2.0.1 finding as GHSA-7pqw-9j4j-h8q3. Local patch remains required."
 
 [[IgnoredVulns]]
+id = "GHSA-rj75-hqrm-r3gf"
+ignoreUntil = 2027-01-21
+reason = "postcss-selector-parser 6.1.4 is Tailwind 3 / website build tooling on trusted sources. Advisory excludes that use. See SECURITY.md."
+
+[[IgnoredVulns]]
 id = "GHSA-r4xh-jqrq-34v2"
 ignoreUntil = 2027-01-21
 reason = "smol-toml 1.7.1 is Knip/WDIO tooling parsing repo-controlled config. Production Astro already uses 1.9.0. See SECURITY.md."
 
 [[IgnoredVulns]]
-id = "RUSTSEC-2026-0486"
+id = "GHSA-qwgh-2vcv-g2f7"
 ignoreUntil = 2027-01-21
-reason = "rustix 1.1.4 is in the existing workspace graph; 1.1.6 is published. This PR does not bump rustix. cargo-audit does not fail closed on it."
-
-[[IgnoredVulns]]
-id = "GHSA-474x-hrwr-fgx4"
-ignoreUntil = 2027-01-21
-reason = "fast-xml-parser 5.10.1 is in the existing pnpm graph; 5.12.0 is published. This PR does not bump that package. CVSS 3.7."
+reason = "block-buffer 0.10.4 has no 0.10.x patch. GHSA-qwgh-2vcv-g2f7 is EagerBuffer/ReadBuffer (0.11+), fixed only in 0.12.1. Pulled by sha2 0.10 via tauri-codegen/wry; digest 0.10 cannot take 0.12. cargo-audit does not flag 0.10.4."
 
 # GHSA-g3hv-75wg-m249 is fixed only in minimatch 11.0.1. The workspace
 # overrides 9.x/10.x onto that line. 3.x/5.x cannot take the major: mocha
