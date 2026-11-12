@@ -75,7 +75,7 @@ assert.doesNotMatch(lockfile, /minimatch@9\.0\.9/);
 
 const osvConfig = readFileSync(path.join(repoRoot, 'osv-scanner.toml'), 'utf8');
 assert.match(osvConfig, /name = "minimatch"\nversion = "3\.1\.5"/);
-assert.match(osvConfig, /name = "minimatch"\nversion = "5\.1\.9"/);
+assert.doesNotMatch(osvConfig, /name = "minimatch"\nversion = "5\.1\.9"/);
 assert.match(osvConfig, /effectiveUntil = 2026-12-30/);
 
 function pnpmRequire(dirPrefix, pkgPath) {
