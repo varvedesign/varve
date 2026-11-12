@@ -94,6 +94,9 @@ overrides:
   # the dual CJS/ESM named-export API. 3.x/5.x stay put: mocha and
   # ts-prune call `require('minimatch')` as a function.
   "minimatch@>=9": 11.0.3
+  # GHSA-474x-hrwr-fgx4: quadratic CPU in stopNodes scanning. edgedriver
+  # (WDIO) still resolves 5.10.1. Fixed in 5.12.0.
+  "fast-xml-parser": 5.12.0
 
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
 # esbuild (used by vitest + biome) ships/verifies its platform binary via
