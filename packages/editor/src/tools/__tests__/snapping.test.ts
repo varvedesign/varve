@@ -31,6 +31,24 @@ describe('snapPosition', () => {
     expect(result.y).toBeCloseTo(88);
     expect(result.guides[0]).toMatchObject({ type: 'layout-grid', label: 'Layout guide' });
   });
+  it('identifies resolved auto-grid tracks separately from authored guides', () => {
+    const result = snapPosition(96, 90, 20, 20, [], undefined, undefined, {
+      zoom: 1,
+      tolerancePx: 8,
+      layoutGuideSegments: [
+        {
+          start: { x: 100, y: 90 },
+          end: { x: 140, y: 130 },
+          id: 'auto-grid:frame:column:first:start',
+          type: 'layout-grid',
+        },
+      ],
+    });
+    expect(result.guides[0]).toMatchObject({
+      targetId: 'auto-grid:frame:column:first:start',
+      label: 'Grid track',
+    });
+  });
   it('snaps left edge to left edge of target', () => {
     const result = snapPosition(3, 50, 100, 100, [box(0, 50, 100, 100)]);
     expect(result.x).toBe(0);

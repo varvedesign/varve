@@ -406,6 +406,7 @@ function stickyTargetIsInScope(lock: SnapLock, activeTargets: NormalizedSnapTarg
   if (!targetId) return true;
   if (
     targetId.startsWith('grid:') ||
+    targetId.startsWith('auto-grid:') ||
     targetId.startsWith('layout-grid:') ||
     targetId.startsWith('pixel-grid:') ||
     targetId.startsWith('guide:')
@@ -679,7 +680,7 @@ function closestSegmentSnapCandidate(
       axis,
       position: axis === 'horizontal' ? target.start.y : target.start.x,
       distance: best.distance,
-      label: 'Layout guide',
+      label: target.id?.startsWith('auto-grid:') ? 'Grid track' : 'Layout guide',
       type: target.type ?? 'layout-grid',
       ...(target.id
         ? {

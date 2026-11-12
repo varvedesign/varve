@@ -1,9 +1,10 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
+import { useEffect } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { EditorProvider } from '../../../context';
+import { EditorProvider, useEditor } from '../../../context';
 import { GridPlacementFields } from './GridPlacementFields';
 
 afterEach(cleanup);
@@ -88,5 +89,166 @@ describe('GridPlacementFields', () => {
 
     expect(screen.getByText(/stored on the layer/i)).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'Column start' })).toHaveValue('2');
+  });
+
+  it('shows identity anchors as indices and preserves the other axis when one axis changes', async () => {
+    const { document: sceneDocument, child } = documentWithNodes(
+      {
+        layoutStyle: {
+          ...GRID_STYLE,
+          gridColumnTracks: [
+            { id: 'column-a', size: '1fr' },
+            { id: 'column-b', size: '1fr' },
+            { id: 'column-c', size: '1fr' },
+          ],
+          gridRowTracks: [{ id: 'row-a', size: 'auto' }],
+        },
+      },
+      {
+        gridPlacement: {
+          gridColumnStartTrackId: 'column-a',
+          gridColumnSpan: 2,
+          gridRowStartTrackId: 'row-a',
+          gridRowSpan: 1,
+        },
+      },
+    );
+
+    function SelectChild() {
+      const { state, setSelection } = useEditor();
+      useEffect(() => {
+        if (!state.selection.includes(child.id)) setSelection(child.id);
+      }, [state.selection, setSelection]);
+      return null;
+    }
+
+    function PlacementProbe() {
+      const { state } = useEditor();
+      return (
+        <output data-testid="placement">
+          {JSON.stringify(state.document.nodes[child.id]?.gridPlacement)}
+        </output>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(sceneDocument)}>
+        <SelectChild />
+        <GridPlacementFields nodes={[child]} />
+        <PlacementProbe />
+      </EditorProvider>,
+    );
+
+    expect(screen.getByRole('spinbutton', { name: 'Column start' })).toHaveValue('1');
+    expect(screen.getByRole('spinbutton', { name: 'Column end' })).toHaveValue('3');
+    expect(screen.getByRole('spinbutton', { name: 'Row start' })).toHaveValue('1');
+
+    const columnStart = screen.getByRole('spinbutton', { name: 'Column start' });
+    fireEvent.change(columnStart, { target: { value: '2' } });
+    fireEvent.blur(columnStart);
+
+    await waitFor(() => {
+      const placement = JSON.parse(screen.getByTestId('placement').textContent ?? '{}');
+      expect(placement.gridColumnStartTrackId).toBe('column-b');
+      expect(placement.gridColumnSpan).toBe(2);
+      expect(placement.gridRowStartTrackId).toBe('row-a');
+      expect(placement.gridRowSpan).toBe(1);
+    });
+  });
+
+  it('preserves each selected child’s span and row anchor when changing a mixed column start', async () => {
+    let sceneDocument = createDocument('grid-placement-multiselect');
+    const parent = makeFrameNode('parent', {
+      name: 'Grid parent',
+      layoutStyle: {
+        ...GRID_STYLE,
+        gridColumnTracks: [
+          { id: 'column-a', size: '1fr' },
+          { id: 'column-b', size: '1fr' },
+          { id: 'column-c', size: '1fr' },
+        ],
+        gridRowTracks: [
+          { id: 'row-a', size: 'auto' },
+          { id: 'row-b', size: 'auto' },
+        ],
+      },
+    });
+    const firstChild = {
+      ...makeShapeNode('first-child', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+      gridPlacement: {
+        gridColumnStartTrackId: 'column-a',
+        gridColumnSpan: 2,
+        gridRowStartTrackId: 'row-a',
+        gridRowSpan: 1,
+      },
+    };
+    const secondChild = {
+      ...makeShapeNode('second-child', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+      gridPlacement: {
+        gridColumnStartTrackId: 'column-b',
+        gridColumnSpan: 1,
+        gridRowStartTrackId: 'row-b',
+        gridRowSpan: 1,
+      },
+    };
+    sceneDocument = addNode(sceneDocument, parent);
+    sceneDocument = addChild(sceneDocument, parent.id, firstChild);
+    sceneDocument = addChild(sceneDocument, parent.id, secondChild);
+
+    function SelectChildren() {
+      const { state, setSelection, toggleSelection } = useEditor();
+      useEffect(() => {
+        if (!state.selection.includes(firstChild.id)) {
+          setSelection(firstChild.id, 'api');
+        } else if (!state.selection.includes(secondChild.id)) {
+          toggleSelection(secondChild.id, true, 'api');
+        }
+      }, [state.selection, setSelection, toggleSelection]);
+      return null;
+    }
+
+    function PlacementProbe() {
+      const { state } = useEditor();
+      return (
+        <output data-testid="placements">
+          {JSON.stringify([
+            state.document.nodes[firstChild.id]?.gridPlacement,
+            state.document.nodes[secondChild.id]?.gridPlacement,
+          ])}
+        </output>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(sceneDocument)}>
+        <SelectChildren />
+        <GridPlacementFields nodes={[firstChild, secondChild]} />
+        <PlacementProbe />
+      </EditorProvider>,
+    );
+
+    const columnStart = screen.getByRole('spinbutton', { name: 'Column start' });
+    fireEvent.change(columnStart, { target: { value: '2' } });
+    fireEvent.blur(columnStart);
+
+    await waitFor(() => {
+      const placements = JSON.parse(screen.getByTestId('placements').textContent ?? '[]');
+      expect(placements).toEqual([
+        {
+          gridColumnStart: 2,
+          gridColumnStartTrackId: 'column-b',
+          gridColumnSpan: 2,
+          gridRowStartTrackId: 'row-a',
+          gridRowSpan: 1,
+        },
+        {
+          gridColumnStart: 2,
+          gridColumnStartTrackId: 'column-b',
+          gridColumnSpan: 1,
+          gridRowStartTrackId: 'row-b',
+          gridRowSpan: 1,
+        },
+      ]);
+    });
   });
 });

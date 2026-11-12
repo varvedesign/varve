@@ -1064,6 +1064,7 @@ export function CanvasArea({
   const drawOverlay = useOverlayDraw({
     overlayCanvasRef,
     stateRef,
+    document: state.document,
     transformCacheRef,
     displayDpr,
     accentColorRef,

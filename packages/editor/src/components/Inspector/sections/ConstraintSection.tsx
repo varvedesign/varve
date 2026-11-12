@@ -23,6 +23,7 @@ const HORIZONTAL_OPTIONS: { value: ConstraintAxis; label: string }[] = [
   { value: 'min', label: 'Left' },
   { value: 'max', label: 'Right' },
   { value: 'center', label: 'Center' },
+  { value: 'centerOffset', label: 'Center offset' },
   { value: 'stretch', label: 'Left & Right' },
   { value: 'scale', label: 'Scale' },
 ];
@@ -31,6 +32,7 @@ const VERTICAL_OPTIONS: { value: ConstraintAxis; label: string }[] = [
   { value: 'min', label: 'Top' },
   { value: 'max', label: 'Bottom' },
   { value: 'center', label: 'Center' },
+  { value: 'centerOffset', label: 'Center offset' },
   { value: 'stretch', label: 'Top & Bottom' },
   { value: 'scale', label: 'Scale' },
 ];
