@@ -40,6 +40,7 @@ assert.match(workspace, /"svgo@4": 4\.1\.0/);
 assert.match(workspace, /"deepmerge-ts": 8\.0\.0/);
 assert.match(workspace, /"glob@>=9": 14\.0\.3/);
 assert.match(workspace, /"minimatch@>=9": 11\.0\.3/);
+assert.match(workspace, /"fast-xml-parser": 5\.12\.0/);
 assert.match(workspace, /"undici@6": 6\.29\.1/);
 assert.match(workspace, /"undici@7": 7\.30\.1/);
 assert.match(workspace, /"undici@8": 8\.12\.2/);
@@ -68,6 +69,8 @@ assert.match(lockfile, /glob@>=9: 14\.0\.3/);
 assert.match(lockfile, /minimatch@>=9: 11\.0\.3/);
 assert.match(lockfile, /glob@14\.0\.3:/);
 assert.match(lockfile, /minimatch@11\.0\.3:/);
+assert.match(lockfile, /fast-xml-parser@5\.12\.0:/);
+assert.doesNotMatch(lockfile, /fast-xml-parser@5\.10\.1/);
 assert.doesNotMatch(lockfile, /glob@10\.5\.0/);
 assert.doesNotMatch(lockfile, /glob@13\.0\.6/);
 assert.doesNotMatch(lockfile, /minimatch@10\.2\./);
@@ -106,6 +109,8 @@ assert.match(lockfile, /extract-zip: 2\.0\.1\(patch_hash=[0-9a-f]{64}\)/);
 
 assert.match(desktopCargoLock, /name = "zip"\nversion = "9\.0\.5"/);
 assert.doesNotMatch(desktopCargoLock, /name = "zip"\nversion = "9\.0\.4"/);
+assert.match(desktopCargoLock, /name = "rustix"\nversion = "1\.1\.6"/);
+assert.doesNotMatch(desktopCargoLock, /name = "rustix"\nversion = "1\.1\.4"/);
 
 assert.match(flatpakSources, /deepmerge-ts-8\.0\.0\.tgz/);
 assert.match(
