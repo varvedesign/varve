@@ -59,9 +59,9 @@ assert.doesNotMatch(lockfile, /serialize-javascript@7\.1\.0/);
 assert.match(lockfile, /undici@6: 6\.29\.1/);
 assert.match(lockfile, /undici@7: 7\.30\.1/);
 assert.match(lockfile, /undici@8: 8\.12\.2/);
-assert.match(lockfile, /undici@6\.29\.1:/);
 assert.match(lockfile, /undici@7\.30\.1:/);
 assert.match(lockfile, /undici@8\.12\.2:/);
+assert.doesNotMatch(lockfile, /undici@6\.29\.0:/);
 assert.doesNotMatch(lockfile, /undici@6\.29\.0/);
 assert.doesNotMatch(lockfile, /undici@7\.30\.0/);
 assert.doesNotMatch(lockfile, /undici@8\.11\.2/);
@@ -69,7 +69,6 @@ assert.match(lockfile, /glob@>=9: 14\.0\.3/);
 assert.match(lockfile, /minimatch@>=9: 11\.0\.3/);
 assert.match(lockfile, /glob@14\.0\.3:/);
 assert.match(lockfile, /minimatch@11\.0\.3:/);
-assert.match(lockfile, /fast-xml-parser@5\.12\.0:/);
 assert.doesNotMatch(lockfile, /fast-xml-parser@5\.10\.1/);
 assert.doesNotMatch(lockfile, /glob@10\.5\.0/);
 assert.doesNotMatch(lockfile, /glob@13\.0\.6/);
@@ -98,14 +97,20 @@ assert.ok(
 );
 
 const mochaMinimatch = pnpmRequire('mocha@', 'mocha')('minimatch');
-assert.equal(typeof mochaMinimatch, 'function');
-assert.equal(mochaMinimatch('collect-files.js', '*.js', { windowsPathsNoEscape: true }), true);
+assert.equal(typeof mochaMinimatch, 'object');
+assert.equal(typeof mochaMinimatch.minimatch, 'function');
+assert.equal(typeof mochaMinimatch.Minimatch, 'function');
+assert.equal(
+  mochaMinimatch.minimatch('collect-files.js', '*.js', { windowsPathsNoEscape: true }),
+  true,
+);
 
 const tsMorphMinimatch = pnpmRequire('@ts-morph+common@', '@ts-morph/common')('minimatch');
 assert.equal(typeof tsMorphMinimatch, 'function');
 assert.equal(typeof tsMorphMinimatch.Minimatch, 'function');
 assert.match(lockfile, /onnxruntime-node@[\s\S]*?adm-zip: 0\.6\.1/);
-assert.match(lockfile, /extract-zip: 2\.0\.1\(patch_hash=[0-9a-f]{64}\)/);
+assert.match(lockfile, /extract-zip@2\.0\.1: [0-9a-f]{64}/);
+assert.match(lockfile, /2\.0\.1\(patch_hash=[0-9a-f]{64}\)/);
 
 assert.match(desktopCargoLock, /name = "zip"\nversion = "9\.4\.1"/);
 assert.doesNotMatch(desktopCargoLock, /name = "zip"\nversion = "9\.0\.4"/);

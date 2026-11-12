@@ -17,7 +17,7 @@
  * Run with: node --test scripts/security/extract-zip-containment.test.mjs
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -35,15 +35,12 @@ function resolvePatchedExtractZip() {
   const lockfile = readFileSync(path.join(REPO_ROOT, 'pnpm-lock.yaml'), 'utf8');
   const match = lockfile.match(/extract-zip@2\.0\.1\(patch_hash=([0-9a-f]{64})\)/);
   assert.ok(match, 'pnpm-lock.yaml must resolve extract-zip@2.0.1 through the local patch');
-  const modulePath = path.join(
-    REPO_ROOT,
-    'node_modules',
-    '.pnpm',
-    `extract-zip@2.0.1_patch_hash=${match[1]}`,
-    'node_modules',
-    'extract-zip',
-    'index.js',
-  );
+  const store = path.join(REPO_ROOT, 'node_modules', '.pnpm');
+  const prefix = `extract-zip@2.0.1_patch_hash=${match[1]}`;
+  const dir = readdirSync(store).find((name) => name === prefix || name.startsWith(`${prefix}_`));
+  assert.ok(dir, `pnpm store is missing patched extract-zip (${prefix})`);
+  const modulePath = path.join(store, dir, 'node_modules', 'extract-zip', 'index.js');
+  assert.ok(existsSync(modulePath), `patched extract-zip entry missing at ${modulePath}`);
   const require = createRequire(import.meta.url);
   const extract = require(modulePath);
   assert.equal(typeof extract, 'function', 'extract-zip default export must be callable');

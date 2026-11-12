@@ -4,7 +4,10 @@
  * WebdriverIO Tauri embedded-provider documentation (reviewed 2026-07-17).
  */
 
-export const REQUIRED_WDIO_NATIVE_UTIL_EXPORT = 'installMockSyncOverride';
+export const REQUIRED_WDIO_NATIVE_UTIL_EXPORTS = [
+  'installMockSyncOverride',
+  'WEBKIT_WEBDRIVER_INSTALL_HINT',
+];
 
 const LINUX_REQUIREMENTS = ['gtk+-3.0', 'webkit2gtk-4.1', 'librsvg-2.0', 'fontconfig'];
 
@@ -13,17 +16,20 @@ export function evaluateWdioCompatibility({
   nativeUtilsVersion,
   nativeUtilsExports,
 }) {
-  if (nativeUtilsExports.includes(REQUIRED_WDIO_NATIVE_UTIL_EXPORT)) {
+  const missing = REQUIRED_WDIO_NATIVE_UTIL_EXPORTS.filter(
+    (name) => !nativeUtilsExports.includes(name),
+  );
+  if (missing.length === 0) {
     return { ok: true, issues: [], remediation: null };
   }
 
   return {
     ok: false,
     issues: [
-      `@wdio/tauri-service@${serviceVersion} requires @wdio/native-utils to export ${REQUIRED_WDIO_NATIVE_UTIL_EXPORT}; resolved ${nativeUtilsVersion} does not.`,
+      `@wdio/tauri-service@${serviceVersion} requires @wdio/native-utils to export ${missing.join(', ')}; resolved ${nativeUtilsVersion} does not.`,
     ],
     remediation:
-      'Pin @wdio/tauri-service@1.3.0 and override @wdio/native-utils to 2.5.0; do not substitute an arbitrary latest browser driver.',
+      'Pin @wdio/tauri-service@1.5.1 and override @wdio/native-utils to 2.8.1; do not substitute an arbitrary latest browser driver.',
   };
 }
 

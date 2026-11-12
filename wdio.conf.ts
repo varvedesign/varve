@@ -24,11 +24,7 @@ const timeout = specs.some((spec) => spec.includes('native-fluidity-cycle'))
 
 export const config: Options.Testrunner = {
   runner: 'local',
-  autoCompileOpts: {
-    tsNodeOpts: {
-      project: './tsconfig.json',
-    },
-  },
+  tsConfigPath: './tsconfig.base.json',
   // Updater specs require the dedicated signed AppImage fixture runner. Keep
   // them out of the ordinary debug-binary lane; --spec still selects them
   // explicitly from scripts/update-test/run-slice.sh.
