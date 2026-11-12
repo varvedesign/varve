@@ -107,7 +107,7 @@ assert.equal(typeof tsMorphMinimatch.Minimatch, 'function');
 assert.match(lockfile, /onnxruntime-node@[\s\S]*?adm-zip: 0\.6\.1/);
 assert.match(lockfile, /extract-zip: 2\.0\.1\(patch_hash=[0-9a-f]{64}\)/);
 
-assert.match(desktopCargoLock, /name = "zip"\nversion = "9\.0\.5"/);
+assert.match(desktopCargoLock, /name = "zip"\nversion = "9\.4\.1"/);
 assert.doesNotMatch(desktopCargoLock, /name = "zip"\nversion = "9\.0\.4"/);
 assert.match(desktopCargoLock, /name = "rustix"\nversion = "1\.1\.6"/);
 assert.doesNotMatch(desktopCargoLock, /name = "rustix"\nversion = "1\.1\.4"/);
