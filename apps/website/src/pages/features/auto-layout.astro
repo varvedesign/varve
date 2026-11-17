@@ -61,11 +61,23 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="feature-section">
+        <h2>Grid edits keep their anchors</h2>
+        <p>
+          Give grid tracks stable identities, reorder or resize them, and keep child placements
+          attached to the intended tracks. Before removing a track, compare the proposed rehome
+          with the current cells; applying the valid change is one undo step. Newly created layouts
+          use versioned sizing and wrap rules; older saved layouts retain their prior placement
+          behavior when reopened.
+        </p>
+      </section>
+
+      <section class="feature-section">
         <h2>Honest output</h2>
         <p>
-          SVG, PDF, raster, and code export use the resolved geometry and effective paint order. CSS
-          targets clamp unsupported negative gaps and report the limitation; responsive HTML and
-          React output retain authored modes where the target can express them.
+          Static SVG, PDF, and raster exports capture resolved artwork. HTML and CSS output keeps
+          supported grid tracks, gaps, and spans editable in code. When a target cannot express an
+          authored rule, the export reports the limitation; CSS clamps negative gaps rather than
+          silently changing their meaning.
         </p>
       </section>
 

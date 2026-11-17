@@ -160,6 +160,8 @@ export interface LayoutSpec {
   overflow: OverflowSpec;
   flex?: FlexChildSpec;
   gridPlacement?: GridPlacement;
+  gridTemplateColumns?: string;
+  gridTemplateRows?: string;
   wrap?: boolean;
   position?: {
     type: 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky';

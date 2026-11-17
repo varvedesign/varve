@@ -391,6 +391,44 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     ).toBeInTheDocument();
   });
 
+  it('warns when a selected Fill axis is contained by a Hug axis', async () => {
+    const { addChild, createDocument, makeFrameNode, makeShapeNode } = await import('@varve/scene');
+    let doc = createDocument('fill-hug-cycle-warning-test');
+    const rootId = doc.pages?.[0]?.contentRoot as string;
+    const frame = {
+      ...makeFrameNode('hug-parent', {
+        name: 'Hug Parent',
+        layoutStyle: {
+          mode: 'flex',
+          direction: 'row',
+          gap: 8,
+          wrap: false,
+          padding: [0, 0, 0, 0],
+          grow: 0,
+          shrink: 1,
+        },
+      }),
+      layoutSizingWidth: 'hug' as const,
+    };
+    const child = {
+      ...makeShapeNode('fill-child', { kind: 'rect', x: 0, y: 0, w: 48, h: 32 }),
+      layoutSizingWidth: 'fill' as const,
+    };
+    doc = addChild(doc, rootId, frame);
+    doc = addChild(doc, frame.id, child);
+    const { checkLayoutCycle } = await import('@varve/layout');
+    expect(checkLayoutCycle(doc, child.id)).toMatchObject({
+      verdict: 'cycle_detected',
+      axis: 'width',
+    });
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), [child.id]);
+
+    expect(
+      await screen.findByText(/fills width inside "Hug Parent".*hugs its children/i),
+    ).toHaveClass('insp-hint--warning');
+  });
+
   it('keeps inert Selection Sources out and puts the section customizer in the header row', async () => {
     await renderPanelWithSelectedRect();
     // A plain rectangle has no pixel selection, saved selections, closed

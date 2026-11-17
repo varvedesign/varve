@@ -134,8 +134,8 @@ export function ConstraintPinControl({
     [disabled, handleZoneClick],
   );
 
-  const activeH = horizontal;
-  const activeV = vertical;
+  const activeH = horizontal === 'centerOffset' ? 'center' : horizontal;
+  const activeV = vertical === 'centerOffset' ? 'center' : vertical;
 
   return (
     <fieldset

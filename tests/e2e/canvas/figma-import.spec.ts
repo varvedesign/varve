@@ -130,6 +130,105 @@ test.describe('Figma import integration', () => {
     await page.screenshot({ path: testInfo.outputPath('native-fig-import.png') });
   });
 
+  test('keeps imported grid tracks and cell placement after the first edit', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+    const fixture = {
+      name: 'Imported grid first edit',
+      document: {
+        type: 'DOCUMENT',
+        children: [
+          {
+            id: 'page:grid',
+            type: 'CANVAS',
+            name: 'Design',
+            children: [
+              {
+                id: 'frame:grid',
+                type: 'FRAME',
+                name: 'Imported dashboard grid',
+                layoutMode: 'GRID',
+                gridColumnCount: 3,
+                gridRowCount: 1,
+                gridColumnsSizing: '100px 1fr 2fr',
+                gridRowsSizing: 'auto',
+                gridColumnGap: 16,
+                gridRowGap: 0,
+                gridItemsPositioning: 'MANUAL',
+                absoluteBoundingBox: { x: 40, y: 40, width: 420, height: 180 },
+                children: [
+                  {
+                    id: 'cell:first',
+                    type: 'RECTANGLE',
+                    name: 'First cell',
+                    absoluteBoundingBox: { x: 40, y: 40, width: 100, height: 80 },
+                    fills: [{ type: 'SOLID', color: { r: 0.15, g: 0.75, b: 0.68, a: 1 } }],
+                    gridColumnAnchorIndex: 0,
+                    gridRowAnchorIndex: 0,
+                    gridColumnSpan: 1,
+                    gridRowSpan: 1,
+                  },
+                  {
+                    id: 'cell:span',
+                    type: 'RECTANGLE',
+                    name: 'Spanning cell',
+                    absoluteBoundingBox: { x: 156, y: 40, width: 304, height: 80 },
+                    fills: [{ type: 'SOLID', color: { r: 0.92, g: 0.43, b: 0.18, a: 1 } }],
+                    gridColumnAnchorIndex: 1,
+                    gridRowAnchorIndex: 0,
+                    gridColumnSpan: 2,
+                    gridRowSpan: 1,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'imported-grid.fig',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(fixture), 'utf8'),
+    });
+    await expect(page.locator('.layers-panel')).toContainText('Imported dashboard grid', {
+      timeout: 30000,
+    });
+    await dismissImportReport(page);
+    await page
+      .getByRole('treeitem', { name: /Imported dashboard grid/ })
+      .first()
+      .click();
+    await expect(page.getByRole('combobox', { name: 'Layout mode' })).toContainText('Grid');
+    const columns = page.getByRole('textbox', { name: /^column \d+ size$/ });
+    await expect(columns).toHaveCount(3);
+    await expect(columns.nth(0)).toHaveValue('100px');
+    await expect(columns.nth(1)).toHaveValue('1fr');
+    await expect(columns.nth(2)).toHaveValue('2fr');
+    await page.screenshot({ path: testInfo.outputPath('imported-grid-before-edit.png') });
+
+    await page.getByRole('button', { name: 'Add column', exact: true }).click();
+    await expect(columns).toHaveCount(4);
+    await expect(columns.nth(0)).toHaveValue('100px');
+    await expect(columns.nth(1)).toHaveValue('1fr');
+    await expect(columns.nth(2)).toHaveValue('2fr');
+    await page.screenshot({ path: testInfo.outputPath('imported-grid-after-first-edit.png') });
+    await page.getByRole('treeitem', { name: /First cell/ }).click();
+    await expect(page.getByRole('spinbutton', { name: 'Column start' })).toHaveValue('1');
+    await expect(page.getByRole('spinbutton', { name: 'Column end' })).toHaveValue('2');
+    await page.getByRole('treeitem', { name: /Spanning cell/ }).click();
+    await expect(page.getByRole('spinbutton', { name: 'Column start' })).toHaveValue('2');
+    await expect(page.getByRole('spinbutton', { name: 'Column end' })).toHaveValue('4');
+    await page.keyboard.press('Control+z');
+    await expect(page.getByRole('button', { name: /^Redo Edit/ })).toBeVisible();
+    await page
+      .getByRole('treeitem', { name: /Imported dashboard grid/ })
+      .first()
+      .click();
+    await expect(columns).toHaveCount(3);
+  });
+
   test('shows the fidelity report when source semantics are degraded', async ({ page }) => {
     await navigateToEditor(page);
     const fixture = {

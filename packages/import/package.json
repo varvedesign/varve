@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@varve/engine": "workspace:*",
+    "@varve/layout": "workspace:*",
     "@varve/scene": "workspace:*",
     "@varve/shared": "workspace:*",
     "@webtoon/psd": "^0.4.0",

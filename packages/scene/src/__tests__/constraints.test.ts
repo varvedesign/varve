@@ -71,6 +71,30 @@ describe('applyConstraints', () => {
     expect(r.y).toBeCloseTo(45, 0);
   });
 
+  it('centerOffset: preserves the child center offset during parent resize', () => {
+    const r = applyConstraints(
+      { horizontal: 'centerOffset', vertical: 'centerOffset' },
+      { x: 60, y: 30, w: 40, h: 20 },
+      200,
+      100,
+      300,
+      200,
+    );
+    expect(r).toEqual({ x: 110, y: 80, w: 40, h: 20 });
+  });
+
+  it('keeps center proportional placement distinct from centerOffset', () => {
+    const r = applyConstraints(
+      { horizontal: 'center', vertical: 'center' },
+      { x: 60, y: 30, w: 40, h: 20 },
+      200,
+      100,
+      300,
+      200,
+    );
+    expect(r).toEqual({ x: 97.5, y: 67.5, w: 40, h: 20 });
+  });
+
   it('handles zero-size parent gracefully', () => {
     const r = applyConstraints({ horizontal: 'scale', vertical: 'scale' }, child, 0, 0, 400, 600);
     expect(r.x).toBe(10);

@@ -32,7 +32,7 @@
 import type { Affine } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import { getParent } from '@varve/scene';
-import { computeFlexLayout } from './computeFlexLayout';
+import { computeFlexLayoutDetailed } from './computeFlexLayout';
 import { applyGridLayout } from './computeGridLayout';
 import { resolveIntrinsicSizes } from './intrinsicSize';
 import { axisSizing } from './measure';
@@ -59,34 +59,40 @@ export function reflowLayoutChildren(doc: Document, parentId: NodeId | null | un
     const childNodes = resolvedParent.children
       .map((cid) => next.nodes[cid])
       .filter((n): n is SceneNode => Boolean(n));
-    const results = computeFlexLayout(resolvedParent, childNodes);
-    if (results.length > 0) {
-      const nodes = { ...next.nodes };
-      for (const r of results) {
+    const result = computeFlexLayoutDetailed(resolvedParent, childNodes);
+    if (result.items.length > 0) {
+      let nodes = next.nodes;
+      for (const r of result.items) {
         const child = nodes[r.id];
         if (!child) continue;
-        let updated: SceneNode = {
-          ...child,
-          // Layout owns translation and dimensions; preserve authored scale,
-          // skew, and rotation components when a child is reflowed.
-          transform: [
-            child.transform[0],
-            child.transform[1],
-            child.transform[2],
-            child.transform[3],
-            r.x,
-            r.y,
-          ] as Affine,
-        } as SceneNode;
-        const cur = nodeSize(updated);
+        const cur = nodeSize(child);
         const wantW = axisSizing(child, 'width') === 'fixed' ? cur.w : r.w;
         const wantH = axisSizing(child, 'height') === 'fixed' ? cur.h : r.h;
-        if (Math.abs(cur.w - wantW) > 0.001 || Math.abs(cur.h - wantH) > 0.001) {
+        const move = child.transform[4] !== r.x || child.transform[5] !== r.y;
+        const resize = Math.abs(cur.w - wantW) > 0.001 || Math.abs(cur.h - wantH) > 0.001;
+        if (!move && !resize) continue;
+        let updated: SceneNode = move
+          ? ({
+              ...child,
+              // Layout owns translation and dimensions; preserve authored scale,
+              // skew, and rotation components when a child is reflowed.
+              transform: [
+                child.transform[0],
+                child.transform[1],
+                child.transform[2],
+                child.transform[3],
+                r.x,
+                r.y,
+              ] as Affine,
+            } as SceneNode)
+          : child;
+        if (resize) {
           updated = resizeNodeGeometry(updated, wantW, wantH);
         }
+        if (nodes === next.nodes) nodes = { ...nodes };
         nodes[r.id] = updated;
       }
-      next = { ...next, nodes };
+      if (nodes !== next.nodes) next = { ...next, nodes };
     }
   }
 

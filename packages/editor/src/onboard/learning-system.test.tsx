@@ -13,6 +13,7 @@
  */
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SpotlightOverlay } from '../components/Onboarding/SpotlightOverlay';
 import { loadOnboardingState, type OnboardingStore, saveOnboardingState } from './onboardingStore';
 
 // ── OnboardingStore ──────────────────────────────────────────────────
@@ -128,7 +129,6 @@ describe('SpotlightOverlay viewport clamping', () => {
     Object.defineProperty(window, 'innerHeight', { value: 700, writable: true });
     Object.defineProperty(window, 'innerWidth', { value: 1280, writable: true });
 
-    const { SpotlightOverlay } = await import('../components/Onboarding/SpotlightOverlay');
     const step = {
       id: 'toolbar',
       target: '.test-target',
@@ -177,7 +177,6 @@ describe('SpotlightOverlay viewport clamping', () => {
     Object.defineProperty(window, 'innerHeight', { value: 700, writable: true });
     Object.defineProperty(window, 'innerWidth', { value: 1280, writable: true });
 
-    const { SpotlightOverlay } = await import('../components/Onboarding/SpotlightOverlay');
     const step = {
       id: 'canvas',
       target: '.test-target-top',
@@ -207,7 +206,6 @@ describe('SpotlightOverlay viewport clamping', () => {
   });
 
   it('Escape dismisses the spotlight overlay', async () => {
-    const { SpotlightOverlay } = await import('../components/Onboarding/SpotlightOverlay');
     const onDismiss = vi.fn();
     const step = {
       id: 'test',
@@ -236,7 +234,6 @@ describe('SpotlightOverlay viewport clamping', () => {
   });
 
   it('target missing renders fallback hint', async () => {
-    const { SpotlightOverlay } = await import('../components/Onboarding/SpotlightOverlay');
     const step = {
       id: 'test',
       target: '.nonexistent-element',

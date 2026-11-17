@@ -51,6 +51,7 @@ export function suggestAutoLayout(
 
   const suggestedStyle: LayoutStyle = {
     mode: 'flex',
+    layoutSemanticsVersion: 2,
     direction,
     gap: suggestedGap,
     wrap: false,

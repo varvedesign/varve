@@ -576,6 +576,37 @@ describe('TransformEngine.bakeNode — frame child constraints', () => {
     expect(movedChild.transform[4]).toBe(20);
     expect(movedChild.transform[5]).toBe(30);
   });
+
+  it('keeps constrained absolute children responsive inside a layout frame', () => {
+    const absolute = makeChild('absolute', 60, 30, 40, 20);
+    absolute.shape.x = 12;
+    absolute.shape.y = 6;
+    absolute.layoutPosition = 'absolute';
+    absolute.constraints = { horizontal: 'centerOffset', vertical: 'centerOffset' };
+    const flow = makeChild('flow', 0, 0, 100, 40);
+    delete (flow as { constraints?: unknown }).constraints;
+    const frame = makeFrame('frame1', 400, 300);
+    frame.children = ['absolute', 'flow'];
+    frame.layoutStyle = {
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 1,
+    };
+    const doc = makeDoc({ frame1: frame, absolute, flow });
+    const engine = new TransformEngine(doc, ['frame1'], { bakeOnCommit: true });
+
+    const committed = engine.commit(engine.resize([800, 600], 'se', { proportional: false }, doc));
+
+    const moved = committed.nodes.absolute;
+    expect(moved.transform[4]).toBe(260);
+    expect(moved.transform[5]).toBe(180);
+    expect(moved.shape).toMatchObject({ w: 40, h: 20 });
+    expect(committed.nodes.flow.transform[4]).toBe(0);
+  });
 });
 
 describe('TransformEngine.bakeNode — manual resize of a hug-sized layout frame', () => {

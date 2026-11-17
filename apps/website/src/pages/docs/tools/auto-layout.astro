@@ -33,8 +33,14 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Spacing, wrapping, and overlap</h2>
         <p>Flex row and column gaps may be signed. A negative gap moves items together and Hug measures the occupied union, so three 40px items at −60px occupy 80px. Grid gaps and padding stay non-negative. Distributed spacing keeps the authored gap as the minimum and shows its resolved effective value separately.</p>
-        <p>Wrapping freezes line membership before final allocation. The first item is admitted even when it overflows; minimum sizes are retained and the inspector can explain the overflow.</p>
+        <p>New layouts freeze wrap-line membership before final allocation. The first item is admitted even when it overflows; minimum sizes are retained and the inspector can explain the overflow. Saved layouts without a semantics version keep their previous global Fill and wrap behavior.</p>
         <p>Use <strong>Overlap order</strong> to choose the effective topmost flow item. The setting preserves authored child order and keeps absolute children, masks, adjustments, and component boundaries in their existing slots.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Grid tracks and cell placement</h2>
+        <p>Grid frames support bounded <code>px</code>, <code>fr</code>, <code>auto</code>, and <code>repeat()</code> tracks. Track rows have stable identities, so reordering a track keeps children anchored to it. Child cells can span rows or columns.</p>
+        <p>Removing a track opens a before/after preview. Apply rehomes affected children only when the resulting placements are valid; the frame and placement updates share one undo step. Existing unversioned documents retain their previous grid sizing when reopened; newly authored grids use intrinsic sizing.</p>
       </section>
 
       <section class="docs-section">
