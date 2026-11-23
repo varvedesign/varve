@@ -144,11 +144,11 @@
     "playwright": "^1.62.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "stylelint": "^17.14.1",
+    "stylelint": "^18.0.0",
     "stylelint-config-standard": "^40.0.0",
     "ts-node": "10.9.2",
     "ts-prune": "0.10.3",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.12"
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
   }
 }
